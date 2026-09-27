@@ -194,13 +194,13 @@ export default function UserModal({
           <label className="label">
             {isEdit
               ? "เปลี่ยนรหัสผ่าน (เว้นว่างได้)"
-              : "รหัสผ่าน (เว้นว่างเพื่อใช้ demo1234)"}
+              : "กำหนดรหัสผ่าน (อย่างน้อย 6 ตัวอักษร)"}
           </label>
           <input
             className="input"
             value={form.password}
             onChange={(e) => set("password", e.target.value)}
-            placeholder={isEdit ? "•••••••• (ไม่เปลี่ยน)" : "demo1234"}
+            placeholder={isEdit ? "•••••••• (ไม่เปลี่ยน)" : "กำหนดรหัสผ่านใหม่"}
             type="password"
           />
         </div>

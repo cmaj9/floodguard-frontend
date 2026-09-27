@@ -1,12 +1,22 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { AuthUser } from '../types';
-import { loginApi, registerCitizenApi } from '../services/apiService';
+import { loginApi, registerCitizenApi, registerEmailApi } from '../services/apiService';
 import { getLiffProfile } from '../services/liffService';
-import { mockUsers } from '../data/mockData';
+
+interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  district?: string;
+  stationIds?: string[];
+}
 
 interface AuthContextType {
   user: AuthUser | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  isGuest: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   loginAsCitizen: (guestName?: string) => void;
   logout: () => void;
   updateProfile: (data: Partial<AuthUser>) => void;
@@ -18,6 +28,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const isGuest = !user || user.id === 'citizen_guest';
 
   useEffect(() => {
     async function initAuth() {
@@ -85,46 +97,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
-      // 1. Try real login via Backend API (PostgreSQL + bcrypt)
+      // Real login via Backend API (PostgreSQL + bcrypt)
       const authUser = await loginApi(email, password);
       setUser(authUser);
       localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
       setIsLoading(false);
-      return true;
-    } catch (err: unknown) {
+      return { success: true };
+    } catch (err: any) {
       console.warn('[AuthContext] Backend login attempt failed:', err);
-
-      // Fallback: in case backend is temporarily unreachable
-      const emailLower = email.toLowerCase().trim();
-      const foundUser = mockUsers.find((u) => u.email.toLowerCase() === emailLower);
-      if (foundUser && password === 'demo1234') {
-        const authUser: AuthUser = {
-          id: foundUser.id,
-          name: foundUser.name,
-          email: foundUser.email,
-          role: foundUser.role,
-          stationIds: foundUser.stationIds,
-          phone: foundUser.phone,
-          district: foundUser.district,
-        };
-        setUser(authUser);
-        localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
-        setIsLoading(false);
-        return true;
-      }
-
+      const errMsg = err?.response?.data?.error || err?.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง';
       setIsLoading(false);
-      return false;
+      return { success: false, error: errMsg };
+    }
+  }, []);
+
+  const register = useCallback(async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true);
+    try {
+      const authUser = await registerEmailApi(data);
+      setUser(authUser);
+      localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
+      setIsLoading(false);
+      return { success: true };
+    } catch (err: any) {
+      console.warn('[AuthContext] Register failed:', err);
+      const errMsg = err?.response?.data?.error || err?.message || 'ลงทะเบียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+      setIsLoading(false);
+      return { success: false, error: errMsg };
     }
   }, []);
 
   const loginAsCitizen = useCallback((guestName?: string) => {
     const citizenUser: AuthUser = {
       id: 'citizen_guest',
-      name: guestName || 'ประชาชนผู้ใช้งานทั่วไป',
+      name: guestName || 'ประชาชนทั่วไป (ผู้เยี่ยมชม)',
       email: 'citizen@floodguard.local',
       role: 'citizen',
       stationIds: [],
@@ -150,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, loginAsCitizen, logout, updateProfile, isLoading }}>
+    <AuthContext.Provider value={{ user, isGuest, login, register, loginAsCitizen, logout, updateProfile, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import NotificationPanel from '../ui/NotificationPanel';
 import type { AppNotification } from '../../types';
-import { BellIcon, RefreshCwIcon } from '../ui/Icons';
+import { BellIcon, RefreshCwIcon, KeyIcon } from '../ui/Icons';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'แดชบอร์ด',
@@ -20,8 +22,12 @@ interface TopBarProps {
 }
 
 export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllRead }: TopBarProps) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isStaffOrAdmin = user && (user.role === 'staff' || user.role === 'admin');
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -50,7 +56,56 @@ export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllR
         </div>
       </div>
 
-      <div className="topbar-actions">
+      <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Staff/Admin Login Button or User Badge */}
+        {!isStaffOrAdmin ? (
+          <button
+            type="button"
+            id="topbar-login-btn"
+            onClick={() => navigate('/login')}
+            className="btn btn-primary btn-sm"
+            title="เข้าสู่ระบบสำหรับเจ้าหน้าที่และผู้ดูแลระบบ"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 36,
+              padding: '0 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              borderRadius: 'var(--radius-sm)',
+              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <KeyIcon size={14} />
+            <span>เข้าสู่ระบบเจ้าหน้าที่</span>
+          </button>
+        ) : (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '5px 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              fontSize: 12,
+            }}
+          >
+            <span
+              className={`badge ${user?.role === 'admin' ? 'badge-role-admin' : 'badge-role-staff'}`}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              {user?.role === 'admin' ? 'Admin' : 'เจ้าหน้าที่'}
+            </span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{user?.name}</span>
+          </div>
+        )}
+
         {/* Global Refresh Button */}
         <button
           type="button"

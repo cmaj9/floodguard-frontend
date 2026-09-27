@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { UserIcon, ShieldIcon, SettingsIcon, AlertTriangleIcon, KeyIcon } from '../components/ui/Icons';
+import {
+  UserIcon,
+  ShieldIcon,
+  AlertTriangleIcon,
+  KeyIcon,
+  MailIcon,
+  EyeIcon,
+  EyeOffIcon,
+} from '../components/ui/Icons';
 import Logo from '../components/ui/Logo';
 import { loginWithLiff } from '../services/liffService';
 
@@ -10,19 +18,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const quickLogin = (type: 'citizen' | 'staff' | 'admin') => {
-    const emails = {
-      citizen: 'somchai@example.com',
-      staff: 'wichai.staff@dwr.go.th',
-      admin: 'admin@dwr.go.th',
-    };
-    setEmail(emails[type]);
-    setPassword('demo1234');
-    setError('');
-  };
 
   const handleCitizenAccess = () => {
     loginAsCitizen();
@@ -40,24 +38,24 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError('กรุณากรอกอีเมลและรหัสผ่าน');
       return;
     }
     setLoading(true);
     setError('');
-    const ok = await login(email, password);
+    const res = await login(email.trim(), password);
     setLoading(false);
-    if (ok) {
+    if (res.success) {
       navigate('/dashboard', { replace: true });
     } else {
-      setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      setError(res.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
   };
 
   return (
     <div className="login-bg">
-      {/* Animated water lines */}
+      {/* Background grid accent */}
       <div
         style={{
           position: 'absolute',
@@ -82,21 +80,43 @@ export default function LoginPage() {
         }}
       />
 
-      <div style={{ width: '100%', maxWidth: 460, padding: '0 16px' }}>
+      <div style={{ width: '100%', maxWidth: 460, padding: '0 16px', position: 'relative', zIndex: 1 }}>
         {/* Brand */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
           <Logo size="xl" />
         </div>
 
-        <div className="login-card">
-          {/* Primary page heading for screen readers */}
-          <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>เข้าสู่ระบบ</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>
-            กรอกอีเมลและรหัสผ่านของคุณ
-          </p>
+        <div className="login-card" style={{ backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '4px 10px',
+                borderRadius: '9999px',
+                background: 'rgba(14, 165, 233, 0.12)',
+                border: '1px solid rgba(14, 165, 233, 0.3)',
+                color: 'var(--color-primary-light, #38bdf8)',
+                fontSize: 12,
+                fontWeight: 600,
+                marginBottom: 12,
+              }}
+            >
+              <ShieldIcon size={14} />
+              <span>ระบบตรวจสอบและเตือนภัยน้ำท่วม</span>
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: 'var(--text-primary)' }}>
+              เข้าสู่ระบบ
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+              สำหรับเจ้าหน้าที่และผู้ดูแลระบบ หรือเข้าชมระดับน้ำในโหมดประชาชน
+            </p>
+          </div>
 
-          {/* Citizen & LINE Entry (Zero-friction access) */}
-          <div style={{ marginBottom: 20 }}>
+          {/* Citizen Fast Access & LINE LIFF (Zero Barrier) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
             <button
               type="button"
               id="citizen-direct-entry-btn"
@@ -111,13 +131,14 @@ export default function LoginPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
-                marginBottom: 10,
-                background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                border: 'none',
+                cursor: 'pointer',
               }}
             >
               <UserIcon size={18} />
-              <span>เข้าชมระดับน้ำทันที (โหมดประชาชน)</span>
+              <span>เข้าชมระดับน้ำทันที (โหมดประชาชนทั่วไป)</span>
             </button>
 
             <button
@@ -127,7 +148,7 @@ export default function LoginPage() {
               className="btn"
               style={{
                 width: '100%',
-                padding: '10px 16px',
+                padding: '11px 16px',
                 fontSize: 13,
                 fontWeight: 600,
                 display: 'flex',
@@ -138,67 +159,83 @@ export default function LoginPage() {
                 color: '#FFFFFF',
                 border: 'none',
                 borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s ease',
               }}
             >
-              <span>เข้าสู่ระบบด้วย LINE (LIFF)</span>
+              <span>เข้าสู่ระบบด้วย LINE (LIFF) รับแจ้งเตือนภัย</span>
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 16px' }}>
-            <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              เข้าสู่ระบบสำหรับเจ้าหน้าที่
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 20px' }}>
+            <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              หรือเข้าสู่ระบบด้วยบัญชี
             </span>
-            <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
           </div>
 
-          {/* Quick login demo buttons */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Demo — บัญชีเจ้าหน้าที่ทดสอบ
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-              {([
-                { type: 'staff', label: 'เจ้าหน้าที่ภาคสนาม', icon: <ShieldIcon size={14} />, cls: 'btn-secondary' },
-                { type: 'admin', label: 'ผู้ดูแลระบบ (Admin)', icon: <SettingsIcon size={14} />, cls: 'btn-secondary' },
-              ] as const).map((btn) => (
-                <button
-                  key={btn.type}
-                  className={`btn btn-sm ${btn.cls}`}
-                  onClick={() => quickLogin(btn.type)}
-                  style={{ fontSize: 12, padding: '7px 8px', justifyContent: 'center', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                >
-                  {btn.icon}
-                  <span>{btn.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="label" htmlFor="email">อีเมล</label>
+          {/* Form */}
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="label" htmlFor="email" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <MailIcon size={14} style={{ color: 'var(--text-muted)' }} />
+                <span>อีเมล</span>
+              </label>
               <input
                 id="email"
                 className="input"
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                placeholder="your@email.com"
+                placeholder="example@dwr.go.th หรืออีเมลประชาชน"
                 autoComplete="email"
+                required
+                style={{ height: 42, fontSize: 14 }}
               />
             </div>
-            <div className="form-group">
-              <label className="label" htmlFor="password">รหัสผ่าน</label>
-              <input
-                id="password"
-                className="input"
-                type="password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(''); }}
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
+
+            <div className="form-group" style={{ marginBottom: 18 }}>
+              <label className="label" htmlFor="password" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <KeyIcon size={14} style={{ color: 'var(--text-muted)' }} />
+                <span>รหัสผ่าน</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="password"
+                  className="input"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                  placeholder="กรอกรหัสผ่านของคุณ"
+                  autoComplete="current-password"
+                  required
+                  style={{ height: 42, fontSize: 14, paddingRight: 42 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: 8,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    padding: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  title={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                >
+                  {showPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -206,17 +243,18 @@ export default function LoginPage() {
                 style={{
                   padding: '10px 14px',
                   background: 'var(--color-critical-dim)',
-                  border: '1px solid rgba(255,82,82,0.25)',
+                  border: '1px solid rgba(255,82,82,0.3)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--color-critical)',
-                  fontSize: 14,
-                  marginBottom: 16,
+                  fontSize: 13,
+                  marginBottom: 18,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                 }}
+                role="alert"
               >
-                <AlertTriangleIcon size={16} />
+                <AlertTriangleIcon size={16} style={{ flexShrink: 0 }} />
                 <span>{error}</span>
               </div>
             )}
@@ -225,12 +263,31 @@ export default function LoginPage() {
               id="login-submit"
               type="submit"
               className="btn btn-primary btn-lg"
-              style={{ width: '100%', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8 }}
+              style={{
+                width: '100%',
+                height: 44,
+                justifyContent: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontWeight: 600,
+                fontSize: 14,
+              }}
               disabled={loading}
             >
               {loading ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ display: 'inline-block', width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 16,
+                      height: 16,
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderTopColor: '#fff',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite',
+                    }}
+                  />
                   กำลังเข้าสู่ระบบ...
                 </span>
               ) : (
@@ -241,6 +298,24 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          {/* Registration link for citizens */}
+          <div style={{ marginTop: 22, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+              ประชาชนทั่วไปต้องการรับการแจ้งเตือน?{' '}
+            </span>
+            <Link
+              to="/register"
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--color-primary-light, #38bdf8)',
+                textDecoration: 'none',
+              }}
+            >
+              ลงทะเบียนใหม่
+            </Link>
+          </div>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-muted)' }}>

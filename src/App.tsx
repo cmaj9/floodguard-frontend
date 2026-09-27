@@ -107,6 +107,10 @@ function ProtectedRoute({
   if (!user) return <Navigate to="/login" replace />;
 
   if (requiredRoles && !requiredRoles.includes(user.role)) {
+    // If visitor or citizen tries to access staff/admin routes, send to login
+    if (user.role === 'citizen') {
+      return <Navigate to="/login" replace />;
+    }
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -115,10 +119,11 @@ function ProtectedRoute({
 
 function AppRoutes() {
   const { user } = useAuth();
+  const isStaffOrAdmin = user && (user.role === 'staff' || user.role === 'admin');
 
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/login" element={isStaffOrAdmin ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/register" element={<CitizenRegisterPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
       <Route

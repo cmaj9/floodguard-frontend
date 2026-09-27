@@ -242,6 +242,23 @@ export async function loginApi(email: string, password: string): Promise<AuthUse
 }
 
 /**
+ * POST /api/auth/register
+ * Self-registration for citizens using email and password
+ */
+export async function registerEmailApi(data: {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  district?: string;
+  stationIds?: string[];
+}): Promise<AuthUser> {
+  const res = await api.post<ApiResponse<AuthUser>>('/api/auth/register', data);
+  if (!res.data.success) throw new Error(res.data.error ?? 'ลงทะเบียนไม่สำเร็จ');
+  return res.data.data;
+}
+
+/**
  * GET /api/users
  * Fetch all users from PostgreSQL
  */
