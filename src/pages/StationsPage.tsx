@@ -5,8 +5,9 @@ import StationModal from '../components/stations/StationModal';
 import StationCalibrationModal from '../components/stations/StationCalibrationModal';
 import StationNotificationModal from '../components/stations/StationNotificationModal';
 import StationStatusConfirmModal from '../components/stations/StationStatusConfirmModal';
+import StationDeleteModal from '../components/stations/StationDeleteModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
-import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus, fetchNextStationId } from '../services/apiService';
+import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus, fetchNextStationId, deleteStation } from '../services/apiService';
 import StationMap from '../components/map/StationMap';
 import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
@@ -100,8 +101,11 @@ export default function StationsPage() {
   const [statusTargetStation, setStatusTargetStation] = useState<Station | null>(null);
   const [statusTargetType, setStatusTargetType] = useState<'active' | 'offline'>('offline');
 
+  // Delete Confirmation Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingStation, setDeletingStation] = useState<Station | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [view, setView] = useState<'table' | 'map'>('table');
 
   const handleRequestStatusChange = (station: Station, targetStatus: 'active' | 'offline') => {
@@ -181,14 +185,16 @@ export default function StationsPage() {
   const handleEdit = (s: Station) => { setEditStation(s); setModalOpen(true); };
   const handleCalibrate = (s: Station) => { setCalibratingStation(s); setCalibrationModalOpen(true); };
 
-  const handleDelete = (id: string) => {
-    if (deleteConfirm === id) {
-      setStations((prev) => prev.filter((s) => s.id !== id));
-      setDeleteConfirm(null);
-    } else {
-      setDeleteConfirm(id);
-      setTimeout(() => setDeleteConfirm(null), 3000);
-    }
+  const handleRequestDelete = (s: Station) => {
+    setDeletingStation(s);
+    setDeleteModalOpen(true);
+  };
+
+  const handleExecuteDelete = async (stationId: string) => {
+    await deleteStation(stationId);
+    setStations((prev) => prev.filter((s) => s.id !== stationId));
+    window.dispatchEvent(new Event('app:refresh'));
+    await loadStations();
   };
 
   const handleSave = async (data: Partial<Station> & { gateway_id?: string }) => {
@@ -634,36 +640,29 @@ export default function StationsPage() {
                                 <Edit3Icon size={14} />
                               </button>
                               <button
-                                className={`btn ${deleteConfirm === s.id ? 'btn-danger' : 'btn-secondary'}`}
-                                onClick={() => handleDelete(s.id)}
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => handleRequestDelete(s)}
                                 title="ลบสถานี"
                                 style={{
                                   height: 32,
                                   minWidth: 32,
-                                  padding: deleteConfirm === s.id ? '0 8px' : 0,
+                                  padding: 0,
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  gap: 4,
                                   borderRadius: 6,
-                                  border: deleteConfirm === s.id ? 'none' : '1px solid rgba(255, 255, 255, 0.14)',
-                                  background: deleteConfirm === s.id ? undefined : 'rgba(255, 255, 255, 0.06)',
-                                  color: deleteConfirm === s.id ? '#FFFFFF' : 'var(--text-secondary)',
+                                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                                  background: 'rgba(239, 68, 68, 0.08)',
+                                  color: '#EF4444',
                                   fontSize: 11.5,
                                   fontWeight: 600,
-                                  whiteSpace: 'nowrap',
                                   flexShrink: 0,
+                                  cursor: 'pointer',
                                 }}
                                 aria-label={`ลบสถานี ${s.name}`}
                               >
-                                {deleteConfirm === s.id ? (
-                                  <>
-                                    <AlertTriangleIcon size={13} />
-                                    <span>ยืนยันลบ?</span>
-                                  </>
-                                ) : (
-                                  <Trash2Icon size={14} />
-                                )}
+                                <Trash2Icon size={14} />
                               </button>
                             </div>
                           </td>
@@ -717,6 +716,17 @@ export default function StationsPage() {
         station={statusTargetStation}
         targetStatus={statusTargetType}
         onConfirm={handleExecuteStatusChange}
+      />
+
+      {/* Dedicated Delete Confirmation Modal with Name-Confirmation Safety */}
+      <StationDeleteModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setDeletingStation(null);
+        }}
+        station={deletingStation}
+        onConfirm={handleExecuteDelete}
       />
     </div>
   );

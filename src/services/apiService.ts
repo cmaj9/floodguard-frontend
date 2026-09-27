@@ -194,6 +194,15 @@ export async function createStation(
 }
 
 /**
+ * DELETE /api/stations/:stationId
+ * Delete a station and its associated records
+ */
+export async function deleteStation(stationId: string): Promise<void> {
+  const res = await api.delete<ApiResponse<{ station_id: string }>>(`/api/stations/${stationId}`);
+  if (!res.data.success) throw new Error(res.data.error ?? 'ลบสถานีไม่สำเร็จ');
+}
+
+/**
  * GET /api/stations/gateways
  * List all gateways for dropdown selection
  */
