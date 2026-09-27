@@ -9,7 +9,7 @@ import StationDeleteModal from '../components/stations/StationDeleteModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
 import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus, fetchNextStationId, deleteStation } from '../services/apiService';
 import StationMap from '../components/map/StationMap';
-import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon } from '../components/ui/Icons';
+import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon, MapPinIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
 
 const statusLabel: Record<WaterStatus, string> = { normal: 'ปกติ', warning: 'เฝ้าระวัง', critical: 'วิกฤต', unknown: 'ไม่มีข้อมูล' };
@@ -78,6 +78,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 export default function StationsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
 
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
@@ -334,7 +335,9 @@ export default function StationsPage() {
       {!loading && !error && (
         <>
           {view === 'table' ? (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <>
+              {/* Desktop Table View (>= 769px) */}
+              <div className="desktop-table-view card" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="table-wrap" style={{ borderRadius: 'var(--radius-lg)', border: 'none' }}>
                 <table style={{ width: '100%' }}>
                   <thead>
@@ -673,6 +676,143 @@ export default function StationsPage() {
                 </table>
               </div>
             </div>
+
+            {/* Mobile Card List View (<= 768px) */}
+            <div className="mobile-cards-view">
+              {stations.map((s) => {
+                const refName = s.referencePointName || 'จุดอ้างอิง';
+                const level = s.currentLevel;
+                const levelFormatted = level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2);
+                const relativeSubtext = level < 0
+                  ? `ต่ำกว่า${refName} ${Math.abs(level).toFixed(2)} ม.`
+                  : level === 0
+                  ? `เสมอ${refName}`
+                  : `สูงกว่า${refName} ${level.toFixed(2)} ม.`;
+
+                return (
+                  <div key={s.id} className="mobile-station-card">
+                    {/* Header: ID + Name + Status */}
+                    <div className="m-card-header">
+                      <div className="m-card-title-group">
+                        <span className="station-code-pill">{s.id}</span>
+                        <span className="station-name-text">{s.name}</span>
+                      </div>
+                      <span className={`badge ${s.isActive ? statusClass[s.status] : 'badge-unknown'}`}>
+                        <span className="badge-dot" />
+                        {s.isActive ? statusLabel[s.status] : 'ปิดบริการ'}
+                      </span>
+                    </div>
+
+                    {/* Location & Type info */}
+                    <div className="m-card-subrow">
+                      <div className="m-location-pill">
+                        <MapPinIcon size={12} />
+                        <span>{s.location || `${s.district} · ${s.province}`}</span>
+                      </div>
+                      <span className="m-station-type-tag">{s.stationType}</span>
+                    </div>
+
+                    {/* 2x2 Metric Grid */}
+                    <div className="m-metrics-grid">
+                      <div className="m-metric-item">
+                        <span className="m-metric-label">ระดับน้ำจริงเทียบ{refName}</span>
+                        <span className={`m-metric-val ${level >= 0 ? 'level-danger' : 'level-safe'}`}>
+                          {s.isActive ? `${levelFormatted} ม.` : '-'}
+                        </span>
+                        <span className="m-metric-sub">{s.isActive ? relativeSubtext : 'ปิดให้บริการ'}</span>
+                      </div>
+                      <div className="m-metric-item">
+                        <span className="m-metric-label">จุดอ้างอิง ({refName})</span>
+                        <span className="m-metric-val text-sky">
+                          {s.sensorToRefDistance?.toFixed(2) ?? '2.00'} ม.
+                        </span>
+                        <span className="m-metric-sub">ระยะติดตั้งถึงจุดอ้างอิง</span>
+                      </div>
+                      <div className="m-metric-item">
+                        <span className="m-metric-label">ระยะเซนเซอร์วัดได้</span>
+                        <span className="m-metric-val">
+                          {s.isActive && s.rawDistance !== null && s.rawDistance !== undefined
+                            ? `${s.rawDistance.toFixed(3)} ม.`
+                            : '-'}
+                        </span>
+                        {s.isBlindZone && <span className="m-blind-zone-tag">Blind Zone</span>}
+                      </div>
+                      <div className="m-metric-item">
+                        <span className="m-metric-label">อุปกรณ์ / Gateway</span>
+                        <span className="m-metric-val font-mono">{s.deviceId}</span>
+                        <span className="m-metric-sub">{s.gatewayName || 'Gateway'}</span>
+                      </div>
+                    </div>
+
+                    {/* Status Toggle Bar */}
+                    <div className="m-status-bar">
+                      <span className="m-status-title">สถานะบริการ:</span>
+                      <div className="m-toggle-pill-wrap">
+                        <button
+                          type="button"
+                          className={`m-status-toggle-btn ${s.isActive ? 'active-online' : ''}`}
+                          onClick={() => handleRequestStatusChange(s, 'active')}
+                          disabled={statusUpdating[s.id]}
+                        >
+                          <span className="dot" />
+                          <span>ออนไลน์</span>
+                        </button>
+                        <button
+                          type="button"
+                          className={`m-status-toggle-btn ${!s.isActive ? 'active-offline' : ''}`}
+                          onClick={() => handleRequestStatusChange(s, 'offline')}
+                          disabled={statusUpdating[s.id]}
+                        >
+                          <span className="dot" />
+                          <span>ออฟไลน์</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Actions Footer */}
+                    <div className="m-card-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary m-action-btn"
+                        onClick={() => handleCalibrate(s)}
+                      >
+                        <SlidersIcon size={14} />
+                        <span>จุดอ้างอิง</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary m-action-btn"
+                        onClick={() => { setNotifyingStation(s); setNotificationModalOpen(true); }}
+                      >
+                        <BellIcon size={14} />
+                        <span>แจ้งเตือน</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary m-action-btn"
+                        onClick={() => handleEdit(s)}
+                        aria-label={`แก้ไขสถานี ${s.name}`}
+                      >
+                        <Edit3Icon size={14} />
+                        <span>แก้ไข</span>
+                      </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="btn btn-danger-outline m-action-btn"
+                          onClick={() => handleRequestDelete(s)}
+                          aria-label={`ลบสถานี ${s.name}`}
+                        >
+                          <Trash2Icon size={14} />
+                          <span>ลบ</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
           ) : (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <StationMap

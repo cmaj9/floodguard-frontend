@@ -39,6 +39,11 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     ? swr.reference_point_name.trim()
     : 'จุดอ้างอิง';
 
+  const parseCoord = (val: any, fallback: number): number => {
+    const n = Number(val);
+    return Number.isFinite(n) && n !== 0 ? n : fallback;
+  };
+
   return {
     id: swr.station_id,
     name: swr.station_name,
@@ -46,8 +51,8 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     location: swr.location_name || '',
     district: district,
     province: province,
-    lat: Number(swr.latitude) || 14.03593,
-    lng: Number(swr.longitude) || 100.72516,
+    lat: parseCoord(swr.latitude, 14.03593),
+    lng: parseCoord(swr.longitude, 100.72516),
     currentLevel: swr.raw_distance !== null && swr.raw_distance !== undefined
       ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
       : (swr.water_level !== null ? Number(swr.water_level) : 0),
@@ -397,10 +402,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── 4. LOWER CANVAS: GIS MAP + RECENT READINGS ── */}
-      <div
-        id="map-section"
-        className={`dashboard-map-grid ${mobileTab === 'telemetry' ? 'mobile-map-hidden' : ''}`}
-      >
+      <div id="map-section" className="dashboard-map-grid">
         {/* Left: GIS Map */}
         <div
           className={`dashboard-map-wrapper ${mobileTab === 'telemetry' ? 'mobile-hidden' : ''}`}

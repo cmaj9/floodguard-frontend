@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage';
 import DataHistoryPage from './pages/DataHistoryPage';
 import SubscribePage from './pages/SubscribePage';
 import CitizenRegisterPage from './pages/CitizenRegisterPage';
+import ManagementPage from './pages/ManagementPage';
 
 /**
  * Automatically handle LINE LIFF deep-link forwarding (?liff.state=/path)
@@ -56,6 +57,12 @@ function ProtectedRoute({
 }) {
   const { user, isLoading, loginAsCitizen } = useAuth();
 
+  useEffect(() => {
+    if (!isLoading && !user && allowGuest) {
+      loginAsCitizen();
+    }
+  }, [isLoading, user, allowGuest, loginAsCitizen]);
+
   if (isLoading) {
     return (
       <div
@@ -98,9 +105,7 @@ function ProtectedRoute({
     );
   }
 
-  // Auto-grant citizen access for public citizen routes if not logged in
   if (!user && allowGuest) {
-    loginAsCitizen();
     return <>{children}</>;
   }
 
@@ -189,9 +194,19 @@ function AppRoutes() {
       <Route
         path="/history"
         element={
-          <ProtectedRoute requiredRoles={['admin', 'staff']}>
+          <ProtectedRoute allowGuest>
             <Layout>
               <DataHistoryPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/management"
+        element={
+          <ProtectedRoute requiredRoles={['staff', 'admin']}>
+            <Layout>
+              <ManagementPage />
             </Layout>
           </ProtectedRoute>
         }

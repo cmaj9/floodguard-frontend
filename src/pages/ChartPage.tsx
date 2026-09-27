@@ -17,6 +17,7 @@ import {
   DownloadIcon,
   ClockIcon,
   ActivityIcon,
+  ChevronRightIcon,
 } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import type { SegmentedOption } from '../components/ui/SegmentedControl';
@@ -220,7 +221,7 @@ function aggregateReadings(
 export default function ChartPage() {
   const { user, isGuest } = useAuth();
   const { nodeId } = useParams<{ nodeId?: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const targetId = nodeId || searchParams.get('station') || '';
 
   const [stations, setStations] = useState<Station[]>([]);
@@ -366,7 +367,41 @@ export default function ChartPage() {
 
       {/* ── Main Layout: Hero Graph (Left) + Station Selector with Mini-Metrics (Right) ── */}
       {!stationsLoading && !stationsError && selectedStation && (
-        <div className="chart-main-grid">
+        <>
+          {/* ════════ TOP NODE SELECTOR (Crucial for Mobile & Quick Switching) ════════ */}
+          <div className="chart-top-node-selector">
+            <div className="node-selector-inner">
+              <label htmlFor="top-station-picker" className="node-selector-label">
+                <RadioIcon size={16} />
+                <span>เลือกสถานีตรวจวัด (Node):</span>
+              </label>
+              <div className="node-select-box">
+                <select
+                  id="top-station-picker"
+                  className="node-select-dropdown"
+                  value={selectedStationId || ''}
+                  onChange={(e) => {
+                    setSelectedStationId(e.target.value);
+                    setSearchParams({ station: e.target.value });
+                  }}
+                >
+                  {stations.map((s) => {
+                    const sStatus = s.status === 'critical' ? 'วิกฤต' : s.status === 'warning' ? 'เฝ้าระวัง' : s.status === 'normal' ? 'ปกติ' : 'ออฟไลน์';
+                    return (
+                      <option key={s.id} value={s.id}>
+                        [{s.id}] {s.name} — สถานะ {sStatus}
+                      </option>
+                    );
+                  })}
+                </select>
+                <div className="select-chevron">
+                  <ChevronRightIcon size={16} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="chart-main-grid">
           {/* ════════ LEFT COLUMN: THE HERO GRAPH ════════ */}
           <div
             className="bento-card"
@@ -659,12 +694,12 @@ export default function ChartPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ width: '100%', height: 480 }}>
+              <div className="chart-canvas-wrapper" style={{ width: '100%', height: typeof window !== 'undefined' && window.innerWidth <= 768 ? 300 : 460 }}>
                 <WaterLevelChart
                   readings={readings}
                   station={selectedStation}
                   timeRange={timeRange}
-                  height={480}
+                  height={typeof window !== 'undefined' && window.innerWidth <= 768 ? 300 : 460}
                 />
               </div>
             )}
@@ -720,8 +755,8 @@ export default function ChartPage() {
             </div>
           </div>
 
-          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS ════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS (Desktop Only) ════════ */}
+          <div className="desktop-stations-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {/* Header of Selector Column */}
             <div
               style={{
@@ -955,6 +990,7 @@ export default function ChartPage() {
             })}
           </div>
         </div>
+      </>
       )}
 
       {/* Empty State */}

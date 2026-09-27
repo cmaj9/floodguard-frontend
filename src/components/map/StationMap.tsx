@@ -10,6 +10,7 @@ import {
   LayersIcon,
   CompassIcon,
 } from '../ui/Icons';
+import ErrorBoundary from '../ui/ErrorBoundary';
 
 // Fix default marker icon issue with Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -93,22 +94,58 @@ function MapEffects({
   const map = useMap();
   const prevSelectedRef = useRef<string | null>(null);
 
+  // Auto-invalidate size when map container dimensions change (e.g. mobile tab switch)
   useEffect(() => {
-    if (selectedStation && selectedStation !== prevSelectedRef.current) {
-      prevSelectedRef.current = selectedStation;
-      const st = stations.find((s) => s.id === selectedStation);
-      if (st && !isNaN(st.lat) && !isNaN(st.lng)) {
-        map.flyTo([st.lat, st.lng], 14, { animate: true, duration: 1.2 });
-      }
-    } else if (!selectedStation && stations.length > 0 && !prevSelectedRef.current) {
-      const validPoints = stations
-        .filter((s) => !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0 && s.lng !== 0)
-        .map((s) => [s.lat, s.lng] as [number, number]);
+    try {
+      const container = map.getContainer();
+      if (!container) return;
 
-      if (validPoints.length > 0) {
-        const bounds = L.latLngBounds(validPoints);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+      const ro = new ResizeObserver(() => {
+        try {
+          if (container.offsetWidth > 0 && container.offsetHeight > 0) {
+            map.invalidateSize();
+          }
+        } catch {}
+      });
+      ro.observe(container);
+      return () => ro.disconnect();
+    } catch {}
+  }, [map]);
+
+  useEffect(() => {
+    try {
+      const container = map.getContainer();
+      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+        return;
       }
+      map.invalidateSize();
+
+      if (selectedStation && selectedStation !== prevSelectedRef.current) {
+        prevSelectedRef.current = selectedStation;
+        const st = stations.find((s) => s.id === selectedStation);
+        if (st && Number.isFinite(st.lat) && Number.isFinite(st.lng) && st.lat !== 0 && st.lng !== 0) {
+          try {
+            map.flyTo([st.lat, st.lng], 14, { animate: true, duration: 1.2 });
+          } catch {
+            try {
+              map.setView([st.lat, st.lng], 14);
+            } catch {}
+          }
+        }
+      } else if (!selectedStation && stations.length > 0 && !prevSelectedRef.current) {
+        const validPoints = stations
+          .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && s.lat !== 0 && s.lng !== 0)
+          .map((s) => [s.lat, s.lng] as [number, number]);
+
+        if (validPoints.length > 0) {
+          try {
+            const bounds = L.latLngBounds(validPoints);
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn('[StationMap] MapEffects caught error:', err);
     }
   }, [stations, selectedStation, map]);
 
@@ -120,13 +157,21 @@ function ResetBoundsButton({ stations }: { stations: Station[] }) {
 
   const handleReset = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const validPoints = stations
-      .filter((s) => !isNaN(s.lat) && !isNaN(s.lng) && s.lat !== 0 && s.lng !== 0)
-      .map((s) => [s.lat, s.lng] as [number, number]);
+    try {
+      const container = map.getContainer();
+      if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) return;
+      map.invalidateSize();
 
-    if (validPoints.length > 0) {
-      const bounds = L.latLngBounds(validPoints);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+      const validPoints = stations
+        .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng) && s.lat !== 0 && s.lng !== 0)
+        .map((s) => [s.lat, s.lng] as [number, number]);
+
+      if (validPoints.length > 0) {
+        const bounds = L.latLngBounds(validPoints);
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+      }
+    } catch (err) {
+      console.warn('[StationMap] handleReset caught error:', err);
     }
   };
 
@@ -285,12 +330,13 @@ export default function StationMap({
 
       {/* ── Map Container Canvas ── */}
       <div style={{ flex: 1, width: '100%', position: 'relative', minHeight: '380px' }}>
-        <MapContainer
-          center={defaultCenter}
-          zoom={12}
-          style={{ height: '100%', width: '100%', background: '#080C14' }}
-          zoomControl={true}
-        >
+        <ErrorBoundary fallbackTitle="ไม่สามารถโหลดแผนที่ GIS ได้">
+          <MapContainer
+            center={defaultCenter}
+            zoom={12}
+            style={{ height: '100%', width: '100%', background: '#080C14' }}
+            zoomControl={true}
+          >
           {mapLayer === 'dark' ? (
             <>
               {/* Esri World Dark Gray Base (100% Free, No API Key Required, Clean Dark GIS) */}
@@ -316,17 +362,19 @@ export default function StationMap({
           <MapEffects stations={stations} selectedStation={selectedStation} />
           <ResetBoundsButton stations={stations} />
 
-          {stations.map((station) => {
-            const isSelected = selectedStation === station.id;
-            return (
-              <Marker
-                key={station.id}
-                position={[station.lat, station.lng]}
-                icon={createCustomIcon(station, isSelected)}
-                eventHandlers={{
-                  click: () => onSelectStation?.(station.id),
-                }}
-              >
+          {stations
+            .filter((station) => Number.isFinite(station.lat) && Number.isFinite(station.lng) && station.lat !== 0 && station.lng !== 0)
+            .map((station) => {
+              const isSelected = selectedStation === station.id;
+              return (
+                <Marker
+                  key={station.id}
+                  position={[station.lat, station.lng]}
+                  icon={createCustomIcon(station, isSelected)}
+                  eventHandlers={{
+                    click: () => onSelectStation?.(station.id),
+                  }}
+                >
                 <Popup>
                   <div style={{ minWidth: 200, fontFamily: 'inherit', color: '#0F172A' }}>
                     <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#0F172A' }}>
@@ -408,6 +456,7 @@ export default function StationMap({
             );
           })}
         </MapContainer>
+        </ErrorBoundary>
       </div>
     </div>
   );

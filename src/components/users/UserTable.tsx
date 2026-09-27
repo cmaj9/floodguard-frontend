@@ -66,172 +66,319 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ชื่อ-นามสกุล</th>
-              <th>อีเมล</th>
-              <th>เบอร์โทร</th>
-              <th>บทบาท</th>
-              <th>LINE ID</th>
-              <th>สถานีที่ติดตาม</th>
-              <th>สถานะ</th>
-              <th>วันที่สมัคร</th>
-              <th>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      {/* Desktop Table View */}
+      <div className="desktop-table-view">
+        <div className="table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  ไม่พบข้อมูลผู้ใช้ในระบบ
-                </td>
+                <th>ชื่อ-นามสกุล</th>
+                <th>อีเมล</th>
+                <th>เบอร์โทร</th>
+                <th>บทบาท</th>
+                <th>LINE ID</th>
+                <th>สถานีที่ติดตาม</th>
+                <th>สถานะ</th>
+                <th>วันที่สมัคร</th>
+                <th>จัดการ</th>
               </tr>
-            ) : (
-              filtered.map((u) => {
-                const lineId = u.line_user_id || u.lineUserId;
-                const stations = u.station_ids || u.stationIds || [];
-                const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    ไม่พบข้อมูลผู้ใช้ในระบบ
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((u) => {
+                  const lineId = u.line_user_id || u.lineUserId;
+                  const stations = u.station_ids || u.stationIds || [];
+                  const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
 
-                return (
-                  <tr key={u.id} style={{ opacity: isActive ? 1 : 0.6 }}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div
-                          className="user-avatar"
-                          style={{ width: 32, height: 32, fontSize: 12 }}
+                  return (
+                    <tr key={u.id} style={{ opacity: isActive ? 1 : 0.6 }}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            className="user-avatar"
+                            style={{ width: 32, height: 32, fontSize: 12 }}
+                          >
+                            {u.name.slice(0, 1)}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 500 }}>{u.name}</div>
+                            {u.district && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                                <MapPinIcon size={11} />
+                                <span>{u.district}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{u.phone || '-'}</td>
+                      <td>
+                        <span className={`badge ${roleClass[u.role]}`}>
+                          {roleLabel[u.role]}
+                        </span>
+                      </td>
+                      <td>
+                        {lineId ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '2px 8px',
+                              background: 'rgba(6, 199, 85, 0.15)',
+                              color: '#06c755',
+                              border: '1px solid rgba(6, 199, 85, 0.3)',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: 11,
+                              fontWeight: 500,
+                              maxWidth: 130,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={`LINE User ID: ${lineId}`}
+                          >
+                            <MessageSquareIcon size={12} />
+                            <span>{lineId.slice(0, 10)}...</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        {stations.length > 0 ? (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {stations.map((st) => (
+                              <span
+                                key={st}
+                                style={{
+                                  padding: '2px 6px',
+                                  background: 'var(--color-primary-dim)',
+                                  color: 'var(--color-primary)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {st}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ทั้งหมด/ไม่มี</span>
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
+                          style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: 'var(--radius-full)',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            background: isActive ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 82, 82, 0.15)',
+                            color: isActive ? '#4caf50' : '#ff5252',
+                            border: `1px solid ${isActive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 82, 82, 0.3)'}`,
+                          }}
                         >
-                          {u.name.slice(0, 1)}
+                          {isActive ? '● ปกติ' : '○ ระงับ'}
+                        </span>
+                      </td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                        {u.createdAt || u.created_at
+                          ? format(new Date(u.createdAt || u.created_at!), 'dd MMM yyyy', { locale: th })
+                          : '-'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn btn-sm btn-secondary"
+                            onClick={() => onEdit(u)}
+                            disabled={u.id === currentUser?.id}
+                            title="แก้ไขข้อมูลผู้ใช้"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Edit3Icon size={13} />
+                            <span>แก้ไข</span>
+                          </button>
+                          <button
+                            className={`btn btn-sm ${deleteConfirm === u.id ? 'btn-danger' : 'btn-secondary'}`}
+                            onClick={() => handleDelete(u.id)}
+                            disabled={u.id === currentUser?.id}
+                            title={deleteConfirm === u.id ? 'คลิกอีกครั้งเพื่อยืนยันลบออกจาก DB' : 'ลบ'}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            {deleteConfirm === u.id ? (
+                              <>
+                                <AlertTriangleIcon size={13} />
+                                <span>ยืนยันลบ</span>
+                              </>
+                            ) : (
+                              <Trash2Icon size={13} />
+                            )}
+                          </button>
                         </div>
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{u.name}</div>
-                          {u.district && (
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                              <MapPinIcon size={11} />
-                              <span>{u.district}</span>
-                            </div>
-                          )}
-                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile Card List View (<= 768px) */}
+      <div className="mobile-cards-view mobile-user-cards-view">
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-muted)' }}>
+            ไม่พบข้อมูลผู้ใช้ในระบบ
+          </div>
+        ) : (
+          filtered.map((u) => {
+            const lineId = u.line_user_id || u.lineUserId;
+            const stations = u.station_ids || u.stationIds || [];
+            const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
+
+            return (
+              <div key={u.id} className="mobile-user-card" style={{ opacity: isActive ? 1 : 0.65 }}>
+                {/* Header */}
+                <div className="m-user-card-header">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                    <div className="user-avatar" style={{ width: 36, height: 36, fontSize: 13, flexShrink: 0 }}>
+                      {u.name.slice(0, 1)}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {u.name}
                       </div>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.phone || '-'}</td>
-                    <td>
-                      <span className={`badge ${roleClass[u.role]}`}>
-                        {roleLabel[u.role]}
-                      </span>
-                    </td>
-                    <td>
+                      {u.district && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <MapPinIcon size={12} />
+                          <span>{u.district}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className={`badge ${roleClass[u.role]}`} style={{ flexShrink: 0 }}>
+                    {roleLabel[u.role]}
+                  </span>
+                </div>
+
+                {/* Details Grid */}
+                <div className="m-user-details-grid">
+                  <div className="m-user-detail-item">
+                    <span className="m-detail-label">อีเมล</span>
+                    <span className="m-detail-value" title={u.email}>{u.email}</span>
+                  </div>
+                  <div className="m-user-detail-item">
+                    <span className="m-detail-label">เบอร์โทร</span>
+                    <span className="m-detail-value">{u.phone || '—'}</span>
+                  </div>
+                  <div className="m-user-detail-item">
+                    <span className="m-detail-label">LINE ID</span>
+                    <span className="m-detail-value">
                       {lineId ? (
                         <span
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 4,
-                            padding: '2px 8px',
+                            gap: 3,
+                            padding: '2px 6px',
                             background: 'rgba(6, 199, 85, 0.15)',
                             color: '#06c755',
                             border: '1px solid rgba(6, 199, 85, 0.3)',
                             borderRadius: 'var(--radius-full)',
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: 500,
-                            maxWidth: 130,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
                           }}
-                          title={`LINE User ID: ${lineId}`}
                         >
-                          <MessageSquareIcon size={12} />
+                          <MessageSquareIcon size={10} />
                           <span>{lineId.slice(0, 10)}...</span>
                         </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      {stations.length > 0 ? (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {stations.map((st) => (
-                            <span
-                              key={st}
-                              style={{
-                                padding: '2px 6px',
-                                background: 'var(--color-primary-dim)',
-                                color: 'var(--color-primary)',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: 11,
-                                fontWeight: 500,
-                              }}
-                            >
-                              {st}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ทั้งหมด/ไม่มี</span>
-                      )}
-                    </td>
-                    <td>
+                      ) : '—'}
+                    </span>
+                  </div>
+                  <div className="m-user-detail-item">
+                    <span className="m-detail-label">สถานะ</span>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        background: isActive ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 82, 82, 0.15)',
+                        color: isActive ? '#4caf50' : '#ff5252',
+                        border: `1px solid ${isActive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 82, 82, 0.3)'}`,
+                      }}
+                    >
+                      {isActive ? '● ปกติ' : '○ ระงับ'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Subscribed Stations */}
+                {stations.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>สถานีที่ติดตาม:</span>
+                    {stations.map((st) => (
                       <span
-                        aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
+                        key={st}
                         style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          borderRadius: 'var(--radius-full)',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: isActive ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 82, 82, 0.15)',
-                          color: isActive ? '#4caf50' : '#ff5252',
-                          border: `1px solid ${isActive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 82, 82, 0.3)'}`,
+                          padding: '1px 6px',
+                          background: 'var(--color-primary-dim)',
+                          color: 'var(--color-primary)',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: 10.5,
+                          fontWeight: 500,
                         }}
                       >
-                        {isActive ? '● ปกติ' : '○ ระงับ'}
+                        {st}
                       </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                      {u.createdAt || u.created_at
-                        ? format(new Date(u.createdAt || u.created_at!), 'dd MMM yyyy', { locale: th })
-                        : '-'}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => onEdit(u)}
-                          disabled={u.id === currentUser?.id}
-                          title="แก้ไขข้อมูลผู้ใช้"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <Edit3Icon size={13} />
-                          <span>แก้ไข</span>
-                        </button>
-                        <button
-                          className={`btn btn-sm ${deleteConfirm === u.id ? 'btn-danger' : 'btn-secondary'}`}
-                          onClick={() => handleDelete(u.id)}
-                          disabled={u.id === currentUser?.id}
-                          title={deleteConfirm === u.id ? 'คลิกอีกครั้งเพื่อยืนยันลบออกจาก DB' : 'ลบ'}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          {deleteConfirm === u.id ? (
-                            <>
-                              <AlertTriangleIcon size={13} />
-                              <span>ยืนยันลบ</span>
-                            </>
-                          ) : (
-                            <Trash2Icon size={13} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ marginTop: 12, display: 'flex', gap: 8, paddingTop: 10, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => onEdit(u)}
+                    disabled={u.id === currentUser?.id}
+                    style={{ flex: 1, minHeight: 40, justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Edit3Icon size={14} />
+                    <span>แก้ไข</span>
+                  </button>
+                  <button
+                    className={`btn btn-sm ${deleteConfirm === u.id ? 'btn-danger' : 'btn-secondary'}`}
+                    onClick={() => handleDelete(u.id)}
+                    disabled={u.id === currentUser?.id}
+                    style={{ minHeight: 40, padding: '0 14px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+                  >
+                    {deleteConfirm === u.id ? (
+                      <>
+                        <AlertTriangleIcon size={14} />
+                        <span>ยืนยัน</span>
+                      </>
+                    ) : (
+                      <Trash2Icon size={14} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
