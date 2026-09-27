@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import NotificationPanel from "../ui/NotificationPanel";
 import type { AppNotification } from "../../types";
 import { BellIcon, RefreshCwIcon, MaximizeIcon, MinimizeIcon } from "../ui/Icons";
-import Logo from "../ui/Logo";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "แดชบอร์ด",
@@ -67,30 +66,25 @@ export default function TopBar({
 
   return (
     <header className="topbar">
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div className="topbar-mobile-logo">
-          <Logo size="sm" />
+      <div>
+        <div className="topbar-title">
+          {pageTitles[pathname] ?? "FloodGuard"}
         </div>
-        <div>
-          <div className="topbar-title">
-            {pageTitles[pathname] ?? "FloodGuard"}
-          </div>
-          <div className="topbar-datetime" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>
-            <span className="topbar-date-full">{dateStr} · </span>
-            <span className="topbar-time-live">{timeStr} น.</span>
-          </div>
+        <div className="topbar-datetime" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>
+          <span className="topbar-date-full">{dateStr} · </span>
+          <span className="topbar-time-live">{timeStr} น.</span>
         </div>
       </div>
 
       <div
         className="topbar-actions"
-        style={{ display: "flex", alignItems: "center", gap: 10 }}
+        style={{ display: "flex", alignItems: "center", gap: 8 }}
       >
-        {/* Fullscreen Kiosk Mode (Especially for TV Wall / War Room Displays) */}
+        {/* Fullscreen Kiosk Mode (Desktop & TV Wall only) */}
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm desktop-fullscreen-btn"
           title={isFullscreen ? "ออกจากโหมดเต็มจอ" : "โหมดเต็มจอ (สำหรับจอทีวี / War Room)"}
           aria-label={isFullscreen ? "ออกจากโหมดเต็มจอ" : "เต็มจอ"}
           style={{
@@ -106,19 +100,19 @@ export default function TopBar({
         >
           {isFullscreen ? <MinimizeIcon size={16} /> : <MaximizeIcon size={16} />}
         </button>
+
         {/* Global Refresh Button */}
         <button
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="btn btn-secondary btn-sm"
+          className="btn btn-secondary btn-sm topbar-refresh-btn"
           title="รีเฟรชข้อมูลทุกระบบ"
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
             height: 36,
-            padding: "0 12px",
             fontSize: 13,
             fontWeight: 600,
             borderRadius: "var(--radius-sm)",
@@ -126,7 +120,7 @@ export default function TopBar({
           }}
         >
           <RefreshCwIcon size={14} className={refreshing ? "spin" : ""} />
-          <span>รีเฟรช</span>
+          <span className="topbar-refresh-text">รีเฟรช</span>
         </button>
 
         {/* Notification button */}

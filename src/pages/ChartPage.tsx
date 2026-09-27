@@ -366,14 +366,7 @@ export default function ChartPage() {
 
       {/* ── Main Layout: Hero Graph (Left) + Station Selector with Mini-Metrics (Right) ── */}
       {!stationsLoading && !stationsError && selectedStation && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 340px',
-            gap: '1.25rem',
-            alignItems: 'start',
-          }}
-        >
+        <div className="chart-main-grid">
           {/* ════════ LEFT COLUMN: THE HERO GRAPH ════════ */}
           <div
             className="bento-card"

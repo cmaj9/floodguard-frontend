@@ -34,8 +34,7 @@ export default function ProfilePage() {
 
   return (
     <div className="page-container">
-
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24, alignItems: 'start', maxWidth: 900 }}>
+      <div className="profile-layout-grid">
         {/* Profile summary card */}
         <div className="card" style={{ textAlign: 'center' }}>
           <div
@@ -113,7 +112,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+            <div className="form-row-2col">
               <div className="form-group">
                 <label className="label" htmlFor="profile-phone">เบอร์โทรศัพท์</label>
                 <input
@@ -147,7 +146,7 @@ export default function ProfilePage() {
               <label className="label" htmlFor="profile-current-password">รหัสผ่านปัจจุบัน</label>
               <input id="profile-current-password" className="input" type="password" placeholder="••••••••" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+            <div className="form-row-2col">
               <div className="form-group">
                 <label className="label" htmlFor="profile-new-password">รหัสผ่านใหม่</label>
                 <input id="profile-new-password" className="input" type="password" placeholder="••••••••" />
