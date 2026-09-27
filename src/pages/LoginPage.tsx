@@ -112,28 +112,18 @@ export default function LoginPage() {
           }}
         >
           {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
             <h1
               style={{
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: 700,
-                margin: "0 0 6px",
+                margin: 0,
                 color: "#FFFFFF",
                 letterSpacing: "-0.01em",
               }}
             >
               เข้าสู่ระบบ
             </h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: "var(--text-muted, #94A3B8)",
-                margin: 0,
-                lineHeight: 1.5,
-              }}
-            >
-              ระบบบริหารจัดการและเตือนภัยระดับน้ำ
-            </p>
           </div>
 
           {/* Form */}
