@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import type { UserRole } from '../../types';
@@ -10,6 +11,7 @@ import {
   UserIcon,
   LogOutIcon,
   KeyIcon,
+  AlertTriangleIcon,
 } from '../ui/Icons';
 import Logo from '../ui/Logo';
 import type { ReactNode } from 'react';
@@ -46,6 +48,7 @@ export default function Sidebar() {
   const { user, isGuest, logout, loginAsCitizen } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   if (!user) return null;
 
@@ -60,90 +63,102 @@ export default function Sidebar() {
   const handleLogout = () => {
     logout();
     loginAsCitizen();
+    setShowLogoutConfirm(false);
     navigate('/dashboard', { replace: true });
   };
 
   return (
-    <aside className="sidebar">
-      {/* Brand */}
-      <div
-        className="sidebar-logo"
-        style={{ cursor: 'pointer', padding: '16px 20px' }}
-        onClick={() => navigate('/dashboard')}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboard')}
-      >
-        <Logo size="md" />
-      </div>
-
-      {/* Navigation */}
-      <nav className="sidebar-nav" aria-labelledby="sidebar-main-nav-label">
-        <div id="sidebar-main-nav-label" className="sidebar-section-label">เมนูหลัก</div>
-        {filtered.map((item) => (
-          <button
-            key={item.path}
-            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
-            aria-current={location.pathname === item.path ? 'page' : undefined}
-          >
-            <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* User info & Auth button */}
-      <div className="sidebar-user">
-        <div className="user-avatar" style={{ background: isGuest ? 'rgba(2, 132, 199, 0.2)' : undefined }}>
-          {initials}
+    <>
+      <aside className="sidebar">
+        {/* Brand */}
+        <div
+          className="sidebar-logo"
+          style={{ cursor: 'pointer', padding: '16px 20px' }}
+          onClick={() => navigate('/dashboard')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboard')}
+        >
+          <Logo size="md" />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {isGuest ? 'ประชาชนทั่วไป' : user.name}
+
+        {/* Navigation */}
+        <nav className="sidebar-nav" aria-labelledby="sidebar-main-nav-label">
+          <div id="sidebar-main-nav-label" className="sidebar-section-label">เมนูหลัก</div>
+          {filtered.map((item) => (
+            <button
+              key={item.path}
+              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+              onClick={() => navigate(item.path)}
+              aria-current={location.pathname === item.path ? 'page' : undefined}
+            >
+              <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Staff/Admin Login Action: Placed above one's Account */}
+        {(!user || user.role === 'citizen' || isGuest) && (
+          <div style={{ padding: '0 16px 12px' }}>
+            <button
+              type="button"
+              id="sidebar-staff-login-btn"
+              onClick={() => navigate('/login')}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                height: 40,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.28)',
+                border: 'none',
+                borderRadius: 10,
+                cursor: 'pointer',
+              }}
+              title="เข้าสู่ระบบสำหรับเจ้าหน้าที่และผู้ดูแลระบบ"
+            >
+              <KeyIcon size={15} />
+              <span>เข้าสู่ระบบเจ้าหน้าที่</span>
+            </button>
           </div>
-          <span
-            className={`badge ${isGuest ? 'badge-role-citizen' : roleColor[user.role]}`}
-            style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px' }}
-          >
-            {isGuest ? 'โหมดประชาชน' : roleLabel[user.role]}
-          </span>
-        </div>
+        )}
 
-        {isGuest ? (
-          <button
-            className="btn-icon"
-            title="เข้าสู่ระบบสำหรับเจ้าหน้าที่"
-            onClick={() => navigate('/login')}
-            style={{
-              width: 36,
-              height: 36,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: 10,
-              background: 'rgba(2, 132, 199, 0.15)',
-              color: '#38BDF8',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-            }}
-            aria-label="เข้าสู่ระบบสำหรับเจ้าหน้าที่"
-          >
-            <KeyIcon size={16} />
-          </button>
-        ) : (
+        {/* User info & Auth button */}
+        <div className="sidebar-user">
+          <div className="user-avatar" style={{ background: isGuest ? 'rgba(2, 132, 199, 0.2)' : undefined }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isGuest ? 'ประชาชนทั่วไป' : user.name}
+            </div>
+            <span
+              className={`badge ${isGuest ? 'badge-role-citizen' : roleColor[user.role]}`}
+              style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px' }}
+            >
+              {isGuest ? 'โหมดประชาชน' : roleLabel[user.role]}
+            </span>
+          </div>
+
           <button
             className="btn-icon"
             title="ออกจากระบบ"
-            onClick={handleLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             style={{
               width: 36,
               height: 36,
@@ -151,13 +166,115 @@ export default function Sidebar() {
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: 10,
+              cursor: 'pointer',
             }}
             aria-label="ออกจากระบบ"
           >
             <LogOutIcon size={18} />
           </button>
-        )}
-      </div>
-    </aside>
+        </div>
+      </aside>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            style={{
+              background: '#0F172A',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 16,
+              padding: '24px 22px',
+              maxWidth: 380,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
+              animation: 'scaleUp 0.2s ease',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#EF4444',
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangleIcon size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+                  ยืนยันการออกจากระบบ
+                </h3>
+                <p style={{ margin: 0, fontSize: 13, color: '#94A3B8', lineHeight: 1.4 }}>
+                  คุณต้องการออกจากระบบหรือไม่?
+                </p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 13, color: '#CBD5E1', marginBottom: 20, lineHeight: 1.5 }}>
+              หลังจากออกจากระบบ คุณจะสามารถเข้าชมระดับน้ำได้ตามปกติในโหมดประชาชนทั่วไป
+            </p>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{
+                  padding: '9px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleLogout}
+                style={{
+                  padding: '9px 18px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <LogOutIcon size={15} />
+                <span>ยืนยัน ออกจากระบบ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

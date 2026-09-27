@@ -218,7 +218,7 @@ function aggregateReadings(
 }
 
 export default function ChartPage() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { nodeId } = useParams<{ nodeId?: string }>();
   const [searchParams] = useSearchParams();
   const targetId = nodeId || searchParams.get('station') || '';
@@ -250,10 +250,18 @@ export default function ChartPage() {
       try {
         const data = await fetchStations();
         const mapped = data.map(mapStationWithReadingToStation);
-        // Citizens see only their stations
+        
+        // Registered citizens see only their subscribed stations; guests & staff see all
+        const isRegisteredCitizen =
+          Boolean(user) &&
+          user?.role === 'citizen' &&
+          user?.id !== 'citizen_guest' &&
+          !isGuest;
+
+        const userStationIds = user?.stationIds || (user as any)?.station_ids || [];
         const filtered =
-          user?.role === 'citizen'
-            ? mapped.filter((s) => user.stationIds?.includes(s.id))
+          isRegisteredCitizen
+            ? mapped.filter((s) => userStationIds.includes(s.id))
             : mapped;
         setStations(filtered);
 
@@ -274,7 +282,7 @@ export default function ChartPage() {
     return () => {
       window.removeEventListener('app:refresh', loadStations);
     };
-  }, [user, targetId]);
+  }, [user, isGuest, targetId]);
 
   // ── Load chart data (readings) from DB ─────────────────────────
   useEffect(() => {

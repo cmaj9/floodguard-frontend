@@ -81,7 +81,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 };
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
@@ -97,15 +97,28 @@ export default function DashboardPage() {
 
       if (stationData && stationData.length > 0) {
         const mapped = stationData.map(mapStationWithReadingToStation);
-        const filtered =
-          user?.role === 'citizen'
-            ? mapped.filter((s) => s.isActive && (!user.stationIds?.length || user.stationIds.includes(s.id)))
-            : mapped;
+        
+        // Check if user is a registered citizen who logged in with a real account
+        const isRegisteredCitizen =
+          Boolean(user) &&
+          user?.role === 'citizen' &&
+          user?.id !== 'citizen_guest' &&
+          !isGuest;
+
+        let filtered = mapped;
+        if (isRegisteredCitizen) {
+          const userStationIds = user?.stationIds || (user as any)?.station_ids || [];
+          // If registered citizen: show ONLY stations they registered for
+          filtered = mapped.filter((s) => userStationIds.includes(s.id));
+        } else {
+          // If unregistered citizen (visitor / guest) OR staff / admin: show ALL stations!
+          filtered = mapped;
+        }
 
         setStations(filtered);
 
         // Automatically select ST-001 or the first station on initial load
-        setSelectedStationId((prev) => (prev ? prev : filtered[0]?.id || null));
+        setSelectedStationId((prev) => (prev && filtered.some((s) => s.id === prev) ? prev : filtered[0]?.id || null));
       } else {
         // Fallback demo stations if API returns 0 items
         const fallbackStations: Station[] = [
@@ -183,7 +196,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, isGuest]);
 
   useEffect(() => {
     loadData();
@@ -197,6 +210,12 @@ export default function DashboardPage() {
       window.removeEventListener('app:refresh', handleGlobalRefresh);
     };
   }, [loadData]);
+
+  const isRegisteredCitizen =
+    Boolean(user) &&
+    user?.role === 'citizen' &&
+    user?.id !== 'citizen_guest' &&
+    !isGuest;
 
   const criticalStations = useMemo(
     () => stations.filter((s) => s.status === 'critical'),
@@ -219,6 +238,40 @@ export default function DashboardPage() {
         padding: '1.25rem 1rem 5rem 1rem', // extra bottom padding for floating dock
       }}
     >
+      {/* ── Registered Citizen Notice if 0 subscribed stations ── */}
+      {!isLoading && !loadError && isRegisteredCitizen && stations.length === 0 && (
+        <div
+          className="bento-card animate-fade-in"
+          style={{
+            padding: '24px 20px',
+            marginBottom: '1.25rem',
+            textAlign: 'center',
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '16px',
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 6 }}>
+            ยังไม่มีสถานีที่คุณลงทะเบียนติดตามไว้
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+            คุณสามารถเลือกสถานีที่ต้องการรับการแจ้งเตือนได้ในหน้าโปรไฟล์ หรือคลิกเพื่อดูสถานีทั้งหมด
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={async () => {
+              const data = await fetchStations().catch(() => []);
+              const mapped = data.map(mapStationWithReadingToStation);
+              setStations(mapped);
+              if (mapped[0]) setSelectedStationId(mapped[0].id);
+            }}
+          >
+            แสดงสถานีทั้งหมดในระบบ
+          </button>
+        </div>
+      )}
+
       {/* ── 0. CRITICAL ALERT TOAST (If any station exceeds threshold) ── */}
       {criticalStations.length > 0 && (
         <div
