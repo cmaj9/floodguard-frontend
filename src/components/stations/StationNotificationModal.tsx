@@ -98,7 +98,7 @@ function NumberStepperInput({
         alignItems: 'center',
         background: 'rgba(15, 23, 42, 0.85)',
         border: `1.5px solid ${isFocused ? accentColor : 'rgba(255, 255, 255, 0.14)'}`,
-        boxShadow: isFocused ? `0 0 16px ${accentColor}40` : 'inset 0 1px 3px rgba(0, 0, 0, 0.3)',
+        boxShadow: isFocused ? '0 0 0 2px rgba(2, 132, 199, 0.25)' : 'none',
         borderRadius: 10,
         padding: '3px 4px',
         transition: 'all 0.2s ease',
@@ -208,6 +208,220 @@ function NumberStepperInput({
   );
 }
 
+function ToggleSwitch({
+  checked,
+  onChange,
+  ariaLabel,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel?: string;
+}) {
+  return (
+    <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={ariaLabel}
+        style={{ opacity: 0, width: 0, height: 0 }}
+      />
+      <span
+        style={{
+          position: 'absolute',
+          cursor: 'pointer',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: checked ? '#0284c7' : 'rgba(148, 163, 184, 0.3)',
+          transition: '0.2s',
+          borderRadius: 24,
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            content: '""',
+            height: 18,
+            width: 18,
+            left: checked ? 23 : 3,
+            bottom: 3,
+            backgroundColor: '#fff',
+            transition: '0.2s',
+            borderRadius: '50%',
+          }}
+        />
+      </span>
+    </label>
+  );
+}
+
+interface ConditionCardProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  title: string;
+  description: string;
+  enabled: boolean;
+  onToggle: (checked: boolean) => void;
+  thresholdLabel: string;
+  thresholdValue: number;
+  onThresholdChange: (val: number) => void;
+  thresholdMin: number;
+  thresholdMax: number;
+  thresholdStep: number;
+  thresholdUnit: string;
+  thresholdAccent: string;
+  cooldownValue: number;
+  onCooldownChange: (val: number) => void;
+  cooldownMin?: number;
+  cooldownMax?: number;
+  cooldownStep?: number;
+}
+
+function ConditionCard({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  description,
+  enabled,
+  onToggle,
+  thresholdLabel,
+  thresholdValue,
+  onThresholdChange,
+  thresholdMin,
+  thresholdMax,
+  thresholdStep,
+  thresholdUnit,
+  thresholdAccent,
+  cooldownValue,
+  onCooldownChange,
+  cooldownMin = 15,
+  cooldownMax = 1440,
+  cooldownStep = 15,
+}: ConditionCardProps) {
+  return (
+    <div
+      style={{
+        padding: '14px 16px',
+        borderRadius: 12,
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      {/* Top Row: Icon + Title + Toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: iconBg,
+              color: iconColor,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {icon}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {title}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {description}
+            </div>
+          </div>
+        </div>
+
+        <ToggleSwitch
+          checked={enabled}
+          onChange={onToggle}
+          ariaLabel={`เปิด/ปิด ${title}`}
+        />
+      </div>
+
+      {/* Expanded Controls: Threshold & Cooldown Frequency */}
+      <div
+        style={{
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+          gap: 10,
+          opacity: enabled ? 1 : 0.35,
+          pointerEvents: enabled ? 'auto' : 'none',
+          transition: 'opacity 0.2s ease',
+        }}
+      >
+        {/* 1. เกณฑ์ตรวจวัด (Threshold) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            background: 'rgba(0, 0, 0, 0.22)',
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(255, 255, 255, 0.04)',
+          }}
+        >
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {thresholdLabel}
+          </div>
+          <NumberStepperInput
+            value={thresholdValue}
+            onChange={onThresholdChange}
+            min={thresholdMin}
+            max={thresholdMax}
+            step={thresholdStep}
+            unit={thresholdUnit}
+            accentColor={thresholdAccent}
+            ariaLabel={thresholdLabel}
+          />
+        </div>
+
+        {/* 2. ความถี่แจ้งเตือนซ้ำ (Cooldown Frequency) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            background: 'rgba(0, 0, 0, 0.22)',
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid rgba(255, 255, 255, 0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
+            <ClockIcon size={13} style={{ color: 'var(--text-muted)' }} />
+            <span>เตือนซ้ำทุก</span>
+          </div>
+          <NumberStepperInput
+            value={cooldownValue}
+            onChange={onCooldownChange}
+            min={cooldownMin}
+            max={cooldownMax}
+            step={cooldownStep}
+            unit="นาที"
+            accentColor="#0284c7"
+            ariaLabel={`ความถี่แจ้งเตือนซ้ำสำหรับ ${title}`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StationNotificationModal({
   isOpen,
   onClose,
@@ -219,18 +433,24 @@ export default function StationNotificationModal({
   const [resetting, setResetting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'water' | 'device'>('water');
 
   const [settings, setSettings] = useState<NotificationSettings>({
     water_level_enabled: true,
-    safety_offset: 0.3,
+    safety_offset: 0.0,
+    water_level_cooldown_minutes: 30,
     rate_of_rise_enabled: true,
     rate_of_rise_threshold: 0.3,
+    rate_of_rise_cooldown_minutes: 30,
     offline_timeout_enabled: true,
     offline_timeout_minutes: 30,
+    offline_cooldown_minutes: 60,
     battery_low_enabled: true,
     battery_low_threshold: 20,
+    battery_low_cooldown_minutes: 120,
     geofence_enabled: true,
     geofence_radius_meters: 100,
+    geofence_cooldown_minutes: 60,
     is_custom: false,
   });
 
@@ -296,18 +516,39 @@ export default function StationNotificationModal({
   };
 
   const modalTitle = station
-    ? `ตั้งค่าการแจ้งเตือน สถานี ${station.name}`
+    ? `ตั้งค่าการแจ้งเตือน — ${station.name}`
     : 'ตั้งค่าการแจ้งเตือนส่วนกลาง (Global Settings)';
+
+  const modalSubtitle = station
+    ? `รหัส ${station.id} · จุดอ้างอิง ${station.referencePointName || 'จุดอ้างอิง'}`
+    : 'มีผลกับทุกสถานีที่ไม่ได้กำหนดค่าเฉพาะ';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={modalTitle}
-      maxWidth="680px"
+      subtitle={modalSubtitle}
+      maxWidth="720px"
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 12 }}>
           <div>
+            {station && (
+              <span
+                style={{
+                  fontSize: 12,
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  background: settings.is_custom ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                  color: settings.is_custom ? '#38BDF8' : 'var(--text-muted)',
+                  border: `1px solid ${settings.is_custom ? 'rgba(56, 189, 248, 0.25)' : 'rgba(148, 163, 184, 0.2)'}`,
+                  fontWeight: 600,
+                  marginRight: 8,
+                }}
+              >
+                {settings.is_custom ? 'กำหนดค่าเฉพาะสถานี' : 'ใช้ค่าเริ่มต้นส่วนกลาง'}
+              </span>
+            )}
             {station && settings.is_custom && (
               <button
                 type="button"
@@ -345,49 +586,7 @@ export default function StationNotificationModal({
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {/* Scope Subtitle & Status Badge */}
-        <div
-          style={{
-            padding: '12px 16px',
-            borderRadius: 8,
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 10,
-          }}
-        >
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-            {station ? (
-              <>
-                รหัสสถานี <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{station.id}</strong> · จุดอ้างอิง{' '}
-                <strong style={{ color: '#38BDF8' }}>{station.referencePointName || 'จุดอ้างอิง'}</strong>
-              </>
-            ) : (
-              'การตั้งค่านี้เป็นค่าเริ่มต้นส่วนกลาง ซึ่งจะมีผลกับทุกสถานีที่ไม่ได้กำหนดค่าเฉพาะ'
-            )}
-          </div>
-
-          {station && (
-            <span
-              style={{
-                fontSize: 11,
-                padding: '2px 8px',
-                borderRadius: 4,
-                background: settings.is_custom ? 'rgba(6, 182, 212, 0.15)' : 'rgba(148, 163, 184, 0.12)',
-                color: settings.is_custom ? 'var(--color-primary)' : 'var(--text-muted)',
-                border: `1px solid ${settings.is_custom ? 'rgba(6, 182, 212, 0.3)' : 'rgba(148, 163, 184, 0.25)'}`,
-                fontWeight: 600,
-              }}
-            >
-              {settings.is_custom ? 'กำหนดค่าเฉพาะสถานี' : 'ใช้ค่าเริ่มต้นส่วนกลาง'}
-            </span>
-          )}
-        </div>
-
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {/* Feedback alerts */}
         {saveSuccess && (
           <div
@@ -428,476 +627,228 @@ export default function StationNotificationModal({
           </div>
         )}
 
+                {/* Concept 3: Category Tabs */}
+        <div
+          style={{
+            display: 'flex',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 10,
+            padding: 4,
+            gap: 4,
+          }}
+          role="tablist"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'water'}
+            onClick={() => setActiveTab('water')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '8px 14px',
+              borderRadius: 8,
+              border: 'none',
+              background: activeTab === 'water' ? 'rgba(56, 189, 248, 0.16)' : 'transparent',
+              color: activeTab === 'water' ? '#38BDF8' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'water' ? 600 : 500,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <DropletsIcon size={16} />
+            <span>ระดับน้ำและอุทกวิทยา</span>
+            <span
+              style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                borderRadius: 10,
+                background: activeTab === 'water' ? '#38BDF8' : 'rgba(255, 255, 255, 0.1)',
+                color: activeTab === 'water' ? '#0F172A' : 'var(--text-muted)',
+                fontWeight: 700,
+              }}
+            >
+              2
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'device'}
+            onClick={() => setActiveTab('device')}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '8px 14px',
+              borderRadius: 8,
+              border: 'none',
+              background: activeTab === 'device' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
+              color: activeTab === 'device' ? '#C084FC' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'device' ? 600 : 500,
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <ZapIcon size={16} />
+            <span>สุขภาพอุปกรณ์และระบบ</span>
+            <span
+              style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                borderRadius: 10,
+                background: activeTab === 'device' ? '#C084FC' : 'rgba(255, 255, 255, 0.1)',
+                color: activeTab === 'device' ? '#0F172A' : 'var(--text-muted)',
+                fontWeight: 700,
+              }}
+            >
+              3
+            </span>
+          </button>
+        </div>
+
         {loading ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
             กำลังโหลดข้อมูลการตั้งค่า...
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Condition 1: Water Level Safety Threshold */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: settings.water_level_enabled ? 12 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'rgba(56, 189, 248, 0.12)',
-                      color: '#38BDF8',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <DropletsIcon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      ระดับน้ำสูงเกินเกณฑ์ความปลอดภัย
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      แจ้งเตือนเมื่อระดับน้ำเข้าใกล้จุดวิกฤต หรือเมื่อถึงระยะเผื่อความปลอดภัย
-                    </div>
-                  </div>
-                </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {activeTab === 'water' && (
+              <>
+                {/* Condition 1: Water Level Safety Offset */}
+                <ConditionCard
+                  icon={<DropletsIcon size={18} />}
+                  iconBg="rgba(56, 189, 248, 0.12)"
+                  iconColor="#38BDF8"
+                  title="ระดับน้ำใกล้จุดวิกฤต (Safety Offset)"
+                  description="เตือนล่วงหน้าก่อนระดับน้ำแตะจุดวิกฤต"
+                  enabled={settings.water_level_enabled}
+                  onToggle={(checked) => setSettings({ ...settings, water_level_enabled: checked })}
+                  thresholdLabel="ระยะเผื่อความปลอดภัย"
+                  thresholdValue={settings.safety_offset}
+                  onThresholdChange={(val) => setSettings({ ...settings, safety_offset: val })}
+                  thresholdMin={0.0}
+                  thresholdMax={3.0}
+                  thresholdStep={0.05}
+                  thresholdUnit="เมตร"
+                  thresholdAccent="#38BDF8"
+                  cooldownValue={settings.water_level_cooldown_minutes ?? 30}
+                  onCooldownChange={(val) => setSettings({ ...settings, water_level_cooldown_minutes: val })}
+                  cooldownMin={5}
+                  cooldownMax={720}
+                  cooldownStep={15}
+                />
 
-                <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.water_level_enabled}
-                    onChange={(e) => setSettings({ ...settings, water_level_enabled: e.target.checked })}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: settings.water_level_enabled ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.3)',
-                      transition: '0.2s',
-                      borderRadius: 24,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: settings.water_level_enabled ? 23 : 3,
-                        bottom: 3,
-                        backgroundColor: '#fff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
+                {/* Condition 2: Rate of Rise */}
+                <ConditionCard
+                  icon={<TrendingUpIcon size={18} />}
+                  iconBg="rgba(245, 158, 11, 0.12)"
+                  iconColor="#F59E0B"
+                  title="น้ำเพิ่มขึ้นฉับพลัน (Rate of Rise)"
+                  description="เตือนเมื่อน้ำเพิ่มขึ้นรวดเร็วเกินเกณฑ์ใน 1 ชั่วโมง"
+                  enabled={settings.rate_of_rise_enabled}
+                  onToggle={(checked) => setSettings({ ...settings, rate_of_rise_enabled: checked })}
+                  thresholdLabel="เกณฑ์เพิ่มขึ้นฉับพลัน"
+                  thresholdValue={settings.rate_of_rise_threshold}
+                  onThresholdChange={(val) => setSettings({ ...settings, rate_of_rise_threshold: val })}
+                  thresholdMin={0.1}
+                  thresholdMax={5.0}
+                  thresholdStep={0.05}
+                  thresholdUnit="ม./ชม."
+                  thresholdAccent="#F59E0B"
+                  cooldownValue={settings.rate_of_rise_cooldown_minutes ?? 30}
+                  onCooldownChange={(val) => setSettings({ ...settings, rate_of_rise_cooldown_minutes: val })}
+                  cooldownMin={5}
+                  cooldownMax={720}
+                  cooldownStep={15}
+                />
+              </>
+            )}
 
-              {settings.water_level_enabled && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      ระยะเผื่อความปลอดภัยก่อนถึงจุดวิกฤต (Safety Offset)
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      แจ้งเตือนล่วงหน้าเมื่อระดับน้ำเข้าใกล้ระยะเผื่อก่อนแตะระดับวิกฤต
-                    </div>
-                  </div>
-                  <NumberStepperInput
-                    value={settings.safety_offset}
-                    onChange={(val) => setSettings({ ...settings, safety_offset: val })}
-                    min={0.05}
-                    max={3.0}
-                    step={0.05}
-                    unit="เมตร"
-                    accentColor="#38BDF8"
-                    ariaLabel="ระยะเผื่อความปลอดภัยก่อนถึงจุดวิกฤต"
-                  />
-                </div>
-              )}
-            </div>
+            {activeTab === 'device' && (
+              <>
+                {/* Condition 3: Offline Timeout */}
+                <ConditionCard
+                  icon={<ClockIcon size={18} />}
+                  iconBg="rgba(148, 163, 184, 0.12)"
+                  iconColor="#94A3B8"
+                  title="ขาดการส่งข้อมูลเข้าสู่ระบบ (Offline Timeout)"
+                  description="เตือนเมื่ออุปกรณ์หยุดส่งข้อมูลนานเกินกำหนด"
+                  enabled={settings.offline_timeout_enabled}
+                  onToggle={(checked) => setSettings({ ...settings, offline_timeout_enabled: checked })}
+                  thresholdLabel="เกณฑ์เวลาขาดส่งข้อมูล"
+                  thresholdValue={settings.offline_timeout_minutes}
+                  onThresholdChange={(val) => setSettings({ ...settings, offline_timeout_minutes: val })}
+                  thresholdMin={5}
+                  thresholdMax={360}
+                  thresholdStep={5}
+                  thresholdUnit="นาที"
+                  thresholdAccent="#94A3B8"
+                  cooldownValue={settings.offline_cooldown_minutes ?? 60}
+                  onCooldownChange={(val) => setSettings({ ...settings, offline_cooldown_minutes: val })}
+                  cooldownMin={15}
+                  cooldownMax={1440}
+                  cooldownStep={30}
+                />
 
-            {/* Condition 2: Rate of Rise */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: settings.rate_of_rise_enabled ? 12 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'rgba(245, 158, 11, 0.12)',
-                      color: '#F59E0B',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <TrendingUpIcon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      ระดับน้ำเพิ่มขึ้นในอัตราที่สูงกว่าปกติ (Rate of Rise)
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      เตือนภัยล่วงหน้าเมื่อน้ำไหลบ่าฉับพลัน เกินอัตราปกติ
-                    </div>
-                  </div>
-                </div>
+                {/* Condition 4: Battery Low */}
+                <ConditionCard
+                  icon={<ZapIcon size={18} />}
+                  iconBg="rgba(239, 68, 68, 0.12)"
+                  iconColor="#EF4444"
+                  title="แบตเตอรี่ของอุปกรณ์อยู่ในระดับต่ำ (Battery Low)"
+                  description="เตือนเมื่อระดับพลังงานแบตเตอรี่ต่ำกว่าเกณฑ์"
+                  enabled={settings.battery_low_enabled}
+                  onToggle={(checked) => setSettings({ ...settings, battery_low_enabled: checked })}
+                  thresholdLabel="ระดับแบตเตอรี่ที่เริ่มเตือน"
+                  thresholdValue={settings.battery_low_threshold}
+                  onThresholdChange={(val) => setSettings({ ...settings, battery_low_threshold: val })}
+                  thresholdMin={5}
+                  thresholdMax={50}
+                  thresholdStep={5}
+                  thresholdUnit="%"
+                  thresholdAccent="#EF4444"
+                  cooldownValue={settings.battery_low_cooldown_minutes ?? 120}
+                  onCooldownChange={(val) => setSettings({ ...settings, battery_low_cooldown_minutes: val })}
+                  cooldownMin={30}
+                  cooldownMax={1440}
+                  cooldownStep={30}
+                />
 
-                <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.rate_of_rise_enabled}
-                    onChange={(e) => setSettings({ ...settings, rate_of_rise_enabled: e.target.checked })}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: settings.rate_of_rise_enabled ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.3)',
-                      transition: '0.2s',
-                      borderRadius: 24,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: settings.rate_of_rise_enabled ? 23 : 3,
-                        bottom: 3,
-                        backgroundColor: '#fff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
-
-              {settings.rate_of_rise_enabled && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      เกณฑ์อัตราการเพิ่มขึ้นฉับพลัน
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      ระดับน้ำเพิ่มขึ้นรวดเร็วเกินกว่าเกณฑ์ที่กำหนดภายใน 1 ชั่วโมง
-                    </div>
-                  </div>
-                  <NumberStepperInput
-                    value={settings.rate_of_rise_threshold}
-                    onChange={(val) => setSettings({ ...settings, rate_of_rise_threshold: val })}
-                    min={0.1}
-                    max={5.0}
-                    step={0.05}
-                    unit="ม./ชม."
-                    accentColor="#F59E0B"
-                    ariaLabel="เกณฑ์อัตราการเพิ่มขึ้นฉับพลัน"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Condition 3: Offline Timeout */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: settings.offline_timeout_enabled ? 12 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'rgba(148, 163, 184, 0.12)',
-                      color: '#94A3B8',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ClockIcon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      ขาดการส่งข้อมูลเข้าสู่ระบบ (Offline Timeout)
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      แจ้งเตือนเมื่ออุปกรณ์หยุดส่งข้อมูลนานเกินกำหนด
-                    </div>
-                  </div>
-                </div>
-
-                <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.offline_timeout_enabled}
-                    onChange={(e) => setSettings({ ...settings, offline_timeout_enabled: e.target.checked })}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: settings.offline_timeout_enabled ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.3)',
-                      transition: '0.2s',
-                      borderRadius: 24,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: settings.offline_timeout_enabled ? 23 : 3,
-                        bottom: 3,
-                        backgroundColor: '#fff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
-
-              {settings.offline_timeout_enabled && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      ระยะเวลาขาดการส่งข้อมูลที่ยอมรับได้
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      ส่งสัญญาณเตือนเมื่อไม่มีข้อมูลเทเลเมทรีติดต่อกันเกินเวลาที่กำหนด
-                    </div>
-                  </div>
-                  <NumberStepperInput
-                    value={settings.offline_timeout_minutes}
-                    onChange={(val) => setSettings({ ...settings, offline_timeout_minutes: val })}
-                    min={5}
-                    max={1440}
-                    step={5}
-                    unit="นาที"
-                    accentColor="#94A3B8"
-                    ariaLabel="ระยะเวลาขาดการส่งข้อมูลที่ยอมรับได้"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Condition 4: Battery Low */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: settings.battery_low_enabled ? 12 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'rgba(239, 68, 68, 0.12)',
-                      color: '#EF4444',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <ZapIcon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      แบตเตอรี่ของอุปกรณ์อยู่ในระดับต่ำ (Battery Low)
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      แจ้งเตือนเมื่อพลังงานในแบตเตอรี่ลดลงต่ำกว่าเกณฑ์
-                    </div>
-                  </div>
-                </div>
-
-                <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.battery_low_enabled}
-                    onChange={(e) => setSettings({ ...settings, battery_low_enabled: e.target.checked })}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: settings.battery_low_enabled ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.3)',
-                      transition: '0.2s',
-                      borderRadius: 24,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: settings.battery_low_enabled ? 23 : 3,
-                        bottom: 3,
-                        backgroundColor: '#fff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
-
-              {settings.battery_low_enabled && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      ระดับแบตเตอรี่ที่เริ่มแจ้งเตือน
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      แจ้งเตือนเพื่อเตรียมเปลี่ยนแบตเตอรี่หรือตรวจสอบแผงโซลาร์เซลล์
-                    </div>
-                  </div>
-                  <NumberStepperInput
-                    value={settings.battery_low_threshold}
-                    onChange={(val) => setSettings({ ...settings, battery_low_threshold: val })}
-                    min={5}
-                    max={80}
-                    step={5}
-                    unit="%"
-                    accentColor="#EF4444"
-                    ariaLabel="ระดับแบตเตอรี่ที่เริ่มแจ้งเตือน"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Condition 5: Geofence Drift */}
-            <div
-              style={{
-                padding: '14px 16px',
-                borderRadius: 10,
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: settings.geofence_enabled ? 12 : 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      background: 'rgba(168, 85, 247, 0.12)',
-                      color: '#A855F7',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <MapPinIcon size={16} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                      อุปกรณ์เคลื่อนออกนอกขอบเขตพื้นที่ที่กำหนด (Geofence)
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                      แจ้งเตือนเมื่ออุปกรณ์ถูกเคลื่อนย้าย หรือเสาหลุดจากจุดติดตั้ง
-                    </div>
-                  </div>
-                </div>
-
-                <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.geofence_enabled}
-                    onChange={(e) => setSettings({ ...settings, geofence_enabled: e.target.checked })}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                  />
-                  <span
-                    style={{
-                      position: 'absolute',
-                      cursor: 'pointer',
-                      top: 0, left: 0, right: 0, bottom: 0,
-                      background: settings.geofence_enabled ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.3)',
-                      transition: '0.2s',
-                      borderRadius: 24,
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: 'absolute',
-                        content: '""',
-                        height: 18, width: 18,
-                        left: settings.geofence_enabled ? 23 : 3,
-                        bottom: 3,
-                        backgroundColor: '#fff',
-                        transition: '0.2s',
-                        borderRadius: '50%',
-                      }}
-                    />
-                  </span>
-                </label>
-              </div>
-
-              {settings.geofence_enabled && (
-                <div style={{ paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-                      รัศมีขอบเขตพิกัดที่อนุญาต (Geofence Radius)
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                      ตรวจจับการเคลื่อนย้ายหรือการขยับของสถานีออกจากจุดติดตั้ง
-                    </div>
-                  </div>
-                  <NumberStepperInput
-                    value={settings.geofence_radius_meters}
-                    onChange={(val) => setSettings({ ...settings, geofence_radius_meters: val })}
-                    min={20}
-                    max={2000}
-                    step={10}
-                    unit="เมตร"
-                    accentColor="#A855F7"
-                    ariaLabel="รัศมีขอบเขตพิกัดที่อนุญาต"
-                  />
-                </div>
-              )}
-            </div>
+                {/* Condition 5: Geofence */}
+                <ConditionCard
+                  icon={<MapPinIcon size={18} />}
+                  iconBg="rgba(168, 85, 247, 0.12)"
+                  iconColor="#A855F7"
+                  title="ตรวจจับการเคลื่อนที่ (Geofence)"
+                  description="เตือนเมื่อเสาหรืออุปกรณ์ขยับออกนอกรัศมีพิกัด"
+                  enabled={settings.geofence_enabled}
+                  onToggle={(checked) => setSettings({ ...settings, geofence_enabled: checked })}
+                  thresholdLabel="รัศมีพิกัดที่อนุญาต"
+                  thresholdValue={settings.geofence_radius_meters}
+                  onThresholdChange={(val) => setSettings({ ...settings, geofence_radius_meters: val })}
+                  thresholdMin={20}
+                  thresholdMax={2000}
+                  thresholdStep={10}
+                  thresholdUnit="เมตร"
+                  thresholdAccent="#A855F7"
+                  cooldownValue={settings.geofence_cooldown_minutes ?? 60}
+                  onCooldownChange={(val) => setSettings({ ...settings, geofence_cooldown_minutes: val })}
+                  cooldownMin={15}
+                  cooldownMax={1440}
+                  cooldownStep={30}
+                />
+              </>
+            )}
           </div>
         )}
       </div>

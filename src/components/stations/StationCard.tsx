@@ -29,9 +29,10 @@ interface StationCardProps {
 }
 
 export default function StationCard({ station, selected, onClick }: StationCardProps) {
+  const isOffline = !station.isActive || (station as any).operatingStatus === 'offline';
   const colors = statusColors[station.status];
   const maxLvl = station.maxLevel || 10;
-  const pct = Math.max(0, Math.min(100, (station.currentLevel / maxLvl) * 100));
+  const pct = isOffline ? 0 : Math.max(0, Math.min(100, (station.currentLevel / maxLvl) * 100));
   const hasWarn = station.warningLevel !== undefined && station.warningLevel !== null;
   const hasCrit = station.criticalLevel !== undefined && station.criticalLevel !== null;
   const warningPct = hasWarn ? Math.max(0, Math.min(100, (station.warningLevel! / maxLvl) * 100)) : null;
@@ -42,26 +43,13 @@ export default function StationCard({ station, selected, onClick }: StationCardP
       className={`stat-card status-${station.status}`}
       style={{
         cursor: onClick ? 'pointer' : 'default',
-        border: selected ? `2px solid ${colors.text}` : `1px solid ${colors.border}`,
+        border: selected ? '2px solid #38BDF8' : `1px solid ${colors.border}`,
         position: 'relative',
         overflow: 'hidden',
         animationDelay: '0.05s',
       }}
       onClick={onClick}
     >
-      {/* Background glow */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: 80,
-          height: 80,
-          background: `radial-gradient(circle, ${colors.bg} 0%, transparent 70%)`,
-          pointerEvents: 'none',
-        }}
-      />
-
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -74,20 +62,20 @@ export default function StationCard({ station, selected, onClick }: StationCardP
           </div>
         </div>
         <span
-          className={`badge badge-${station.status}`}
+          className={`badge ${isOffline ? 'badge-unknown' : `badge-${station.status}`}`}
           style={{ flexShrink: 0, fontSize: 11 }}
         >
           <span className="badge-dot" />
-          {statusLabel[station.status]}
+          {isOffline ? 'ออฟไลน์' : statusLabel[station.status]}
         </span>
       </div>
 
       {/* Level value */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span className="stat-value" style={{ color: colors.text, fontSize: 32 }}>
-          {(station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '8px 0' }}>
+        <span className="stat-value" style={{ color: isOffline ? 'var(--text-muted)' : colors.text, fontSize: 32 }}>
+          {isOffline ? '-' : (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)}
         </span>
-        <span className="stat-unit">ม.</span>
+        {!isOffline && <span className="stat-unit">ม.</span>}
         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
           เทียบ {station.referencePointName || 'จุดอ้างอิง'}
         </span>
@@ -100,8 +88,7 @@ export default function StationCard({ station, selected, onClick }: StationCardP
             className="water-bar-fill"
             style={{
               width: `${pct}%`,
-              background: colors.fill,
-              boxShadow: `0 0 8px ${colors.text}44`,
+              background: isOffline ? '#475569' : colors.fill,
             }}
           />
           {/* Warning line */}

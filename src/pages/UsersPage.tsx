@@ -5,7 +5,7 @@ import UserTable from '../components/users/UserTable';
 import UserModal from '../components/users/UserModal';
 import type { User, UserRole } from '../types';
 import { fetchUsers, createUser, updateUser, deleteUser } from '../services/apiService';
-import { RefreshCwIcon, PlusIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/ui/Icons';
+import { PlusIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
 
 export default function UsersPage() {
@@ -44,6 +44,13 @@ export default function UsersPage() {
 
   useEffect(() => {
     loadUsers();
+    const handleGlobalRefresh = () => {
+      loadUsers();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => {
+      window.removeEventListener('app:refresh', handleGlobalRefresh);
+    };
   }, [loadUsers]);
 
   const handleAdd = () => {
@@ -110,27 +117,6 @@ export default function UsersPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">จัดการผู้ใช้</h1>
-          <p className="page-subtitle">
-            {currentUser.role === 'staff'
-              ? 'จัดการบัญชีประชาชนทั่วไปในระบบ'
-              : 'จัดการบัญชีผู้ใช้ทุกระดับ พร้อมกำหนด LINE User ID และสถานีที่รับผิดชอบ'}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-secondary btn-sm" onClick={loadUsers} disabled={loading} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <RefreshCwIcon size={13} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-            <span>รีเฟรช</span>
-          </button>
-          <button id="add-user-btn" className="btn btn-primary btn-sm" onClick={handleAdd} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <PlusIcon size={13} />
-            <span>เพิ่มผู้ใช้ใหม่</span>
-          </button>
-        </div>
-      </div>
-
       {/* Success Notification Banner */}
       {successMsg && (
         <div
@@ -170,8 +156,18 @@ export default function UsersPage() {
           <span>{errorMsg}</span>
         </div>
       )}
-      {/* Segmented Control Role Filter (Pattern 1) */}
-      <div style={{ marginBottom: 20 }}>
+
+      {/* Segmented Control Role Filter & Actions */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20,
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
         <SegmentedControl
           options={tabs.map((t) => ({
             value: t.value,
@@ -183,6 +179,24 @@ export default function UsersPage() {
           size="md"
           ariaLabel="กรองบทบาทผู้ใช้"
         />
+
+        <button
+          id="add-user-btn"
+          className="btn btn-primary"
+          onClick={handleAdd}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 7,
+            height: 38,
+            padding: '0 16px',
+            fontSize: 13.5,
+            fontWeight: 600,
+          }}
+        >
+          <PlusIcon size={15} />
+          <span>เพิ่มผู้ใช้ใหม่</span>
+        </button>
       </div>
 
       <div className="card" style={{ padding: 20 }}>

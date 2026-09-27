@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Station } from '../../types';
+import type { GatewayOption } from '../../services/apiService';
+import { fetchGateways, fetchNextStationId } from '../../services/apiService';
 import {
   MapPinIcon,
   SlidersIcon,
   AlertTriangleIcon,
-  InfoIcon,
+  RadioIcon,
 } from '../ui/Icons';
 
 interface StationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<Station>) => void;
+  onSave: (data: Partial<Station> & { gateway_id: string }) => void;
   station?: Station | null;
 }
 
@@ -28,6 +30,7 @@ const defaultForm = {
   warningLevel: '',
   criticalLevel: '',
   deviceId: '',
+  gatewayId: '',
   operatingStatus: 'active' as 'active' | 'offline',
 };
 
@@ -35,9 +38,17 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
   const isEdit = !!station;
   const [form, setForm] = useState(defaultForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [gateways, setGateways] = useState<GatewayOption[]>([]);
+  const [loadingGateways, setLoadingGateways] = useState(false);
+  const [loadingNextId, setLoadingNextId] = useState(false);
+  const [saving, setSaving] = useState(false);
 
+  // Unified initial data loading when modal opens
   useEffect(() => {
+    if (!isOpen) return;
+
     if (station) {
+      // Edit mode: populate existing station data
       setForm({
         name: station.name,
         description: station.description || '',
@@ -48,16 +59,47 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         lng: String(station.lng ?? ''),
         sensorToRefDistance: String(station.sensorToRefDistance ?? 2.0),
         referencePointName: station.referencePointName || 'จุดอ้างอิง',
-        warningLevel: station.warningLevel !== null && station.warningLevel !== undefined ? String(station.warningLevel) : '',
-        criticalLevel: station.criticalLevel !== null && station.criticalLevel !== undefined ? String(station.criticalLevel) : '',
+        warningLevel: station.warningLevel != null ? String(station.warningLevel) : '',
+        criticalLevel: station.criticalLevel != null ? String(station.criticalLevel) : '',
         deviceId: station.deviceId || station.id || '',
+        gatewayId: '',  // not editable in edit mode
         operatingStatus: (station.isActive ? 'active' : 'offline') as 'active' | 'offline',
       });
+      setErrors({});
+      setSaving(false);
     } else {
-      setForm(defaultForm);
+      // Create mode: load available gateways and next sequential station ID
+      setLoadingGateways(true);
+      setLoadingNextId(true);
+      setErrors({});
+      setSaving(false);
+
+      // Pre-fill sensible default location coordinates (Pathum Thani area)
+      setForm({
+        ...defaultForm,
+        lat: '14.0359',
+        lng: '100.7252',
+        province: 'ปทุมธานี',
+      });
+
+      Promise.allSettled([
+        fetchGateways(),
+        fetchNextStationId(),
+      ]).then(([gwRes, nextIdRes]) => {
+        const gws = gwRes.status === 'fulfilled' ? gwRes.value : [];
+        const nextId = nextIdRes.status === 'fulfilled' ? nextIdRes.value : 'ST-003';
+        setGateways(gws);
+        setForm((prev) => ({
+          ...prev,
+          gatewayId: prev.gatewayId || (gws.length > 0 ? gws[0].gateway_id : 'GW-001'),
+          deviceId: prev.deviceId || nextId,
+        }));
+      }).finally(() => {
+        setLoadingGateways(false);
+        setLoadingNextId(false);
+      });
     }
-    setErrors({});
-  }, [station, isOpen]);
+  }, [isOpen, station]);
 
   const set = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -72,31 +114,43 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
     if (!form.sensorToRefDistance || isNaN(Number(form.sensorToRefDistance)) || Number(form.sensorToRefDistance) <= 0) {
       e.sensorToRefDistance = 'กรุณากรอกระยะจากเซนเซอร์ถึงจุดอ้างอิงเป็นตัวเลขมากกว่า 0 (เมตร)';
     }
+    if (!isEdit && !form.gatewayId && gateways.length === 0) {
+      e.gatewayId = 'กรุณาเลือก Gateway';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
+    setSaving(true);
     const refName = form.referencePointName.trim() !== '' ? form.referencePointName.trim() : 'จุดอ้างอิง';
-    onSave({
-      name: form.name.trim(),
-      description: form.description.trim(),
-      location: form.location.trim() || `${form.district.trim()} ${form.province.trim()}`.trim(),
-      district: form.district.trim(),
-      province: form.province.trim(),
-      lat: Number(form.lat),
-      lng: Number(form.lng),
-      sensorToRefDistance: Number(form.sensorToRefDistance),
-      referencePointName: refName,
-      warningLevel: form.warningLevel.trim() !== '' && !isNaN(Number(form.warningLevel)) ? Number(form.warningLevel) : (undefined as any),
-      criticalLevel: form.criticalLevel.trim() !== '' && !isNaN(Number(form.criticalLevel)) ? Number(form.criticalLevel) : (undefined as any),
-      deviceId: form.deviceId.trim() || undefined,
-      isActive: form.operatingStatus === 'active',
-      operatingStatus: form.operatingStatus,
-      status: 'normal',
-    });
-    onClose();
+    const effectiveGatewayId = form.gatewayId || (gateways.length > 0 ? gateways[0].gateway_id : 'GW-001');
+    try {
+      await onSave({
+        name: form.name.trim(),
+        description: form.description.trim(),
+        location: form.location.trim() || `${form.district.trim()} ${form.province.trim()}`.trim(),
+        district: form.district.trim(),
+        province: form.province.trim(),
+        lat: Number(form.lat),
+        lng: Number(form.lng),
+        sensorToRefDistance: Number(form.sensorToRefDistance),
+        referencePointName: refName,
+        warningLevel: form.warningLevel.trim() !== '' && !isNaN(Number(form.warningLevel)) ? Number(form.warningLevel) : undefined,
+        criticalLevel: form.criticalLevel.trim() !== '' && !isNaN(Number(form.criticalLevel)) ? Number(form.criticalLevel) : undefined,
+        deviceId: form.deviceId.trim(),
+        gateway_id: effectiveGatewayId,
+        isActive: form.operatingStatus === 'active',
+        operatingStatus: form.operatingStatus,
+        status: 'normal',
+      });
+      onClose();
+    } catch (err: any) {
+      setErrors({ _api: err.message || 'บันทึกไม่สำเร็จ' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -108,13 +162,14 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
       footer={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-            * ช่องที่มีเครื่องหมายดอกจันจำเป็นต้องระบุข้อมูล
+            * จำเป็นต้องระบุ
           </span>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               type="button"
               className="btn btn-secondary"
               onClick={onClose}
+              disabled={saving}
               style={{ padding: '0.5rem 1.25rem', fontSize: '0.875rem' }}
             >
               ยกเลิก
@@ -123,15 +178,32 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               type="button"
               className="btn btn-primary"
               onClick={handleSave}
-              style={{ padding: '0.5rem 1.5rem', fontSize: '0.875rem', fontWeight: 600 }}
+              disabled={saving}
+              style={{ padding: '0.5rem 1.5rem', fontSize: '0.875rem', fontWeight: 600, minWidth: 120 }}
             >
-              {isEdit ? 'บันทึกการแก้ไข' : 'ลงทะเบียนสถานี'}
+              {saving ? 'กำลังบันทึก...' : isEdit ? 'บันทึกการแก้ไข' : 'ลงทะเบียนสถานี'}
             </button>
           </div>
         </div>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.25rem 0' }}>
+
+        {/* API Error Banner */}
+        {errors._api && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '0.75rem',
+            padding: '0.75rem 1rem',
+            color: '#EF4444',
+            fontSize: '0.875rem',
+            fontWeight: 500,
+          }}>
+            {errors._api}
+          </div>
+        )}
+
         {/* ════════ SECTION 1: GENERAL & GPS ════════ */}
         <div
           style={{
@@ -151,14 +223,14 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             }}
           >
-            <MapPinIcon size={18} style={{ color: 'var(--cyan-glow)' }} />
+            <MapPinIcon size={18} style={{ color: 'var(--color-primary-dark)' }} />
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFFFFF' }}>
-              1. ข้อมูลทั่วไปและพิกัดภูมิศาสตร์ (Station Info & GPS)
+              ข้อมูลทั่วไปและพิกัดสถานี
             </h3>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem 1.25rem' }}>
-            {/* Status Selection (Visible segmented radio control) */}
+            {/* Operating Status */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.4rem', display: 'block' }}>
                 สถานะการให้บริการของสถานี
@@ -182,61 +254,34 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
                   aria-checked={form.operatingStatus === 'active'}
                   onClick={() => setForm((prev) => ({ ...prev, operatingStatus: 'active' }))}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 14px',
+                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px',
                     borderRadius: '9999px',
                     border: form.operatingStatus === 'active' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid transparent',
                     background: form.operatingStatus === 'active' ? 'rgba(16, 185, 129, 0.22)' : 'transparent',
                     color: form.operatingStatus === 'active' ? '#10B981' : 'var(--text-muted)',
                     fontWeight: form.operatingStatus === 'active' ? 700 : 500,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
+                    fontSize: 13, cursor: 'pointer', transition: 'all 0.18s ease',
                   }}
                 >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: form.operatingStatus === 'active' ? '#10B981' : 'rgba(148, 163, 184, 0.4)',
-                      boxShadow: form.operatingStatus === 'active' ? '0 0 8px #10B981' : 'none',
-                    }}
-                  />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: form.operatingStatus === 'active' ? '#10B981' : 'rgba(148, 163, 184, 0.4)' }} />
                   <span>ออนไลน์ (เปิดให้บริการ)</span>
                 </button>
-
                 <button
                   type="button"
                   role="radio"
                   aria-checked={form.operatingStatus === 'offline'}
                   onClick={() => setForm((prev) => ({ ...prev, operatingStatus: 'offline' }))}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 14px',
+                    display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px',
                     borderRadius: '9999px',
                     border: form.operatingStatus === 'offline' ? '1px solid rgba(245, 158, 11, 0.5)' : '1px solid transparent',
                     background: form.operatingStatus === 'offline' ? 'rgba(245, 158, 11, 0.22)' : 'transparent',
                     color: form.operatingStatus === 'offline' ? '#F59E0B' : 'var(--text-muted)',
                     fontWeight: form.operatingStatus === 'offline' ? 700 : 500,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    transition: 'all 0.18s ease',
+                    fontSize: 13, cursor: 'pointer', transition: 'all 0.18s ease',
                   }}
                 >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: form.operatingStatus === 'offline' ? '#F59E0B' : 'rgba(148, 163, 184, 0.4)',
-                      boxShadow: form.operatingStatus === 'offline' ? '0 0 8px #F59E0B' : 'none',
-                    }}
-                  />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: form.operatingStatus === 'offline' ? '#F59E0B' : 'rgba(148, 163, 184, 0.4)' }} />
                   <span>ออฟไลน์ (ปิดบริการชั่วคราว)</span>
                 </button>
               </div>
@@ -257,22 +302,70 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               {errors.name && <div className="error-msg" style={{ marginTop: '0.25rem' }}>{errors.name}</div>}
             </div>
 
-            {/* Device ID */}
+            {/* Station ID */}
             <div>
               <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
-                รหัสอุปกรณ์ / Station ID
+                รหัสสถานี (Station ID) {!isEdit && '*'}
               </label>
-              <input
-                className="input"
-                value={form.deviceId}
-                onChange={(e) => set('deviceId', e.target.value)}
-                placeholder="เช่น ST-001 หรือ DEV-RS01"
-                style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', fontFamily: 'monospace' }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  className={`input ${errors.deviceId ? 'input-error' : ''}`}
+                  value={loadingNextId && !form.deviceId ? '' : form.deviceId}
+                  onChange={(e) => set('deviceId', e.target.value)}
+                  placeholder={loadingNextId ? 'กำลังโหลด...' : 'เช่น ST-001'}
+                  disabled={isEdit}
+                  style={{
+                    fontSize: '0.9375rem', padding: '0.65rem 0.875rem',
+                    fontFamily: 'monospace',
+                    opacity: isEdit ? 0.5 : 1,
+                    paddingRight: loadingNextId ? '2.5rem' : '0.875rem',
+                  }}
+                />
+                {loadingNextId && (
+                  <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    ...
+                  </span>
+                )}
+              </div>
+              {isEdit && <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>ไม่สามารถเปลี่ยนรหัสสถานีได้</div>}
+              {errors.deviceId && <div className="error-msg" style={{ marginTop: '0.25rem' }}>{errors.deviceId}</div>}
             </div>
 
-            {/* Location details */}
-            <div>
+            {/* Gateway Dropdown — Create only */}
+            {!isEdit && (
+              <div>
+                <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <RadioIcon size={14} style={{ color: 'var(--color-primary-dark)' }} />
+                  Gateway *
+                </label>
+                <select
+                  className={`input ${errors.gatewayId ? 'input-error' : ''}`}
+                  value={form.gatewayId}
+                  onChange={(e) => set('gatewayId', e.target.value)}
+                  disabled={loadingGateways}
+                  style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', cursor: 'pointer' }}
+                >
+                  {loadingGateways ? (
+                    <option>กำลังโหลด...</option>
+                  ) : gateways.length === 0 ? (
+                    <option value="GW-001">Gateway_01 (GW-001) — ค่าเริ่มต้น</option>
+                  ) : (
+                    <>
+                      <option value="">-- เลือก Gateway --</option>
+                      {gateways.map((gw) => (
+                        <option key={gw.gateway_id} value={gw.gateway_id}>
+                          {gw.gateway_name} ({gw.gateway_id}) {gw.status !== 'active' ? '— offline' : ''}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                {errors.gatewayId && <div className="error-msg" style={{ marginTop: '0.25rem' }}>{errors.gatewayId}</div>}
+              </div>
+            )}
+
+            {/* Location */}
+            <div style={{ gridColumn: isEdit ? '1 / 2' : '1 / -1' }}>
               <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
                 สถานที่ / จุดสังเกต
               </label>
@@ -352,77 +445,28 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         {/* ════════ SECTION 2: REFERENCE POINT CALIBRATION ════════ */}
         <div
           style={{
-            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%)',
-            border: '1px solid rgba(6, 182, 212, 0.25)',
+            background: 'var(--card-surface)',
+            border: '1px solid var(--card-border)',
             borderRadius: '1rem',
             padding: '1.25rem 1.5rem',
           }}
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '0.75rem',
-              paddingBottom: '0.625rem',
-              borderBottom: '1px solid rgba(6, 182, 212, 0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: '0.75rem', paddingBottom: '0.625rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <SlidersIcon size={18} style={{ color: 'var(--cyan-glow)' }} />
+              <SlidersIcon size={18} style={{ color: 'var(--color-primary-dark)' }} />
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFFFFF' }}>
-                2. การปรับเทียบจุดอ้างอิงระดับน้ำ (Reference Point Calibration)
+                จุดอ้างอิงระดับน้ำ
               </h3>
-            </div>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                color: 'var(--cyan-glow)',
-                background: 'rgba(6, 182, 212, 0.15)',
-                padding: '0.2rem 0.6rem',
-                borderRadius: '9999px',
-                border: '1px solid rgba(6, 182, 212, 0.3)',
-              }}
-            >
-              โมเดลสัมพัทธ์
-            </span>
-          </div>
-
-          {/* Explanatory Info Card */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '0.625rem',
-              background: 'rgba(15, 23, 42, 0.65)',
-              border: '1px solid rgba(6, 182, 212, 0.2)',
-              borderRadius: '0.625rem',
-              padding: '0.75rem 1rem',
-              marginBottom: '1rem',
-              fontSize: '0.8125rem',
-              color: '#CBD5E1',
-              lineHeight: 1.5,
-            }}
-          >
-            <InfoIcon size={16} style={{ color: 'var(--cyan-glow)', flexShrink: 0, marginTop: 2 }} />
-            <div>
-              <div style={{ fontWeight: 600, color: '#F1F5F9', marginBottom: '0.25rem' }}>
-                การแสดงผลระดับน้ำเทียบกับจุดอ้างอิง
-              </div>
-              <span style={{ color: 'var(--text-secondary)' }}>
-                คำนวณจากระยะติดตั้งถึงจุดอ้างอิง ลบด้วยระยะผิวน้ำที่เซนเซอร์วัดได้จริง
-              </span>
-              <div style={{ marginTop: '0.35rem', color: 'var(--text-secondary)' }}>
-                • ค่าติดลบ (-) หมายถึงระดับน้ำอยู่ต่ำกว่าจุดอ้างอิง (เช่น -0.80 ม. คือต่ำกว่าตลิ่ง 80 ซม.)
-                <br />
-                • ค่าบวก (+) หมายถึงระดับน้ำเอ่อล้นสูงกว่าจุดอ้างอิง (เช่น +0.30 ม. คือล้นตลิ่ง 30 ซม.)
-              </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem 1.25rem' }}>
-            {/* Reference Point Name */}
             <div>
               <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
                 ชื่อเรียกจุดอ้างอิง
@@ -431,40 +475,32 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
                 className="input"
                 value={form.referencePointName}
                 onChange={(e) => set('referencePointName', e.target.value)}
-                placeholder="เช่น ขอบตลิ่ง, ผิวถนนสะพาน (เว้นไว้จะใช้ 'จุดอ้างอิง')"
+                placeholder="เช่น ขอบตลิ่ง, สันเขื่อน"
                 style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem' }}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                หากไม่กรอก ระบบจะใช้คำว่า &quot;จุดอ้างอิง&quot; โดยอัตโนมัติ
-              </span>
             </div>
 
-            {/* Sensor to Reference Distance */}
             <div>
               <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
-                ระยะติดตั้งจากเซนเซอร์ถึงจุดอ้างอิง (เมตร) *
+                ระยะเซนเซอร์ถึงจุดอ้างอิง (เมตร) *
               </label>
               <input
                 className={`input ${errors.sensorToRefDistance ? 'input-error' : ''}`}
                 value={form.sensorToRefDistance}
                 onChange={(e) => set('sensorToRefDistance', e.target.value)}
-                placeholder="เช่น 2.00 หรือ 3.50"
+                placeholder="เช่น 2.00"
                 type="number"
                 step="any"
                 style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', fontFamily: 'monospace' }}
               />
-              {errors.sensorToRefDistance ? (
+              {errors.sensorToRefDistance && (
                 <div className="error-msg" style={{ marginTop: '0.25rem' }}>{errors.sensorToRefDistance}</div>
-              ) : (
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                  ระยะวัดแนวดิ่งจากหัวเซนเซอร์ A01NYUB ลงมาถึงระดับจุดอ้างอิง
-                </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* ════════ SECTION 3: ALERT THRESHOLDS RELATIVE TO REFERENCE POINT ════════ */}
+        {/* ════════ SECTION 3: ALERT THRESHOLDS ════════ */}
         <div
           style={{
             background: 'rgba(15, 23, 42, 0.65)',
@@ -475,27 +511,21 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '1rem',
-              paddingBottom: '0.625rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: '1rem', paddingBottom: '0.625rem',
               borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <AlertTriangleIcon size={18} style={{ color: '#F59E0B' }} />
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFFFFF' }}>
-                3. เกณฑ์การแจ้งเตือนเทียบจุดอ้างอิง
+                เกณฑ์การแจ้งเตือน
               </h3>
             </div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              (ไม่บังคับ - เว้นว่างได้หากไม่ต้องการแจ้งเตือน)
-            </span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(ไม่บังคับ)</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem 1.25rem' }}>
-            {/* Warning Level Card */}
             <div
               style={{
                 background: 'rgba(245, 158, 11, 0.05)',
@@ -507,30 +537,25 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B' }} />
                 <label className="label" style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: '#F59E0B' }}>
-                  ระดับเฝ้าระวังเทียบจุดอ้างอิง (เมตร)
+                  ระดับเฝ้าระวัง (เมตร)
                 </label>
               </div>
               <input
                 className="input"
                 value={form.warningLevel}
                 onChange={(e) => set('warningLevel', e.target.value)}
-                placeholder="เช่น -0.50 (เว้นว่างได้)"
+                placeholder="-0.50"
                 type="number"
                 step="any"
                 style={{
-                  fontSize: '0.9375rem',
-                  padding: '0.65rem 0.875rem',
+                  fontSize: '0.9375rem', padding: '0.65rem 0.875rem',
                   fontFamily: 'monospace',
                   background: 'rgba(15, 23, 42, 0.9)',
                   borderColor: 'rgba(245, 158, 11, 0.3)',
                 }}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-                ตัวอย่าง เช่น <strong>-0.50</strong> คือแจ้งเตือนเมื่อระดับน้ำสูงขึ้นมาเหลืออีก 50 ซม. จะแตะจุดอ้างอิง
-              </span>
             </div>
 
-            {/* Critical Level Card */}
             <div
               style={{
                 background: 'rgba(239, 68, 68, 0.05)',
@@ -542,27 +567,23 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444' }} />
                 <label className="label" style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: '#EF4444' }}>
-                  ระดับวิกฤตเทียบจุดอ้างอิง (เมตร)
+                  ระดับวิกฤต (เมตร)
                 </label>
               </div>
               <input
                 className="input"
                 value={form.criticalLevel}
                 onChange={(e) => set('criticalLevel', e.target.value)}
-                placeholder="เช่น 0.00 หรือ 0.20 (เว้นว่างได้)"
+                placeholder="0.00"
                 type="number"
                 step="any"
                 style={{
-                  fontSize: '0.9375rem',
-                  padding: '0.65rem 0.875rem',
+                  fontSize: '0.9375rem', padding: '0.65rem 0.875rem',
                   fontFamily: 'monospace',
                   background: 'rgba(15, 23, 42, 0.9)',
                   borderColor: 'rgba(239, 68, 68, 0.3)',
                 }}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem' }}>
-                ตัวอย่าง เช่น <strong>0.00</strong> คือน้ำเสมอจุดอ้างอิงพอดี หรือ <strong>+0.20</strong> คือน้ำเอ่อล้นเกินตลิ่ง 20 ซม.
-              </span>
             </div>
           </div>
         </div>
@@ -570,13 +591,13 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         {/* ════════ SECTION 4: DESCRIPTION ════════ */}
         <div>
           <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
-            คำอธิบายเพิ่มเติมเกี่ยวกับสถานี
+            คำอธิบายเพิ่มเติม
           </label>
           <textarea
             className="input"
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
-            placeholder="รายละเอียดเพิ่มเติม เช่น จุดติดตั้งใต้สะพาน, เสาไฟส่องสว่าง, ข้อมูลผู้ดูแลพื้นที่..."
+            placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
             rows={2}
             style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', resize: 'vertical' }}
           />
@@ -585,4 +606,3 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
     </Modal>
   );
 }
-

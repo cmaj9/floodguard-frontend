@@ -193,6 +193,33 @@ export async function createStation(
   return res.data.data;
 }
 
+/**
+ * GET /api/stations/gateways
+ * List all gateways for dropdown selection
+ */
+export interface GatewayOption {
+  gateway_id: string;
+  gateway_name: string;
+  status: string;
+  ip_address?: string;
+}
+
+export async function fetchGateways(): Promise<GatewayOption[]> {
+  const res = await api.get<ApiResponse<GatewayOption[]>>('/api/stations/gateways');
+  if (!res.data.success) throw new Error(res.data.error ?? 'ดึงข้อมูล Gateway ไม่สำเร็จ');
+  return res.data.data;
+}
+
+/**
+ * GET /api/stations/next-id
+ * Auto-generate the next sequential station ID (e.g. ST-004)
+ */
+export async function fetchNextStationId(): Promise<string> {
+  const res = await api.get<ApiResponse<{ next_id: string }>>('/api/stations/next-id');
+  if (!res.data.success) throw new Error(res.data.error ?? 'ดึง Station ID ไม่สำเร็จ');
+  return res.data.data.next_id;
+}
+
 // ── Auth & Users ──────────────────────────────────────────────────
 
 /**

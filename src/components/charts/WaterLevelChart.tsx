@@ -98,7 +98,7 @@ function CustomTooltip({ active, payload, label, station, timeRange }: any) {
 
       {pData?.minLevel !== undefined && pData?.maxLevel !== undefined && (
         <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 4 }}>
-          ต่ำสุด: {pData.minLevel >= 0 ? `+${pData.minLevel.toFixed(2)}` : pData.minLevel.toFixed(2)} ม. · สูงสุด:{' '}
+          ต่ำสุด {pData.minLevel >= 0 ? `+${pData.minLevel.toFixed(2)}` : pData.minLevel.toFixed(2)} ม. · สูงสุด{' '}
           {pData.maxLevel >= 0 ? `+${pData.maxLevel.toFixed(2)}` : pData.maxLevel.toFixed(2)} ม.
           {pData?.count ? ` · (${pData.count} ครั้ง)` : ''}
         </div>
@@ -110,13 +110,13 @@ function CustomTooltip({ active, payload, label, station, timeRange }: any) {
       <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid rgba(255, 255, 255, 0.08)', fontSize: 11, display: 'flex', flexDirection: 'column', gap: 3 }}>
         {warnVal !== null && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#F59E0B' }}>
-            <span>เกณฑ์เฝ้าระวัง:</span>
+            <span>เกณฑ์เฝ้าระวัง</span>
             <span>{warnVal >= 0 ? '+' : ''}{warnVal.toFixed(2)} ม. ({val >= warnVal ? `เกิน +${(val - warnVal).toFixed(2)}` : `ต่ำกว่า ${(warnVal - val).toFixed(2)}`} ม.)</span>
           </div>
         )}
         {critVal !== null && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#EF4444' }}>
-            <span>เกณฑ์วิกฤต:</span>
+            <span>เกณฑ์วิกฤต</span>
             <span>{critVal >= 0 ? '+' : ''}{critVal.toFixed(2)} ม. ({val >= critVal ? `เกิน +${(val - critVal).toFixed(2)}` : `ต่ำกว่า ${(critVal - val).toFixed(2)}`} ม.)</span>
           </div>
         )}

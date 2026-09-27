@@ -112,8 +112,8 @@ export default function UserModal({
       onClose={onClose}
       title={
         isEdit
-          ? "แก้ไขข้อมูลผู้ใช้ (Database)"
-          : "เพิ่มผู้ใช้ใหม่ (บันทึกลง Database)"
+          ? "แก้ไขข้อมูลผู้ใช้"
+          : "เพิ่มผู้ใช้ใหม่"
       }
       footer={
         <>

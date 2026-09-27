@@ -563,7 +563,7 @@ export default function SubscribePage() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 10,
-              boxShadow: '0 8px 24px rgba(6, 182, 212, 0.3)',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
             }}
           >
             <BellIcon size={18} />

@@ -118,31 +118,26 @@ export default function StationCalibrationModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`ตั้งค่าจุดอ้างอิงทางกายภาพ — ${station.name}`}
-      maxWidth="780px"
+      title={`ตั้งค่าจุดอ้างอิง — ${station.name}`}
+      maxWidth="760px"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-            * หากเว้นว่างชื่อจุดอ้างอิง ระบบจะใช้ชื่อ <strong>"จุดอ้างอิง"</strong> อัตโนมัติ
-          </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
-            </button>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+          </button>
         </div>
       }
     >
@@ -182,7 +177,7 @@ export default function StationCalibrationModal({
             {/* Field 1: Sensor to Reference Point Distance */}
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label htmlFor={sensorInputId} className="label" style={{ fontWeight: 600 }}>
-                ระยะติดตั้งจากเซนเซอร์ถึงจุดอ้างอิง *
+                ระยะจากเซนเซอร์ถึงจุดอ้างอิง *
               </label>
               <div style={{ position: 'relative' }}>
                 <input
@@ -211,9 +206,6 @@ export default function StationCalibrationModal({
                   ม.
                 </span>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                วัดจากหน้าเลนส์หัวเซนเซอร์ลงมาถึงจุดอ้างอิง (เช่น ขอบตลิ่ง)
-              </span>
             </div>
 
             {/* Field 2: Reference Point Name */}
@@ -227,11 +219,8 @@ export default function StationCalibrationModal({
                 className="input"
                 value={refName}
                 onChange={(e) => setRefName(e.target.value)}
-                placeholder="เช่น ขอบตลิ่ง, สันเขื่อน, ผิวถนน"
+                placeholder="เช่น ขอบตลิ่ง, สันเขื่อน"
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                ถ้าไม่กรอก จะตั้งชื่ออัตโนมัติว่า <strong>"จุดอ้างอิง"</strong>
-              </span>
             </div>
 
             {/* Threshold Fields: Warning & Critical (Optional) */}
@@ -254,13 +243,14 @@ export default function StationCalibrationModal({
                   gap: '0.35rem',
                 }}
               >
-                <InfoIcon size={14} style={{ color: 'var(--cyan-glow)' }} />
-                <span>เกณฑ์เตือนภัยระดับน้ำ (ไม่บังคับ)</span>
+                <InfoIcon size={14} style={{ color: '#38BDF8' }} />
+                <span>เกณฑ์เตือนภัยระดับน้ำ</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor={warningInputId} className="label" style={{ fontSize: '0.75rem' }}>
+                  <label htmlFor={warningInputId} className="label" style={{ fontSize: '0.75rem', color: '#F59E0B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
                     จุดเฝ้าระวัง (ม.)
                   </label>
                   <input
@@ -271,16 +261,19 @@ export default function StationCalibrationModal({
                     value={warningLevel}
                     onChange={(e) => setWarningLevel(e.target.value)}
                     placeholder="-0.50 (เว้นได้)"
-                    style={{ fontSize: '0.875rem' }}
+                    style={{
+                      fontSize: '0.875rem',
+                      border: '1.5px solid rgba(245, 158, 11, 0.6)',
+                      background: 'rgba(245, 158, 11, 0.05)',
+                      color: '#FCD34D',
+                    }}
                   />
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                    เช่น -0.50 (ต่ำกว่าตลิ่ง 50 ซม.)
-                  </span>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label htmlFor={criticalInputId} className="label" style={{ fontSize: '0.75rem' }}>
-                    จุดวิกฤติ (ม.)
+                  <label htmlFor={criticalInputId} className="label" style={{ fontSize: '0.75rem', color: '#EF4444', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />
+                    จุดวิกฤต (ม.)
                   </label>
                   <input
                     id={criticalInputId}
@@ -290,11 +283,13 @@ export default function StationCalibrationModal({
                     value={criticalLevel}
                     onChange={(e) => setCriticalLevel(e.target.value)}
                     placeholder="0.00 (เว้นได้)"
-                    style={{ fontSize: '0.875rem' }}
+                    style={{
+                      fontSize: '0.875rem',
+                      border: '1.5px solid rgba(239, 68, 68, 0.6)',
+                      background: 'rgba(239, 68, 68, 0.05)',
+                      color: '#FCA5A5',
+                    }}
                   />
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                    เช่น 0.00 (เสมอขอบตลิ่งพอดี)
-                  </span>
                 </div>
               </div>
             </div>
@@ -313,7 +308,7 @@ export default function StationCalibrationModal({
             >
               <div>
                 <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  ชดเชยการเอียงของเสา (GY-25)
+                  ชดเชยการเอียงของเสา
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   ปรับชดเชยระยะแนวดิ่งอัตโนมัติเมื่อเสาตรวจวัดเอียง
@@ -344,8 +339,8 @@ export default function StationCalibrationModal({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <SlidersIcon size={14} style={{ color: 'var(--cyan-glow)' }} />
-                <span>จำลองการคำนวณหน้างานจริง</span>
+                <SlidersIcon size={14} style={{ color: '#38BDF8' }} />
+                <span>จำลองการคำนวณ</span>
               </span>
               <span
                 style={{
@@ -492,9 +487,9 @@ export default function StationCalibrationModal({
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
                 <label htmlFor={testSliderId} style={{ color: 'var(--text-secondary)' }}>
-                  ทดลองปรับระยะผิวน้ำที่เซนเซอร์วัดได้
+                  ทดลองปรับระยะผิวน้ำที่วัดได้
                 </label>
-                <strong style={{ color: 'var(--cyan-glow)' }}>{testRawDistance.toFixed(2)} เมตร</strong>
+                <strong style={{ color: '#38BDF8' }}>{testRawDistance.toFixed(2)} เมตร</strong>
               </div>
               <input
                 id={testSliderId}
@@ -522,7 +517,7 @@ export default function StationCalibrationModal({
               }}
             >
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.2rem' }}>
-                ระดับน้ำจำลองที่จะแสดงผลบนแดชบอร์ด
+                ระดับน้ำคำนวณจำลอง
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
                 <span

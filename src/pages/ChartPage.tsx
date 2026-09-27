@@ -54,31 +54,44 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
   return {
     id: swr.station_id,
     name: swr.station_name,
-    description: `ประเภทสถานี ${swr.station_type} | Gateway ${swr.gateway_name}`,
+    description: `ประเภท ${swr.station_type || 'สถานีตรวจวัด'} · Gateway ${swr.gateway_name || '-'}`,
     location: swr.location_name || '',
     district: district,
     province: province,
-    lat: Number(swr.latitude),
-    lng: Number(swr.longitude),
-    currentLevel: swr.sensor_to_ref_distance !== null && swr.sensor_to_ref_distance !== undefined && swr.raw_distance !== null && swr.raw_distance !== undefined
+    lat: Number(swr.latitude) || 14.03593,
+    lng: Number(swr.longitude) || 100.72516,
+    currentLevel: swr.sensor_to_ref_distance != null && swr.raw_distance != null
       ? Number((Number(swr.sensor_to_ref_distance) - Number(swr.raw_distance)).toFixed(3))
-      : (swr.water_level !== null ? Number(swr.water_level) : 0),
-    sensorToRefDistance: swr.sensor_to_ref_distance !== null && swr.sensor_to_ref_distance !== undefined ? Number(swr.sensor_to_ref_distance) : undefined,
-    referencePointName: swr.reference_point_name || 'จุดอ้างอิง',
-    rawDistance: swr.raw_distance !== null && swr.raw_distance !== undefined ? Number(swr.raw_distance) : undefined,
+      : (swr.water_level != null ? Number(swr.water_level) : 0),
+    sensorToRefDistance: swr.sensor_to_ref_distance != null ? Number(swr.sensor_to_ref_distance) : 2.0,
+    referencePointName: swr.reference_point_name && swr.reference_point_name.trim() !== '' ? swr.reference_point_name.trim() : 'จุดอ้างอิง',
+    rawDistance: swr.raw_distance != null ? Number(swr.raw_distance) : null,
     isBlindZone: Boolean(swr.is_blind_zone),
-    maxLevel: swr.max_level !== null && swr.max_level !== undefined ? Number(swr.max_level) : undefined,
-    normalMax: swr.normal_max !== null && swr.normal_max !== undefined ? Number(swr.normal_max) : undefined,
-    warningLevel: swr.warning_level !== null && swr.warning_level !== undefined ? Number(swr.warning_level) : undefined,
-    criticalLevel: swr.critical_level !== null && swr.critical_level !== undefined ? Number(swr.critical_level) : undefined,
+    blindZoneOffset: swr.blind_zone_offset != null ? Number(swr.blind_zone_offset) : 0.28,
+    tiltCompensationEnabled: swr.tilt_compensation_enabled !== false,
+    maxLevel: swr.max_level != null ? Number(swr.max_level) : undefined,
+    normalMax: swr.normal_max != null ? Number(swr.normal_max) : undefined,
+    warningLevel: swr.warning_level != null ? Number(swr.warning_level) : undefined,
+    criticalLevel: swr.critical_level != null ? Number(swr.critical_level) : undefined,
     status: swr.water_status || 'unknown',
+    operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
     lastUpdated: swr.last_reading_time || new Date().toISOString(),
     isActive: swr.status === 'active',
     deviceId: swr.station_id,
-    batteryPercent: swr.battery_percent !== null ? Number(swr.battery_percent) : 100,
-    batteryVoltage: swr.battery_voltage !== null ? Number(swr.battery_voltage) : 13.0,
-    temperature: swr.temperature !== null ? Number(swr.temperature) : 27.8,
-    humidity: swr.humidity !== null ? Number(swr.humidity) : 74.1,
+    // Sensor readings: return undefined when null so offline guard ("-") displays correctly
+    batteryPercent: swr.battery_percent != null ? Number(swr.battery_percent) : undefined,
+    batteryVoltage: swr.battery_voltage != null ? Number(swr.battery_voltage) : undefined,
+    temperature: swr.temperature != null ? Number(swr.temperature) : undefined,
+    humidity: swr.humidity != null ? Number(swr.humidity) : undefined,
+    rssi: swr.rssi != null ? Number(swr.rssi) : undefined,
+    snr: swr.snr != null ? Number(swr.snr) : undefined,
+    tiltX: swr.tilt_x != null ? Number(swr.tilt_x) : undefined,
+    tiltY: swr.tilt_y != null ? Number(swr.tilt_y) : undefined,
+    gatewayName: swr.gateway_name || 'Gateway_01',
+    gatewayStatus: swr.gateway_status || 'online',
+    model: swr.model || undefined,
+    firmwareVersion: swr.firmware_version || undefined,
+    stationType: swr.station_type || 'สถานีตรวจวัด',
   };
 };
 
@@ -257,6 +270,10 @@ export default function ChartPage() {
       }
     };
     loadStations();
+    window.addEventListener('app:refresh', loadStations);
+    return () => {
+      window.removeEventListener('app:refresh', loadStations);
+    };
   }, [user, targetId]);
 
   // ── Load chart data (readings) from DB ─────────────────────────
@@ -302,13 +319,6 @@ export default function ChartPage() {
 
   return (
     <div className="page-container" style={{ paddingBottom: '3rem' }}>
-      {/* ── Page Header ── */}
-      <div className="page-header" style={{ marginBottom: '1.25rem' }}>
-        <div>
-          <h1 className="page-title">กราฟระดับน้ำ</h1>
-          <p className="page-subtitle">ติดตามการเปลี่ยนแปลงระดับน้ำตามช่วงเวลา</p>
-        </div>
-      </div>
 
       {/* Loading state for stations */}
       {stationsLoading && (
@@ -407,47 +417,61 @@ export default function ChartPage() {
                   >
                     {selectedStation.name}
                   </h2>
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '9999px',
-                      background: `${statusColor[selectedStation.status]}20`,
-                      border: `1px solid ${statusColor[selectedStation.status]}40`,
-                      color: statusColor[selectedStation.status],
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: '50%',
-                        background: statusColor[selectedStation.status],
-                      }}
-                    />
-                    {statusLabel[selectedStation.status]}
-                  </span>
+                  {(() => {
+                    const isOffline = !selectedStation.isActive || (selectedStation as any).operatingStatus === 'offline';
+                    return (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '9999px',
+                          background: isOffline ? 'rgba(100, 116, 139, 0.15)' : `${statusColor[selectedStation.status]}20`,
+                          border: `1px solid ${isOffline ? 'rgba(100, 116, 139, 0.3)' : `${statusColor[selectedStation.status]}40`}`,
+                          color: isOffline ? '#94A3B8' : statusColor[selectedStation.status],
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: isOffline ? '#64748B' : statusColor[selectedStation.status],
+                          }}
+                        />
+                        {isOffline ? 'ออฟไลน์' : statusLabel[selectedStation.status]}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                   <MapPinIcon size={13} style={{ color: 'var(--sky-highlight)' }} />
                   <span>{selectedStation.location || `${selectedStation.district} · ${selectedStation.province}`}</span>
                   <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>•</span>
-                  <span>
-                    ระดับน้ำ ({selectedStation.referencePointName || 'จุดอ้างอิง'}):{' '}
-                    <strong
-                      style={{
-                        color: selectedStation.currentLevel > 0 ? '#EF4444' : '#38BDF8',
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      {(selectedStation.currentLevel > 0 ? '+' : '') + selectedStation.currentLevel.toFixed(2)} ม.
-                    </strong>
-                  </span>
-                  {selectedStation.rawDistance !== undefined && selectedStation.rawDistance !== null && (
+                  {(() => {
+                    const isOffline = !selectedStation.isActive || (selectedStation as any).operatingStatus === 'offline';
+                    return (
+                      <span>
+                        ระดับน้ำ ({selectedStation.referencePointName || 'จุดอ้างอิง'}){' '}
+                        <strong
+                          style={{
+                            color: isOffline ? '#64748B' : selectedStation.currentLevel > 0 ? '#EF4444' : '#38BDF8',
+                            fontFamily: 'monospace',
+                          }}
+                        >
+                          {isOffline
+                            ? '-'
+                            : `${(selectedStation.currentLevel > 0 ? '+' : '') + selectedStation.currentLevel.toFixed(2)} ม.`}
+                        </strong>
+                      </span>
+                    );
+                  })()}
+                  {!(!selectedStation.isActive || (selectedStation as any).operatingStatus === 'offline') &&
+                    selectedStation.rawDistance !== undefined &&
+                    selectedStation.rawDistance !== null && (
                     <>
                       <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>•</span>
                       <span style={{ color: 'var(--text-muted)' }}>

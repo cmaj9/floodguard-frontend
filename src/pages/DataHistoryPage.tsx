@@ -5,7 +5,6 @@ import { fetchReadingsHistory, fetchStations } from "../services/apiService";
 import type { Reading, StationWithReading } from "../types";
 import {
   ClipboardListIcon,
-  RefreshCwIcon,
   XIcon,
   BarChart3Icon,
   TrendingDownIcon,
@@ -91,8 +90,6 @@ export default function DataHistoryPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [stations, setStations] = useState<StationWithReading[]>([]);
   const [filterStation, setFilterStation] = useState("");
@@ -147,11 +144,16 @@ export default function DataHistoryPage() {
   }, [readings, total]);
 
   useEffect(() => {
-    fetchStations().then(setStations).catch(() => {});
+    const load = () => { fetchStations().then(setStations).catch(() => {}); };
+    load();
+    window.addEventListener('app:refresh', load);
+    return () => {
+      window.removeEventListener('app:refresh', load);
+    };
   }, []);
 
   const loadReadings = useCallback(async (p: number, silent = false) => {
-    if (!silent) setLoading(true); else setIsRefreshing(true);
+    if (!silent) setLoading(true);
     setErrorMsg("");
     try {
       const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
@@ -161,11 +163,10 @@ export default function DataHistoryPage() {
       const result = await fetchReadingsHistory(params);
       setReadings(result.data);
       setTotal(result.total);
-      setLastRefresh(new Date());
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลได้");
     } finally {
-      if (!silent) setLoading(false); else setIsRefreshing(false);
+      if (!silent) setLoading(false);
     }
   }, [filterStation, filterStart, filterEnd]);
 
@@ -175,7 +176,14 @@ export default function DataHistoryPage() {
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => loadReadings(page, true), REFRESH_INTERVAL_MS);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    const handleGlobalRefresh = () => {
+      loadReadings(page);
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      window.removeEventListener('app:refresh', handleGlobalRefresh);
+    };
   }, [loadReadings, page]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -259,70 +267,6 @@ export default function DataHistoryPage() {
 
   return (
     <div className="page-container" style={{ paddingBottom: 50 }}>
-      {/* ══ 1. HEADER & LIVE SYNC STRIP ══════════════════════════════════ */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 16,
-          flexWrap: "wrap",
-          gap: 12,
-        }}
-      >
-        <div>
-          <h1
-            className="page-title"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              fontSize: 20,
-              fontWeight: 800,
-              color: "#FFFFFF",
-              margin: 0,
-            }}
-          >
-            ติดตามข้อมูล (Audit & Telemetry Logs)
-            {isRefreshing && (
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 11,
-                  padding: "3px 8px",
-                  borderRadius: 20,
-                  background: "rgba(6, 182, 212, 0.12)",
-                  color: "var(--cyan-glow)",
-                  fontWeight: 600,
-                }}
-              >
-                <RefreshCwIcon size={11} className="spin" />
-                <span>กำลังซิงค์</span>
-              </span>
-            )}
-          </h1>
-          <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, margin: 0 }}>
-            อัปเดตล่าสุด {fmtTimestamp(lastRefresh.toISOString())} · รีเฟรชอัตโนมัติทุก 30 วินาที
-          </p>
-        </div>
-
-        {/* Action Controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => loadReadings(page)}
-            disabled={loading}
-            style={{ gap: 6, fontSize: 12 }}
-          >
-            <RefreshCwIcon size={13} className={loading ? "spin" : ""} />
-            <span>ซิงค์ข้อมูล</span>
-          </button>
-        </div>
-      </div>
-
       {/* ══ 2. UNIFIED SPACE-EFFICIENT CONTROL BAR (Patterns 1 & 4) ════════ */}
       <div
         style={{

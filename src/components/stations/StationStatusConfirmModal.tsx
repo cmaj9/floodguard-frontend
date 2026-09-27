@@ -72,9 +72,7 @@ export default function StationStatusConfirmModal({
               background: isGoingOffline ? '#D97706' : '#10B981',
               color: '#FFFFFF',
               border: 'none',
-              boxShadow: isGoingOffline
-                ? '0 0 16px rgba(217, 119, 6, 0.4)'
-                : '0 0 16px rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
             }}
           >
             {submitting

@@ -57,7 +57,9 @@ export const StationSelectorCards = memo(function StationSelectorCards({
           }
 
           const formattedLevel =
-            typeof station.currentLevel === 'number'
+            !isOnline
+              ? '-'
+              : typeof station.currentLevel === 'number'
               ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
               : '0.00';
 
@@ -73,7 +75,7 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                   onSelectStation(station.id);
                 }
               }}
-              aria-label={`เลือกสถานี ${station.id} ${station.name} ระดับน้ำ ${formattedLevel} เมตร`}
+              aria-label={`เลือกสถานี ${station.id} ${station.name}`}
               aria-pressed={isSelected}
               style={{
                 background: isSelected
@@ -81,10 +83,10 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                   : 'var(--card-surface)',
                 borderRadius: '1rem',
                 border: isSelected
-                  ? '2px solid var(--cyan-glow)'
+                  ? '2px solid #0284c7'
                   : '1px solid var(--card-border-subtle)',
                 boxShadow: isSelected
-                  ? '0 0 20px rgba(6, 182, 212, 0.25), 0 4px 16px rgba(0, 0, 0, 0.4)'
+                  ? '0 4px 16px rgba(0, 0, 0, 0.4)'
                   : '0 2px 8px rgba(0, 0, 0, 0.3)',
                 padding: '1rem 1.125rem',
                 cursor: 'pointer',
@@ -111,11 +113,11 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                       fontFamily: 'monospace, inherit',
                       fontSize: '0.8125rem',
                       fontWeight: 700,
-                      color: isSelected ? 'var(--cyan-glow)' : 'var(--text-primary)',
+                      color: isSelected ? '#38BDF8' : 'var(--text-primary)',
                       background: isSelected
-                        ? 'rgba(6, 182, 212, 0.15)'
+                        ? 'rgba(2, 132, 199, 0.15)'
                         : 'rgba(255, 255, 255, 0.05)',
-                      border: `1px solid ${isSelected ? 'var(--cyan-glow)' : 'var(--card-border)'}`,
+                      border: `1px solid ${isSelected ? '#0284c7' : 'var(--card-border)'}`,
                       padding: '0.2rem 0.5rem',
                       borderRadius: '0.375rem',
                       letterSpacing: '0.04em',
@@ -144,15 +146,14 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
-                      background: isOnline ? '#10B981' : '#EF4444',
-                      boxShadow: isOnline ? '0 0 8px #10B981' : '0 0 8px #EF4444',
+                      background: isOnline ? '#10B981' : '#64748B',
                       display: 'inline-block',
                     }}
                   />
                   <span
                     style={{
                       fontSize: '0.6875rem',
-                      color: isOnline ? '#10B981' : '#EF4444',
+                      color: isOnline ? '#10B981' : '#94A3B8',
                       fontWeight: 600,
                     }}
                   >
@@ -230,13 +231,13 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                         fontSize: '1.375rem',
                         fontWeight: 800,
                         fontFamily: 'monospace, inherit',
-                        color: isSelected ? 'var(--cyan-glow)' : 'var(--text-primary)',
+                        color: isSelected ? '#38BDF8' : 'var(--text-primary)',
                         letterSpacing: '-0.02em',
                       }}
                     >
                       {formattedLevel}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ม.</span>
+                    {isOnline && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ม.</span>}
                   </div>
                 </div>
 

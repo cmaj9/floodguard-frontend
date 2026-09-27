@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import NotificationPanel from '../ui/NotificationPanel';
 import type { AppNotification } from '../../types';
-import { BellIcon } from '../ui/Icons';
+import { BellIcon, RefreshCwIcon } from '../ui/Icons';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'แดชบอร์ด',
   '/chart': 'กราฟระดับน้ำ',
   '/users': 'จัดการผู้ใช้',
   '/stations': 'จัดการสถานี',
+  '/history': 'ติดตามข้อมูล',
   '/profile': 'โปรไฟล์',
 };
 
@@ -20,8 +20,16 @@ interface TopBarProps {
 }
 
 export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllRead }: TopBarProps) {
-  const { user } = useAuth();
   const [showNotif, setShowNotif] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    window.dispatchEvent(new CustomEvent('app:refresh'));
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 800);
+  };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const now = new Date();
@@ -43,6 +51,29 @@ export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllR
       </div>
 
       <div className="topbar-actions">
+        {/* Global Refresh Button */}
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="btn btn-secondary btn-sm"
+          title="รีเฟรชข้อมูลทุกระบบ"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            height: 36,
+            padding: '0 12px',
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 'var(--radius-sm)',
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+          }}
+        >
+          <RefreshCwIcon size={14} className={refreshing ? 'spin' : ''} />
+          <span>รีเฟรช</span>
+        </button>
+
         {/* Notification button */}
         <div style={{ position: 'relative' }}>
           <button
@@ -64,29 +95,6 @@ export default function TopBar({ pathname, notifications, onMarkRead, onMarkAllR
               onClose={() => setShowNotif(false)}
             />
           )}
-        </div>
-
-        {/* User info */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '6px 12px',
-            background: 'var(--bg-glass)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-          }}
-        >
-          <div
-            className="user-avatar"
-            style={{ width: 28, height: 28, fontSize: 12 }}
-          >
-            {user?.name.slice(0, 1)}
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
-            {user?.name}
-          </span>
         </div>
       </div>
     </header>

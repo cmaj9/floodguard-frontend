@@ -6,7 +6,7 @@ import StationCalibrationModal from '../components/stations/StationCalibrationMo
 import StationNotificationModal from '../components/stations/StationNotificationModal';
 import StationStatusConfirmModal from '../components/stations/StationStatusConfirmModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
-import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus } from '../services/apiService';
+import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus, fetchNextStationId } from '../services/apiService';
 import StationMap from '../components/map/StationMap';
 import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
@@ -33,34 +33,44 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
   return {
     id: swr.station_id,
     name: swr.station_name,
-    description: `ประเภทสถานี ${swr.station_type} | Gateway ${swr.gateway_name}`,
+    description: `ประเภท ${swr.station_type || 'สถานีตรวจวัด'} · Gateway ${swr.gateway_name || '-'}`,
     location: swr.location_name || '',
     district: district,
     province: province,
-    lat: Number(swr.latitude),
-    lng: Number(swr.longitude),
-    currentLevel: swr.raw_distance !== null && swr.raw_distance !== undefined
+    lat: Number(swr.latitude) || 14.03593,
+    lng: Number(swr.longitude) || 100.72516,
+    currentLevel: swr.raw_distance != null
       ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
-      : (swr.water_level !== null && swr.water_level !== undefined ? Number(swr.water_level) : 0),
+      : (swr.water_level != null ? Number(swr.water_level) : 0),
     sensorToRefDistance: sToRef,
     referencePointName: refName,
-    rawDistance: swr.raw_distance !== null && swr.raw_distance !== undefined ? Number(swr.raw_distance) : null,
+    rawDistance: swr.raw_distance != null ? Number(swr.raw_distance) : null,
     isBlindZone: Boolean(swr.is_blind_zone),
-    blindZoneOffset: swr.blind_zone_offset !== undefined ? Number(swr.blind_zone_offset) : 0.28,
+    blindZoneOffset: swr.blind_zone_offset != null ? Number(swr.blind_zone_offset) : 0.28,
     tiltCompensationEnabled: swr.tilt_compensation_enabled !== false,
-    maxLevel: swr.max_level !== null ? Number(swr.max_level) : 10,
-    normalMax: swr.normal_max !== null ? Number(swr.normal_max) : -1.0,
-    warningLevel: swr.warning_level !== null ? Number(swr.warning_level) : -0.5,
-    criticalLevel: swr.critical_level !== null ? Number(swr.critical_level) : 0.0,
+    // Use undefined for unset thresholds so chart/component can detect absence correctly
+    maxLevel: swr.max_level != null ? Number(swr.max_level) : undefined,
+    normalMax: swr.normal_max != null ? Number(swr.normal_max) : undefined,
+    warningLevel: swr.warning_level != null ? Number(swr.warning_level) : undefined,
+    criticalLevel: swr.critical_level != null ? Number(swr.critical_level) : undefined,
     status: swr.water_status || 'unknown',
     operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
     lastUpdated: swr.last_reading_time || new Date().toISOString(),
     isActive: swr.status === 'active',
     deviceId: swr.station_id,
-    batteryPercent: swr.battery_percent !== null ? Number(swr.battery_percent) : undefined,
-    batteryVoltage: swr.battery_voltage !== null ? Number(swr.battery_voltage) : undefined,
-    temperature: swr.temperature !== null ? Number(swr.temperature) : undefined,
-    humidity: swr.humidity !== null ? Number(swr.humidity) : undefined,
+    batteryPercent: swr.battery_percent != null ? Number(swr.battery_percent) : undefined,
+    batteryVoltage: swr.battery_voltage != null ? Number(swr.battery_voltage) : undefined,
+    temperature: swr.temperature != null ? Number(swr.temperature) : undefined,
+    humidity: swr.humidity != null ? Number(swr.humidity) : undefined,
+    rssi: swr.rssi != null ? Number(swr.rssi) : undefined,
+    snr: swr.snr != null ? Number(swr.snr) : undefined,
+    tiltX: swr.tilt_x != null ? Number(swr.tilt_x) : undefined,
+    tiltY: swr.tilt_y != null ? Number(swr.tilt_y) : undefined,
+    gatewayName: swr.gateway_name || 'Gateway_01',
+    gatewayStatus: swr.gateway_status || 'online',
+    model: swr.model || undefined,
+    firmwareVersion: swr.firmware_version || undefined,
+    stationType: swr.station_type || 'สถานีตรวจวัด',
   };
 };
 
@@ -152,6 +162,13 @@ export default function StationsPage() {
   useEffect(() => {
     if (user?.role === 'admin' || user?.role === 'staff') {
       loadStations();
+      const handleGlobalRefresh = () => {
+        loadStations();
+      };
+      window.addEventListener('app:refresh', handleGlobalRefresh);
+      return () => {
+        window.removeEventListener('app:refresh', handleGlobalRefresh);
+      };
     }
   }, [user, loadStations]);
 
@@ -174,10 +191,11 @@ export default function StationsPage() {
     }
   };
 
-  const handleSave = async (data: Partial<Station>) => {
+  const handleSave = async (data: Partial<Station> & { gateway_id?: string }) => {
     try {
       const targetStatus = data.operatingStatus || (data.isActive ? 'active' : 'offline');
       if (editStation) {
+        // Edit: update metadata
         await updateStation(editStation.id, {
           station_name: data.name,
           location_name: data.location,
@@ -192,9 +210,18 @@ export default function StationsPage() {
         });
         await updateStationStatus(editStation.id, targetStatus);
       } else {
+        // Create: requires gateway_id
+        let stationId = data.deviceId?.trim();
+        if (!stationId) {
+          try {
+            stationId = await fetchNextStationId();
+          } catch (_) {
+            stationId = `ST-${Date.now().toString().slice(-4)}`;
+          }
+        }
         await createStation({
-          station_id: data.deviceId || `ST-${Date.now().toString().slice(-4)}`,
-          gateway_id: 'GW-001',
+          station_id: stationId,
+          gateway_id: data.gateway_id || 'GW-001',
           station_name: data.name,
           location_name: data.location,
           latitude: data.lat,
@@ -203,13 +230,16 @@ export default function StationsPage() {
           reference_point_name: data.referencePointName || 'จุดอ้างอิง',
           warning_level: data.warningLevel,
           critical_level: data.criticalLevel,
-          max_level: data.maxLevel || 10.0,
+          max_level: data.maxLevel || null,
           status: targetStatus,
         });
+        // Broadcast refresh to all pages
+        window.dispatchEvent(new Event('app:refresh'));
       }
       await loadStations();
     } catch (err: any) {
-      alert(err.message || 'บันทึกข้อมูลไม่สำเร็จ');
+      // Re-throw so StationModal can catch and display in-modal error
+      throw err;
     }
   };
 
@@ -221,45 +251,40 @@ export default function StationsPage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">จัดการสถานีวัดระดับน้ำ</h1>
-          <p className="page-subtitle">เพิ่ม แก้ไข หรือตั้งค่าจุดอ้างอิงของสถานี ({stations.length} สถานี)</p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {/* View toggle (Pattern 1) */}
-          <SegmentedControl
-            options={[
-              { value: 'table', label: 'ตาราง', icon: <TableIcon size={14} /> },
-              { value: 'map', label: 'แผนที่', icon: <MapIcon size={14} /> },
-            ]}
-            value={view}
-            onChange={(val) => setView(val as 'table' | 'map')}
-            size="sm"
-            ariaLabel="สลับมุมมองสถานี"
-          />
+      {/* View switcher and Actions Header Bar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* View toggle (Pattern 1) */}
+        <SegmentedControl
+          options={[
+            { value: 'table', label: 'ตาราง', icon: <TableIcon size={14} /> },
+            { value: 'map', label: 'แผนที่', icon: <MapIcon size={14} /> },
+          ]}
+          value={view}
+          onChange={(val) => setView(val as 'table' | 'map')}
+          size="sm"
+          ariaLabel="สลับมุมมองสถานี"
+        />
 
-          <button
-            id="global-notification-btn"
-            className="btn btn-secondary"
-            onClick={() => { setNotifyingStation(null); setNotificationModalOpen(true); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', fontSize: 13.5, fontWeight: 600 }}
-            title="ตั้งค่าเกณฑ์การแจ้งเตือนส่วนกลางของระบบ"
-          >
-            <BellIcon size={15} />
-            <span>เกณฑ์แจ้งเตือนส่วนกลาง</span>
-          </button>
+        <button
+          id="global-notification-btn"
+          className="btn btn-secondary"
+          onClick={() => { setNotifyingStation(null); setNotificationModalOpen(true); }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', fontSize: 13.5, fontWeight: 600 }}
+          title="ตั้งค่าเกณฑ์การแจ้งเตือนส่วนกลางของระบบ"
+        >
+          <BellIcon size={15} />
+          <span>เกณฑ์แจ้งเตือนส่วนกลาง</span>
+        </button>
 
-          <button
-            id="add-station-btn"
-            className="btn btn-primary"
-            onClick={handleAdd}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', fontSize: 13.5, fontWeight: 600 }}
-          >
-            <PlusIcon size={15} />
-            <span>เพิ่มสถานี</span>
-          </button>
-        </div>
+        <button
+          id="add-station-btn"
+          className="btn btn-primary"
+          onClick={handleAdd}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', fontSize: 13.5, fontWeight: 600 }}
+        >
+          <PlusIcon size={15} />
+          <span>เพิ่มสถานี</span>
+        </button>
       </div>
 
       {loading && (

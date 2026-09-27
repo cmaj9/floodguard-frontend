@@ -35,7 +35,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;
-          const isOnline = station.isActive;
+          const isOffline = !station.isActive || station.operatingStatus === "offline";
 
           // Status colors
           let statusColor = "#10B981";
@@ -43,7 +43,12 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
           let statusBorder = "rgba(16, 185, 129, 0.3)";
           let statusText = "ปกติ (ปลอดภัย)";
 
-          if (station.status === "critical") {
+          if (isOffline) {
+            statusColor = "#94A3B8";
+            statusBg = "rgba(100, 116, 139, 0.15)";
+            statusBorder = "rgba(100, 116, 139, 0.3)";
+            statusText = "ออฟไลน์";
+          } else if (station.status === "critical") {
             statusColor = "#EF4444";
             statusBg = "rgba(239, 68, 68, 0.15)";
             statusBorder = "rgba(239, 68, 68, 0.35)";
@@ -53,18 +58,13 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
             statusBg = "rgba(245, 158, 11, 0.15)";
             statusBorder = "rgba(245, 158, 11, 0.35)";
             statusText = "เฝ้าระวังน้ำสูง";
-          } else if (!isOnline) {
-            statusColor = "#64748B";
-            statusBg = "rgba(100, 116, 139, 0.15)";
-            statusBorder = "rgba(100, 116, 139, 0.3)";
-            statusText = "ออฟไลน์";
           }
 
-          const formattedLevel =
-            typeof station.currentLevel === "number"
-              ? (station.currentLevel > 0 ? "+" : "") +
-                station.currentLevel.toFixed(2)
-              : "0.00";
+          const formattedLevel = isOffline
+            ? "-"
+            : typeof station.currentLevel === "number"
+            ? (station.currentLevel > 0 ? "+" : "") + station.currentLevel.toFixed(2)
+            : "-";
 
           return (
             <button
@@ -84,14 +84,14 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                 textAlign: "left",
                 cursor: "pointer",
                 border: isSelected
-                  ? "2px solid var(--primary-accent)"
+                  ? "2px solid #0284c7"
                   : "1px solid rgba(255, 255, 255, 0.1)",
                 background: isSelected
-                  ? "linear-gradient(135deg, rgba(37, 99, 235, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)"
+                  ? "linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(15, 23, 42, 0.95) 100%)"
                   : "rgba(15, 23, 42, 0.75)",
                 boxShadow: isSelected
-                  ? "0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
-                  : "0 4px 14px rgba(0, 0, 0, 0.25)",
+                  ? "0 4px 16px rgba(0, 0, 0, 0.35)"
+                  : "0 2px 8px rgba(0, 0, 0, 0.2)",
                 transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 outline: "none",
                 overflow: "hidden",
@@ -201,13 +201,17 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                       fontWeight: 700,
                       padding: "0.2rem 0.6rem",
                       borderRadius: "9999px",
-                      background: "rgba(37, 99, 235, 0.2)",
-                      border: "1px solid rgba(56, 189, 248, 0.3)",
-                      color: "#38BDF8",
+                      background: isOffline
+                        ? "rgba(100, 116, 139, 0.18)"
+                        : "rgba(2, 132, 199, 0.15)",
+                      border: isOffline
+                        ? "1px solid rgba(100, 116, 139, 0.35)"
+                        : "1px solid rgba(56, 189, 248, 0.3)",
+                      color: isOffline ? "#94A3B8" : "#38BDF8",
                     }}
                   >
-                    <CheckCircleIcon size={12} />
-                    <span>กำลังแสดงข้อมูล</span>
+                    {!isOffline && <CheckCircleIcon size={12} />}
+                    <span>{isOffline ? "เลือกสถานีนี้" : "กำลังแสดงข้อมูล"}</span>
                   </span>
                 )}
               </div>
@@ -283,22 +287,28 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                       style={{
                         fontSize: "1.5rem",
                         fontWeight: 900,
-                        color: isSelected ? "#38BDF8" : "#FFFFFF",
+                        color: isOffline
+                          ? "var(--text-muted)"
+                          : isSelected
+                          ? "#38BDF8"
+                          : "#FFFFFF",
                         fontFamily: "monospace",
                         lineHeight: 1,
                       }}
                     >
                       {formattedLevel}
                     </span>
-                    <span
-                      style={{
-                        fontSize: "0.8125rem",
-                        color: "var(--text-secondary)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      เมตร (ม.)
-                    </span>
+                    {!isOffline && (
+                      <span
+                        style={{
+                          fontSize: "0.8125rem",
+                          color: "var(--text-secondary)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        เมตร (ม.)
+                      </span>
+                    )}
                   </div>
                 </div>
 

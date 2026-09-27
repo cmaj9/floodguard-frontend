@@ -9,7 +9,6 @@ import {
   AlertTriangleIcon,
   XCircleIcon,
   RefreshCwIcon,
-  CheckCircleIcon,
 } from '../components/ui/Icons';
 import type { Station, StationWithReading } from '../types';
 import { fetchStations } from '../services/apiService';
@@ -88,7 +87,6 @@ export default function DashboardPage() {
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
   // ── Load Real Data from API ───────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -105,7 +103,6 @@ export default function DashboardPage() {
             : mapped;
 
         setStations(filtered);
-        setLastFetch(new Date());
 
         // Automatically select ST-001 or the first station on initial load
         setSelectedStationId((prev) => (prev ? prev : filtered[0]?.id || null));
@@ -191,7 +188,14 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
     const timer = setInterval(loadData, 30_000);
-    return () => clearInterval(timer);
+    const handleGlobalRefresh = () => {
+      loadData();
+    };
+    window.addEventListener('app:refresh', handleGlobalRefresh);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('app:refresh', handleGlobalRefresh);
+    };
   }, [loadData]);
 
   const criticalStations = useMemo(
@@ -205,9 +209,6 @@ export default function DashboardPage() {
     [stations, selectedStationId]
   );
 
-  const formattedFetchTime = lastFetch
-    ? lastFetch.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    : 'กำลังตรวจสอบ';
 
   return (
     <div
@@ -265,83 +266,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── 1. STREAMLINED HEADER (Space-Efficient & Zero-Clutter) ── */}
-      <div
-        className="bento-card"
-        style={{
-          background: 'linear-gradient(135deg, #111827 0%, #0F172A 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '1.25rem',
-          padding: '1rem 1.5rem',
-          marginBottom: '1.25rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.2rem' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: '0.2rem 0.6rem',
-                borderRadius: '9999px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.35)',
-                color: '#10B981',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-              }}
-            >
-              <CheckCircleIcon size={13} />
-              <span>ระบบเปิดให้บริการปกติ</span>
-            </div>
-          </div>
-
-          <h1
-            style={{
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              color: '#FFFFFF',
-              margin: '0.15rem 0',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            ศูนย์ติดตามระดับน้ำ
-          </h1>
-        </div>
-
-        {/* Right Side: Refresh & Sync Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>ข้อมูลล่าสุด</div>
-            <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-              {formattedFetchTime} น.
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={isLoading}
-            className="btn btn-secondary btn-sm"
-            style={{
-              fontSize: '0.75rem',
-              padding: '0.4rem 0.75rem',
-              borderRadius: '0.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            <RefreshCwIcon size={13} className={isLoading ? 'spin' : ''} />
-            <span>รีเฟรช</span>
-          </button>
-        </div>
-      </div>
 
       {/* ── ERROR STATE WITH RECOVERY ── */}
       {loadError && (

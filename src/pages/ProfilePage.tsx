@@ -34,12 +34,6 @@ export default function ProfilePage() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">โปรไฟล์</h1>
-          <p className="page-subtitle">แก้ไขข้อมูลส่วนตัวของคุณ</p>
-        </div>
-      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 24, alignItems: 'start', maxWidth: 900 }}>
         {/* Profile summary card */}

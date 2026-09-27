@@ -187,16 +187,26 @@ export interface AppNotification {
 export interface NotificationSettings {
   setting_id?: number;
   station_id?: string | null;
+  // Condition 1: Water Level Safety Offset
   water_level_enabled: boolean;
   safety_offset: number;
+  water_level_cooldown_minutes?: number;
+  // Condition 2: Rate of Rise
   rate_of_rise_enabled: boolean;
   rate_of_rise_threshold: number;
+  rate_of_rise_cooldown_minutes?: number;
+  // Condition 3: Offline Timeout
   offline_timeout_enabled: boolean;
   offline_timeout_minutes: number;
+  offline_cooldown_minutes?: number;
+  // Condition 4: Battery Low
   battery_low_enabled: boolean;
   battery_low_threshold: number;
+  battery_low_cooldown_minutes?: number;
+  // Condition 5: Geofence
   geofence_enabled: boolean;
   geofence_radius_meters: number;
+  geofence_cooldown_minutes?: number;
   is_custom?: boolean;
   updated_at?: string;
 }

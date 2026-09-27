@@ -349,11 +349,13 @@ export default function StationMap({
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                       <span>ระดับน้ำเทียบ{station.referencePointName || 'จุดอ้างอิง'}</span>
-                      <strong style={{ color: station.currentLevel > 0 ? '#EF4444' : '#0369A1' }}>
-                        {(station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)} ม.
+                      <strong style={{ color: !station.isActive || station.operatingStatus === 'offline' ? '#64748B' : station.currentLevel > 0 ? '#EF4444' : '#0369A1' }}>
+                        {!station.isActive || station.operatingStatus === 'offline'
+                          ? '-'
+                          : `${station.currentLevel > 0 ? '+' : ''}${station.currentLevel.toFixed(2)} ม.`}
                       </strong>
                     </div>
-                    {station.rawDistance !== undefined && station.rawDistance !== null && (
+                    {station.rawDistance !== undefined && station.rawDistance !== null && station.isActive && station.operatingStatus !== 'offline' && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748B', marginBottom: 4 }}>
                         <span>ระยะเซนเซอร์วัดได้</span>
                         <span>{Number(station.rawDistance).toFixed(2)} ม.</span>
@@ -365,14 +367,22 @@ export default function StationMap({
                         style={{
                           fontWeight: 600,
                           color:
-                            station.status === 'critical'
+                            !station.isActive || station.operatingStatus === 'offline'
+                              ? '#64748B'
+                              : station.status === 'critical'
                               ? '#EF4444'
                               : station.status === 'warning'
                               ? '#F59E0B'
                               : '#10B981',
                         }}
                       >
-                        {station.status === 'critical' ? 'วิกฤต' : station.status === 'warning' ? 'เฝ้าระวัง' : 'ปกติ'}
+                        {!station.isActive || station.operatingStatus === 'offline'
+                          ? 'ออฟไลน์'
+                          : station.status === 'critical'
+                          ? 'วิกฤต'
+                          : station.status === 'warning'
+                          ? 'เฝ้าระวัง'
+                          : 'ปกติ'}
                       </span>
                     </div>
                     {station.batteryPercent !== undefined && (

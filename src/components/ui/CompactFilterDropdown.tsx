@@ -108,7 +108,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
           cursor: 'pointer',
           transition: 'all 0.18s ease',
           outline: 'none',
-          boxShadow: isOpen ? '0 0 12px rgba(37, 99, 235, 0.25)' : 'none',
+          boxShadow: isOpen ? '0 0 0 2px rgba(37, 99, 235, 0.3)' : 'none',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
         }}
@@ -121,7 +121,6 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
                 height: '7px',
                 borderRadius: '50%',
                 background: selectedOption.statusDotColor,
-                boxShadow: `0 0 8px ${selectedOption.statusDotColor}`,
                 flexShrink: 0,
               }}
             />
@@ -232,7 +231,6 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
                         height: '8px',
                         borderRadius: '50%',
                         background: opt.statusDotColor,
-                        boxShadow: `0 0 6px ${opt.statusDotColor}`,
                         flexShrink: 0,
                       }}
                     />

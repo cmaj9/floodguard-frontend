@@ -426,29 +426,24 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
       </div>
 
       {/* Offline Status Alert Banner */}
-      {(!station.isActive || station.operatingStatus === 'offline') && (
+      {isOffline && (
         <div
           style={{
-            marginBottom: "1.5rem",
-            padding: "12px 18px",
-            borderRadius: "0.875rem",
+            marginBottom: "1.25rem",
+            padding: "10px 16px",
+            borderRadius: "0.75rem",
             background: "rgba(245, 158, 11, 0.08)",
             border: "1px solid rgba(245, 158, 11, 0.25)",
             color: "#F59E0B",
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             fontSize: "0.875rem",
-            fontWeight: 500,
+            fontWeight: 600,
           }}
         >
-          <AlertTriangleIcon size={20} style={{ flexShrink: 0 }} />
-          <div>
-            <strong>สถานีนี้ถูกตั้งค่าเป็น ออฟไลน์ (ปิดให้บริการชั่วคราว)</strong>
-            <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              ระบบระงับการถ่ายทอดสัญญาณออกสู่สาธารณะและระงับการส่งการแจ้งเตือนทาง LINE สำหรับสถานีนี้จนกว่าจะเปิดให้บริการ
-            </div>
-          </div>
+          <AlertTriangleIcon size={18} style={{ flexShrink: 0 }} />
+          <span>สถานีปิดให้บริการชั่วคราว (Offline) — งดส่งการแจ้งเตือนและถ่ายทอดข้อมูล</span>
         </div>
       )}
 
@@ -498,27 +493,16 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}
             >
               {isOffline ? (
-                <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
-                  <span
-                    style={{
-                      fontSize: "3rem",
-                      fontWeight: 700,
-                      color: "var(--text-muted)",
-                      lineHeight: 1,
-                    }}
-                  >
-                    -
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "#F59E0B",
-                      fontWeight: 600,
-                    }}
-                  >
-                    (งดแสดงผลออกสู่สาธารณะ)
-                  </span>
-                </div>
+                <span
+                  style={{
+                    fontSize: "3rem",
+                    fontWeight: 700,
+                    color: "var(--text-muted)",
+                    lineHeight: 1,
+                  }}
+                >
+                  -
+                </span>
               ) : (
                 <>
                   <span
@@ -583,7 +567,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               }}
             >
               {isOffline
-                ? "สถานีปิดให้บริการชั่วคราว"
+                ? "ออฟไลน์"
                 : waterLevel < 0
                 ? `ต่ำกว่า${refName} ${Math.abs(waterLevel).toFixed(3)} ม.`
                 : waterLevel === 0
@@ -818,17 +802,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -964,17 +938,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1132,17 +1096,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1286,17 +1240,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1435,17 +1379,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1584,17 +1518,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                 </div>
               )}
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1679,7 +1603,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                         fontFamily: "monospace",
                       }}
                     >
-                      X: {tiltX > 0 ? `+${tiltX.toFixed(1)}` : tiltX.toFixed(1)}°
+                      X {tiltX > 0 ? `+${tiltX.toFixed(1)}` : tiltX.toFixed(1)}°
                     </span>
                     <span
                       style={{
@@ -1689,22 +1613,12 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                         fontFamily: "monospace",
                       }}
                     >
-                      Y: {tiltY > 0 ? `+${tiltY.toFixed(1)}` : tiltY.toFixed(1)}°
+                      Y {tiltY > 0 ? `+${tiltY.toFixed(1)}` : tiltY.toFixed(1)}°
                     </span>
                   </>
                 )}
               </div>
-              {isOffline && (
-                <div
-                  style={{
-                    fontSize: "0.8125rem",
-                    color: "var(--text-muted)",
-                    fontWeight: 600,
-                  }}
-                >
-                  สถานีปิดให้บริการชั่วคราว
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -1777,7 +1691,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   fontWeight: 600,
                 }}
               >
-                {isOffline ? "สถานีปิดให้บริการชั่วคราว" : `สถานะ ${gatewayStatus}`}
+                {isOffline ? "ออฟไลน์" : `สถานะ ${gatewayStatus}`}
               </div>
             </div>
           </div>
@@ -1847,10 +1761,10 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             >
               <AlertTriangleIcon size={32} style={{ color: "#F59E0B" }} />
               <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#E2E8F0" }}>
-                สถานีปิดให้บริการชั่วคราว (Offline)
+                สถานีออฟไลน์
               </div>
               <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                ระบบระงับการถ่ายทอดสัญญาณข้อมูลระดับน้ำออกสู่สาธารณะ
+                งดแสดงผลข้อมูลระดับน้ำขณะปิดให้บริการ
               </div>
             </div>
           ) : (

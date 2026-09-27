@@ -4,7 +4,8 @@ import { XIcon } from './Icons';
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   maxWidth?: string;
@@ -19,7 +20,7 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(',');
 
-export default function Modal({ isOpen, onClose, title, children, footer, maxWidth = '520px' }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, subtitle, children, footer, maxWidth = '520px' }: ModalProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -84,9 +85,16 @@ export default function Modal({ isOpen, onClose, title, children, footer, maxWid
         onKeyDown={handleKeyDown}
         tabIndex={-1}
       >
-        <div className="modal-header">
-          <h3 id="modal-title" className="modal-title">{title}</h3>
-          <button className="btn-icon" onClick={onClose} aria-label="ปิด" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="modal-header" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <h3 id="modal-title" className="modal-title">{title}</h3>
+            {subtitle && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>
+                {subtitle}
+              </div>
+            )}
+          </div>
+          <button className="btn-icon" onClick={onClose} aria-label="ปิด" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <XIcon size={16} />
           </button>
         </div>

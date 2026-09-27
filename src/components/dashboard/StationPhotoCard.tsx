@@ -17,24 +17,28 @@ export const StationPhotoCard = memo(function StationPhotoCard({
   const typeMeta = getStationTypeMeta(station.stationType);
   const imageUrl = station.imageUrl || getStationImage(station);
 
-  const isOnline = station.isActive;
+  const isOnline = station.isActive && (station as any).operatingStatus !== 'offline';
   const battery = station.batteryPercent !== undefined ? Math.max(0, Math.min(100, station.batteryPercent)) : 80;
 
-  // Format water level to 3 decimal places as in the reference screenshot (e.g. 0.050 m, -3.032 m)
-  const formattedLevel = typeof station.currentLevel === 'number'
+  // Format water level
+  const formattedLevel = !isOnline
+    ? '-'
+    : typeof station.currentLevel === 'number'
     ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
     : '0.00';
 
   // Value color: use cyan or green for normal, amber for warning, red for critical
   let levelColor = '#38bdf8'; // Sky cyan
-  if (station.status === 'critical') {
+  if (!isOnline) {
+    levelColor = '#64748b';
+  } else if (station.status === 'critical') {
     levelColor = '#ef4444';
   } else if (station.status === 'warning') {
     levelColor = '#f59e0b';
   } else if (station.currentLevel < 0) {
-    levelColor = '#22d3ee'; // Electric cyan for sensor datum readings
+    levelColor = '#38bdf8';
   } else {
-    levelColor = '#c084fc'; // Purple accent as seen in the reference screenshot for fixed station
+    levelColor = '#818cf8';
   }
 
   return (
@@ -48,17 +52,17 @@ export const StationPhotoCard = memo(function StationPhotoCard({
           onSelect(station.id);
         }
       }}
-      aria-label={`เลือกสถานี ${station.name} ระดับน้ำ ${formattedLevel} เมตร`}
+      aria-label={`เลือกสถานี ${station.name}`}
       aria-pressed={isSelected}
       className={`station-photo-card ${isSelected ? 'selected' : ''}`}
       style={{
         background: '#111827',
         borderRadius: '1.25rem',
         border: isSelected
-          ? '2px solid var(--cyan-glow)'
+          ? '2px solid #0284c7'
           : '1px solid rgba(255, 255, 255, 0.08)',
         boxShadow: isSelected
-          ? '0 0 20px rgba(6, 182, 212, 0.35), 0 8px 24px rgba(0,0,0,0.5)'
+          ? '0 8px 24px rgba(0,0,0,0.5)'
           : '0 4px 16px rgba(0, 0, 0, 0.3)',
         overflow: 'hidden',
         cursor: 'pointer',
@@ -139,13 +143,11 @@ export const StationPhotoCard = memo(function StationPhotoCard({
             right: '0.625rem',
             padding: '0.2rem 0.6rem',
             borderRadius: '9999px',
-            background: isOnline ? '#10B981' : '#EF4444',
+            background: isOnline ? '#10B981' : '#64748B',
             color: '#ffffff',
             fontSize: '0.6875rem',
             fontWeight: 700,
-            boxShadow: isOnline
-              ? '0 2px 8px rgba(16, 185, 129, 0.4)'
-              : '0 2px 8px rgba(239, 68, 68, 0.4)',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
             letterSpacing: '0.02em',
           }}
         >
@@ -221,15 +223,17 @@ export const StationPhotoCard = memo(function StationPhotoCard({
               >
                 {formattedLevel}
               </span>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  color: '#94A3B8',
-                  fontWeight: 500,
-                }}
-              >
-                m
-              </span>
+              {isOnline && (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    color: '#94A3B8',
+                    fontWeight: 500,
+                  }}
+                >
+                  m
+                </span>
+              )}
             </div>
           </div>
 
