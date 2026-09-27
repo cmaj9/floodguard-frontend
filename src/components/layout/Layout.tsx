@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import BottomNav from './BottomNav';
 import { useNotifications } from '../../context/NotificationContext';
 
 interface LayoutProps {
@@ -21,8 +22,9 @@ export default function Layout({ children }: LayoutProps) {
           onMarkRead={markRead}
           onMarkAllRead={markAllRead}
         />
-        <main>{children}</main>
+        <main className="content-main-area">{children}</main>
       </div>
+      <BottomNav />
     </div>
   );
 }

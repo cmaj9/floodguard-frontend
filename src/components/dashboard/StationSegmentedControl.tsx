@@ -27,11 +27,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
       <div
         role="tablist"
         aria-label="สถานีตรวจวัดระดับน้ำ"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-          gap: "1rem",
-        }}
+        className="station-cards-grid"
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;
@@ -72,6 +68,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
               type="button"
               role="tab"
               aria-selected={isSelected}
+              className={`station-selector-card ${isSelected ? 'selected' : ''}`}
               onClick={() => onSelectStation(station.id)}
               style={{
                 position: "relative",

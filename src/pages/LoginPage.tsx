@@ -27,11 +27,18 @@ export default function LoginPage() {
   };
 
   const handleLineLogin = async () => {
+    setError("");
+    setLoading(true);
     try {
       await loginWithLiff();
     } catch (err: any) {
       console.warn("LINE Login error:", err);
-      handleCitizenAccess();
+      setError(
+        err?.message ||
+          "ไม่สามารถเชื่อมต่อ LINE ได้ กรุณาตรวจสอบสถานะ Channel ใน LINE Developers ว่าเป็น Published"
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

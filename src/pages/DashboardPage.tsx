@@ -9,6 +9,8 @@ import {
   AlertTriangleIcon,
   XCircleIcon,
   RefreshCwIcon,
+  ActivityIcon,
+  MapIcon,
 } from '../components/ui/Icons';
 import type { Station, StationWithReading } from '../types';
 import { fetchStations } from '../services/apiService';
@@ -85,6 +87,7 @@ export default function DashboardPage() {
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<'telemetry' | 'map'>('telemetry');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -357,32 +360,52 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER (Idea #1) ── */}
+      {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER ── */}
       <StationSegmentedControl
         stations={stations}
         selectedStationId={selectedStation?.id || null}
         onSelectStation={(id) => setSelectedStationId(id)}
       />
 
-      {/* ── 3. CENTRAL TELEMETRY CANVAS: FULL METRIC INSPECTION & TREND GRAPH ── */}
+      {/* ── MOBILE VIEW TOGGLE BAR (Visible on Mobile only <= 768px) ── */}
+      <div className="mobile-view-toggle-wrap">
+        <div className="mobile-view-toggle-bar">
+          <button
+            type="button"
+            className={`view-toggle-pill ${mobileTab === 'telemetry' ? 'active' : ''}`}
+            onClick={() => setMobileTab('telemetry')}
+          >
+            <ActivityIcon size={16} />
+            <span>ข้อมูลระดับน้ำ & เซนเซอร์</span>
+          </button>
+          <button
+            type="button"
+            className={`view-toggle-pill ${mobileTab === 'map' ? 'active' : ''}`}
+            onClick={() => setMobileTab('map')}
+          >
+            <MapIcon size={16} />
+            <span>แผนที่สถานี (GIS)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 3. CENTRAL TELEMETRY CANVAS ── */}
       {selectedStation && (
-        <StationTelemetryHub station={selectedStation} />
+        <div className={`dashboard-telemetry-container ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}>
+          <StationTelemetryHub station={selectedStation} />
+        </div>
       )}
 
-      {/* ── 4. LOWER CANVAS: GIS MAP (LEFT, LARGER) + 5 RECENT READINGS (RIGHT, COMPACT) ── */}
+      {/* ── 4. LOWER CANVAS: GIS MAP + RECENT READINGS ── */}
       <div
         id="map-section"
-        className="dashboard-map-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 1fr)',
-          gap: '1.25rem',
-          alignItems: 'stretch',
-          marginBottom: '1.5rem',
-        }}
+        className={`dashboard-map-grid ${mobileTab === 'telemetry' ? 'mobile-map-hidden' : ''}`}
       >
-        {/* Left: GIS Map (Bigger) */}
-        <div style={{ minHeight: '440px', height: '480px' }}>
+        {/* Left: GIS Map */}
+        <div
+          className={`dashboard-map-wrapper ${mobileTab === 'telemetry' ? 'mobile-hidden' : ''}`}
+          style={{ minHeight: '440px' }}
+        >
           <StationMap
             stations={stations}
             selectedStation={selectedStation?.id || null}
@@ -394,20 +417,25 @@ export default function DashboardPage() {
 
         {/* Right: Recent Readings (5 latest, compact) */}
         {selectedStation && (
-          <div style={{ minHeight: '440px', height: '480px' }}>
+          <div
+            className={`dashboard-readings-wrapper ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}
+            style={{ minHeight: '440px' }}
+          >
             <StationRecentReadingsCard station={selectedStation} />
           </div>
         )}
       </div>
 
-      {/* ── 5. FLOATING COMMAND BAR / ACTION DOCK (Idea #3) ── */}
-      <FloatingActionDock
-        stations={stations}
-        selectedStationId={selectedStation?.id || null}
-        onSelectStation={(id) => setSelectedStationId(id)}
-        onRefresh={loadData}
-        isLoading={isLoading}
-      />
+      {/* ── 5. FLOATING COMMAND BAR / ACTION DOCK (Desktop only) ── */}
+      <div className="desktop-only-action-dock">
+        <FloatingActionDock
+          stations={stations}
+          selectedStationId={selectedStation?.id || null}
+          onSelectStation={(id) => setSelectedStationId(id)}
+          onRefresh={loadData}
+          isLoading={isLoading}
+        />
+      </div>
     </div>
   );
 }

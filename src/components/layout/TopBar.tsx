@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NotificationPanel from "../ui/NotificationPanel";
 import type { AppNotification } from "../../types";
-import { BellIcon, RefreshCwIcon } from "../ui/Icons";
+import { BellIcon, RefreshCwIcon, MaximizeIcon, MinimizeIcon } from "../ui/Icons";
+import Logo from "../ui/Logo";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "แดชบอร์ด",
@@ -27,6 +28,21 @@ export default function TopBar({
 }: TopBarProps) {
   const [showNotif, setShowNotif] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -51,12 +67,18 @@ export default function TopBar({
 
   return (
     <header className="topbar">
-      <div>
-        <div className="topbar-title">
-          {pageTitles[pathname] ?? "FloodGuard"}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div className="topbar-mobile-logo">
+          <Logo size="sm" />
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>
-          {dateStr} · {timeStr}
+        <div>
+          <div className="topbar-title">
+            {pageTitles[pathname] ?? "FloodGuard"}
+          </div>
+          <div className="topbar-datetime" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>
+            <span className="topbar-date-full">{dateStr} · </span>
+            <span className="topbar-time-live">{timeStr} น.</span>
+          </div>
         </div>
       </div>
 
@@ -64,6 +86,26 @@ export default function TopBar({
         className="topbar-actions"
         style={{ display: "flex", alignItems: "center", gap: 10 }}
       >
+        {/* Fullscreen Kiosk Mode (Especially for TV Wall / War Room Displays) */}
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="btn btn-secondary btn-sm"
+          title={isFullscreen ? "ออกจากโหมดเต็มจอ" : "โหมดเต็มจอ (สำหรับจอทีวี / War Room)"}
+          aria-label={isFullscreen ? "ออกจากโหมดเต็มจอ" : "เต็มจอ"}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 36,
+            height: 36,
+            padding: 0,
+            borderRadius: "var(--radius-sm)",
+            cursor: "pointer",
+          }}
+        >
+          {isFullscreen ? <MinimizeIcon size={16} /> : <MaximizeIcon size={16} />}
+        </button>
         {/* Global Refresh Button */}
         <button
           type="button"
