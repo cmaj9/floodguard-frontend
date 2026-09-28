@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import Layout from './components/layout/Layout';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ChartPage from './pages/ChartPage';
@@ -13,7 +14,7 @@ import ProfilePage from './pages/ProfilePage';
 import DataHistoryPage from './pages/DataHistoryPage';
 import SubscribePage from './pages/SubscribePage';
 import CitizenRegisterPage from './pages/CitizenRegisterPage';
-import ManagementPage from './pages/ManagementPage';
+import ManagementHubPage from './pages/ManagementHubPage';
 
 /**
  * Automatically handle LINE LIFF deep-link forwarding (?liff.state=/path)
@@ -61,7 +62,7 @@ function ProtectedRoute({
     if (!isLoading && !user && allowGuest) {
       loginAsCitizen();
     }
-  }, [isLoading, user, allowGuest, loginAsCitizen]);
+  }, [user, isLoading, allowGuest, loginAsCitizen]);
 
   if (isLoading) {
     return (
@@ -105,6 +106,7 @@ function ProtectedRoute({
     );
   }
 
+  // Auto-grant citizen access for public citizen routes if not logged in
   if (!user && allowGuest) {
     return <>{children}</>;
   }
@@ -162,9 +164,19 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/management"
+        element={
+          <ProtectedRoute allowGuest>
+            <Layout>
+              <ManagementHubPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/users"
         element={
-          <ProtectedRoute requiredRoles={['staff', 'admin']}>
+          <ProtectedRoute requiredRoles={['admin']}>
             <Layout>
               <UsersPage />
             </Layout>
@@ -201,16 +213,6 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/management"
-        element={
-          <ProtectedRoute requiredRoles={['staff', 'admin']}>
-            <Layout>
-              <ManagementPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -224,7 +226,9 @@ export default function App() {
         <LiffRedirectHandler />
         <AuthProvider>
           <NotificationProvider>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>

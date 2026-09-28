@@ -28,18 +28,14 @@ export async function initLiff(): Promise<boolean> {
   }
 
   try {
-    const initPromise = liff.init({ liffId });
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('LIFF init timed out')), 2500)
-    );
-    await Promise.race([initPromise, timeoutPromise]);
+    await liff.init({ liffId });
     isInitialized = true;
     initError = null;
     console.log('[LIFF Service] Initialized successfully. InClient:', liff.isInClient());
     return true;
   } catch (err: any) {
     initError = err;
-    console.warn('[LIFF Service] Initialization error or timeout:', err?.message || err);
+    console.error('[LIFF Service] Initialization error:', err?.message || err);
     return false;
   }
 }

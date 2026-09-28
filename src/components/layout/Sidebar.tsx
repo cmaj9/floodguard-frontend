@@ -12,6 +12,7 @@ import {
   LogOutIcon,
   KeyIcon,
   AlertTriangleIcon,
+  SlidersIcon,
 } from "../ui/Icons";
 import Logo from "../ui/Logo";
 import type { ReactNode } from "react";
@@ -38,11 +39,16 @@ const navItems: NavItem[] = [
     roles: ["citizen", "staff", "admin"],
   },
   {
-    path: "/users",
-    icon: <UsersIcon size={24} />,
-    label: "จัดการผู้ใช้",
-    roles: ["staff", "admin"],
-    requireAuth: true,
+    path: "/history",
+    icon: <ClipboardListIcon size={24} />,
+    label: "ประวัติข้อมูล",
+    roles: ["citizen", "staff", "admin"],
+  },
+  {
+    path: "/management",
+    icon: <SlidersIcon size={24} />,
+    label: "ศูนย์จัดการระบบ",
+    roles: ["citizen", "staff", "admin"],
   },
   {
     path: "/stations",
@@ -52,9 +58,9 @@ const navItems: NavItem[] = [
     requireAuth: true,
   },
   {
-    path: "/history",
-    icon: <ClipboardListIcon size={24} />,
-    label: "ประวัติข้อมูล",
+    path: "/users",
+    icon: <UsersIcon size={24} />,
+    label: "จัดการผู้ใช้",
     roles: ["admin"],
     requireAuth: true,
   },
@@ -129,6 +135,7 @@ export default function Sidebar() {
               aria-current={
                 location.pathname === item.path ? "page" : undefined
               }
+              title={item.label}
             >
               <span
                 className="nav-icon"

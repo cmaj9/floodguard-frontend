@@ -1,10 +1,11 @@
+import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   BarChart3Icon,
   LineChartIcon,
   ClipboardListIcon,
-  MenuIcon,
+  SlidersIcon,
   UserIcon,
   KeyIcon,
 } from '../ui/Icons';
@@ -12,9 +13,7 @@ import {
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isGuest } = useAuth();
-
-  const isStaffOrAdmin = Boolean(user && (user.role === 'staff' || user.role === 'admin'));
+  const { isGuest } = useAuth();
 
   interface MobileNavItem {
     path: string;
@@ -24,7 +23,7 @@ export default function BottomNav() {
     onClick: () => void;
   }
 
-  // Base navigation items for all users
+  // Canonical 5-Tab Navigation Order (Notification moved to TopBar, Profile far right, Management as Hub)
   const navItems: MobileNavItem[] = [
     {
       path: '/dashboard',
@@ -47,27 +46,21 @@ export default function BottomNav() {
       isActive: location.pathname === '/history',
       onClick: () => navigate('/history'),
     },
-  ];
-
-  // If staff or admin, add "จัดการระบบ" before Profile
-  if (isStaffOrAdmin) {
-    navItems.push({
+    {
       path: '/management',
-      label: 'จัดการระบบ',
-      icon: <MenuIcon size={20} />,
-      isActive: ['/management', '/stations', '/users'].includes(location.pathname),
+      label: 'การจัดการ',
+      icon: <SlidersIcon size={20} />,
+      isActive: ['/management', '/stations', '/users', '/subscribe'].includes(location.pathname),
       onClick: () => navigate('/management'),
-    });
-  }
-
-  // Profile is ALWAYS on the far right (ขวาสุด)
-  navItems.push({
-    path: isGuest ? '/login' : '/profile',
-    label: isGuest ? 'เข้าสู่ระบบ' : 'โปรไฟล์',
-    icon: isGuest ? <KeyIcon size={20} /> : <UserIcon size={20} />,
-    isActive: location.pathname === (isGuest ? '/login' : '/profile'),
-    onClick: () => navigate(isGuest ? '/login' : '/profile'),
-  });
+    },
+    {
+      path: isGuest ? '/login' : '/profile',
+      label: isGuest ? 'เข้าสู่ระบบ' : 'โปรไฟล์',
+      icon: isGuest ? <KeyIcon size={20} /> : <UserIcon size={20} />,
+      isActive: location.pathname === (isGuest ? '/login' : '/profile'),
+      onClick: () => navigate(isGuest ? '/login' : '/profile'),
+    },
+  ];
 
   return (
     <nav
@@ -84,7 +77,9 @@ export default function BottomNav() {
             onClick={item.onClick}
             aria-current={item.isActive ? 'page' : undefined}
           >
-            <div className="mobile-nav-icon-wrap">{item.icon}</div>
+            <div className="mobile-nav-icon-wrap">
+              {item.icon}
+            </div>
             <span className="mobile-nav-label">{item.label}</span>
             {item.isActive && <span className="mobile-nav-indicator" />}
           </button>

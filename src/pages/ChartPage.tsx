@@ -17,7 +17,6 @@ import {
   DownloadIcon,
   ClockIcon,
   ActivityIcon,
-  ChevronRightIcon,
 } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import type { SegmentedOption } from '../components/ui/SegmentedControl';
@@ -88,6 +87,12 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     snr: swr.snr != null ? Number(swr.snr) : undefined,
     tiltX: swr.tilt_x != null ? Number(swr.tilt_x) : undefined,
     tiltY: swr.tilt_y != null ? Number(swr.tilt_y) : undefined,
+    tiltOffsetX: swr.tilt_offset_x != null ? Number(swr.tilt_offset_x) : undefined,
+    tiltOffsetY: swr.tilt_offset_y != null ? Number(swr.tilt_offset_y) : undefined,
+    relTiltX: swr.rel_tilt_x != null ? Number(swr.rel_tilt_x) : undefined,
+    relTiltY: swr.rel_tilt_y != null ? Number(swr.rel_tilt_y) : undefined,
+    relativeTotalTilt: swr.relative_total_tilt != null ? Number(swr.relative_total_tilt) : undefined,
+    isPoleTilted: swr.is_pole_tilted,
     gatewayName: swr.gateway_name || 'Gateway_01',
     gatewayStatus: swr.gateway_status || 'online',
     model: swr.model || undefined,
@@ -220,8 +225,9 @@ function aggregateReadings(
 
 export default function ChartPage() {
   const { user, isGuest } = useAuth();
+  const canExport = !isGuest && (user?.role === 'admin' || user?.role === 'staff');
   const { nodeId } = useParams<{ nodeId?: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const targetId = nodeId || searchParams.get('station') || '';
 
   const [stations, setStations] = useState<Station[]>([]);
@@ -367,41 +373,15 @@ export default function ChartPage() {
 
       {/* ── Main Layout: Hero Graph (Left) + Station Selector with Mini-Metrics (Right) ── */}
       {!stationsLoading && !stationsError && selectedStation && (
-        <>
-          {/* ════════ TOP NODE SELECTOR (Crucial for Mobile & Quick Switching) ════════ */}
-          <div className="chart-top-node-selector">
-            <div className="node-selector-inner">
-              <label htmlFor="top-station-picker" className="node-selector-label">
-                <RadioIcon size={16} />
-                <span>เลือกสถานีตรวจวัด (Node):</span>
-              </label>
-              <div className="node-select-box">
-                <select
-                  id="top-station-picker"
-                  className="node-select-dropdown"
-                  value={selectedStationId || ''}
-                  onChange={(e) => {
-                    setSelectedStationId(e.target.value);
-                    setSearchParams({ station: e.target.value });
-                  }}
-                >
-                  {stations.map((s) => {
-                    const sStatus = s.status === 'critical' ? 'วิกฤต' : s.status === 'warning' ? 'เฝ้าระวัง' : s.status === 'normal' ? 'ปกติ' : 'ออฟไลน์';
-                    return (
-                      <option key={s.id} value={s.id}>
-                        [{s.id}] {s.name} — สถานะ {sStatus}
-                      </option>
-                    );
-                  })}
-                </select>
-                <div className="select-chevron">
-                  <ChevronRightIcon size={16} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="chart-main-grid">
+        <div
+          className="chart-main-split"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr) 340px',
+            gap: '1.25rem',
+            alignItems: 'start',
+          }}
+        >
           {/* ════════ LEFT COLUMN: THE HERO GRAPH ════════ */}
           <div
             className="bento-card"
@@ -554,39 +534,41 @@ export default function ChartPage() {
                   ariaLabel="ช่วงเวลาของกราฟระดับน้ำ"
                 />
 
-                {/* Export CSV Button (Matching standard button style, no glow) */}
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleExportCSV}
-                  disabled={readings.length === 0 || readingsLoading}
-                  title={
-                    readings.length === 0
-                      ? 'ไม่มีข้อมูลระดับน้ำสำหรับส่งออก'
-                      : `ส่งออกข้อมูลระดับน้ำ ${selectedStation?.name || ''} เป็นไฟล์ CSV (${timeRange === 'hourly' ? '1 วัน (รายชั่วโมง)' : timeRange === 'daily' ? '2 สัปดาห์ (เฉลี่ยรายวัน)' : '14 สัปดาห์ (เฉลี่ยรายสัปดาห์)'})`
-                  }
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.45rem',
-                    fontSize: '0.8125rem',
-                    fontWeight: 600,
-                    borderRadius: '0.5rem',
-                    boxShadow: 'none',
-                  }}
-                >
-                  {isExported ? (
-                    <>
-                      <CheckCircleIcon size={14} style={{ color: '#10B981' }} />
-                      <span style={{ color: '#10B981' }}>ดาวน์โหลดสำเร็จ</span>
-                    </>
-                  ) : (
-                    <>
-                      <DownloadIcon size={14} />
-                      <span>ส่งออก CSV</span>
-                    </>
-                  )}
-                </button>
+                {/* Export CSV Button (Visible for Staff & Admin only, no glow) */}
+                {canExport && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleExportCSV}
+                    disabled={readings.length === 0 || readingsLoading}
+                    title={
+                      readings.length === 0
+                        ? 'ไม่มีข้อมูลระดับน้ำสำหรับส่งออก'
+                        : `ส่งออกข้อมูลระดับน้ำ ${selectedStation?.name || ''} เป็นไฟล์ CSV (${timeRange === 'hourly' ? '1 วัน (รายชั่วโมง)' : timeRange === 'daily' ? '2 สัปดาห์ (เฉลี่ยรายวัน)' : '14 สัปดาห์ (เฉลี่ยรายสัปดาห์)'})`
+                    }
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      borderRadius: '0.5rem',
+                      boxShadow: 'none',
+                    }}
+                  >
+                    {isExported ? (
+                      <>
+                        <CheckCircleIcon size={14} style={{ color: '#10B981' }} />
+                        <span style={{ color: '#10B981' }}>ดาวน์โหลดสำเร็จ</span>
+                      </>
+                    ) : (
+                      <>
+                        <DownloadIcon size={14} />
+                        <span>ส่งออก CSV</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -694,12 +676,12 @@ export default function ChartPage() {
                 </div>
               </div>
             ) : (
-              <div className="chart-canvas-wrapper" style={{ width: '100%', height: typeof window !== 'undefined' && window.innerWidth <= 768 ? 300 : 460 }}>
+              <div style={{ width: '100%', height: 480 }}>
                 <WaterLevelChart
                   readings={readings}
                   station={selectedStation}
                   timeRange={timeRange}
-                  height={typeof window !== 'undefined' && window.innerWidth <= 768 ? 300 : 460}
+                  height={480}
                 />
               </div>
             )}
@@ -755,8 +737,8 @@ export default function ChartPage() {
             </div>
           </div>
 
-          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS (Desktop Only) ════════ */}
-          <div className="desktop-stations-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS ════════ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {/* Header of Selector Column */}
             <div
               style={{
@@ -990,7 +972,6 @@ export default function ChartPage() {
             })}
           </div>
         </div>
-      </>
       )}
 
       {/* Empty State */}

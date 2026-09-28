@@ -627,6 +627,3 @@ export function MinimizeIcon({ size = 18, className = '', ...props }: IconProps)
     </svg>
   );
 }
-
-
-

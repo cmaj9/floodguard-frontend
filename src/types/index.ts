@@ -11,6 +11,9 @@ export interface Reading {
   location_name?: string;
   reference_point_name?: string;
   sensor_to_ref_distance?: number;
+  warning_level?: number | null;
+  critical_level?: number | null;
+  water_status?: WaterStatus;
   timestamp: string;
   raw_distance?: number | null;
   water_level: number | null;
@@ -23,6 +26,12 @@ export interface Reading {
   snr: number | null;
   tilt_x: number | null;
   tilt_y: number | null;
+  tilt_offset_x?: number | null;
+  tilt_offset_y?: number | null;
+  rel_tilt_x?: number | null;
+  rel_tilt_y?: number | null;
+  relative_total_tilt?: number | null;
+  is_pole_tilted?: boolean;
   latitude: number | null;
   longitude: number | null;
 }
@@ -59,6 +68,12 @@ export interface StationWithReading {
   snr: number | null;
   tilt_x: number | null;
   tilt_y: number | null;
+  tilt_offset_x?: number | null;
+  tilt_offset_y?: number | null;
+  rel_tilt_x?: number | null;
+  rel_tilt_y?: number | null;
+  relative_total_tilt?: number | null;
+  is_pole_tilted?: boolean;
   water_status: WaterStatus;
   model?: string;
   mcu_id?: string;
@@ -144,6 +159,12 @@ export interface Station {
   snr?: number;
   tiltX?: number;
   tiltY?: number;
+  tiltOffsetX?: number;
+  tiltOffsetY?: number;
+  relTiltX?: number;
+  relTiltY?: number;
+  relativeTotalTilt?: number;
+  isPoleTilted?: boolean;
   gatewayName?: string;
   gatewayStatus?: string;
   model?: string;

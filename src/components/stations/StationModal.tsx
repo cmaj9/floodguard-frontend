@@ -8,12 +8,13 @@ import {
   SlidersIcon,
   AlertTriangleIcon,
   RadioIcon,
+  CompassIcon,
 } from '../ui/Icons';
 
 interface StationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<Station> & { gateway_id: string }) => void;
+  onSave: (data: Partial<Station> & { gateway_id: string; tilt_offset_x?: number; tilt_offset_y?: number }) => void;
   station?: Station | null;
 }
 
@@ -32,6 +33,8 @@ const defaultForm = {
   deviceId: '',
   gatewayId: '',
   operatingStatus: 'active' as 'active' | 'offline',
+  tiltOffsetX: '0.0',
+  tiltOffsetY: '0.0',
 };
 
 export default function StationModal({ isOpen, onClose, onSave, station }: StationModalProps) {
@@ -64,6 +67,8 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         deviceId: station.deviceId || station.id || '',
         gatewayId: '',  // not editable in edit mode
         operatingStatus: (station.isActive ? 'active' : 'offline') as 'active' | 'offline',
+        tiltOffsetX: station.tiltOffsetX != null ? String(station.tiltOffsetX) : ((station as any).tilt_offset_x != null ? String((station as any).tilt_offset_x) : '0.0'),
+        tiltOffsetY: station.tiltOffsetY != null ? String(station.tiltOffsetY) : ((station as any).tilt_offset_y != null ? String((station as any).tilt_offset_y) : '0.0'),
       });
       setErrors({});
       setSaving(false);
@@ -139,6 +144,10 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         referencePointName: refName,
         warningLevel: form.warningLevel.trim() !== '' && !isNaN(Number(form.warningLevel)) ? Number(form.warningLevel) : undefined,
         criticalLevel: form.criticalLevel.trim() !== '' && !isNaN(Number(form.criticalLevel)) ? Number(form.criticalLevel) : undefined,
+        tiltOffsetX: form.tiltOffsetX.trim() !== '' && !isNaN(Number(form.tiltOffsetX)) ? Number(form.tiltOffsetX) : 0,
+        tiltOffsetY: form.tiltOffsetY.trim() !== '' && !isNaN(Number(form.tiltOffsetY)) ? Number(form.tiltOffsetY) : 0,
+        tilt_offset_x: form.tiltOffsetX.trim() !== '' && !isNaN(Number(form.tiltOffsetX)) ? Number(form.tiltOffsetX) : 0,
+        tilt_offset_y: form.tiltOffsetY.trim() !== '' && !isNaN(Number(form.tiltOffsetY)) ? Number(form.tiltOffsetY) : 0,
         deviceId: form.deviceId.trim(),
         gateway_id: effectiveGatewayId,
         isActive: form.operatingStatus === 'active',
@@ -498,6 +507,101 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               )}
             </div>
           </div>
+        </div>
+
+        {/* ════════ SECTION 2.5: POLE ZERO-REFERENCE OFFSET (ระนาบตั้งต้นของเสา) ════════ */}
+        <div
+          style={{
+            background: 'var(--card-surface)',
+            border: '1px solid var(--card-border)',
+            borderRadius: '1rem',
+            padding: '1.25rem 1.5rem',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: '0.4rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CompassIcon size={18} style={{ color: '#38BDF8' }} />
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#FFFFFF' }}>
+                ระนาบตั้งต้นของเสา
+              </h3>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>(ไม่บังคับ)</span>
+          </div>
+
+          <p style={{ margin: '0 0 1rem 0', fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            กำหนดมุมติดตั้งจริงเป็นระนาบตรง (0°) เพื่อตรวจจับเสาเอียง (&gt;15°)
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem 1.25rem' }}>
+            <div>
+              <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
+                แกน X อ้างอิง (°)
+              </label>
+              <input
+                className="input"
+                value={form.tiltOffsetX}
+                onChange={(e) => set('tiltOffsetX', e.target.value)}
+                placeholder="0.0"
+                type="number"
+                step="0.1"
+                style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', fontFamily: 'monospace' }}
+              />
+            </div>
+
+            <div>
+              <label className="label" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#F1F5F9', marginBottom: '0.35rem' }}>
+                แกน Y อ้างอิง (°)
+              </label>
+              <input
+                className="input"
+                value={form.tiltOffsetY}
+                onChange={(e) => set('tiltOffsetY', e.target.value)}
+                placeholder="0.0"
+                type="number"
+                step="0.1"
+                style={{ fontSize: '0.9375rem', padding: '0.65rem 0.875rem', fontFamily: 'monospace' }}
+              />
+            </div>
+          </div>
+
+          {station && (station.tiltX != null || (station as any).tilt_x != null) && (
+            <button
+              type="button"
+              onClick={() => {
+                const curX = station.tiltX ?? (station as any).tilt_x;
+                const curY = station.tiltY ?? (station as any).tilt_y;
+                if (curX != null && curY != null) {
+                  set('tiltOffsetX', String(curX));
+                  set('tiltOffsetY', String(curY));
+                }
+              }}
+              style={{
+                width: '100%',
+                marginTop: '0.875rem',
+                background: 'rgba(56, 189, 248, 0.08)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                color: '#38BDF8',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                borderRadius: '0.5rem',
+                padding: '0.55rem 0.875rem',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.35rem',
+              }}
+              title="ตั้งค่ามุมปัจจุบันของเซนเซอร์เป็นระนาบตรง"
+            >
+              <span>ใช้มุมปัจจุบันของเซนเซอร์ ({station.tiltX ?? (station as any).tilt_x}°, {station.tiltY ?? (station as any).tilt_y}°)</span>
+            </button>
+          )}
         </div>
 
         {/* ════════ SECTION 3: ALERT THRESHOLDS ════════ */}

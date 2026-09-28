@@ -22,8 +22,54 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
   onSelectStation,
 }: StationSegmentedControlProps) {
   return (
-    <div style={{ marginBottom: "1.5rem" }}>
-      {/* ── Prominent Interactive Station Cards Grid ── */}
+    <div className="station-selector-section" style={{ marginBottom: "1rem" }}>
+      {/* ── Mobile Sleek Horizontal Capsule Pill Strip (<= 768px) ── */}
+      <div
+        role="tablist"
+        aria-label="เลือกสถานีตรวจวัดน้ำ"
+        className="station-mobile-capsule-strip"
+      >
+        {stations.map((station) => {
+          const isSelected = selectedStationId === station.id;
+          const isOffline = !station.isActive || station.operatingStatus === "offline";
+
+          let statusDotColor = "#10B981";
+          if (isOffline) {
+            statusDotColor = "#94A3B8";
+          } else if (station.status === "critical") {
+            statusDotColor = "#EF4444";
+          } else if (station.status === "warning") {
+            statusDotColor = "#F59E0B";
+          }
+
+          const formattedLevel = isOffline
+            ? "-"
+            : typeof station.currentLevel === "number"
+            ? (station.currentLevel > 0 ? "+" : "") + station.currentLevel.toFixed(2) + " ม."
+            : "-";
+
+          return (
+            <button
+              key={`capsule-${station.id}`}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              className={`station-capsule-pill ${isSelected ? "selected" : ""}`}
+              onClick={() => onSelectStation(station.id)}
+            >
+              <span
+                className="capsule-dot"
+                style={{ backgroundColor: statusDotColor }}
+              />
+              <span className="capsule-id">{station.id}</span>
+              <span className="capsule-name">{station.name}</span>
+              <span className="capsule-level">{formattedLevel}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Prominent Interactive Station Cards Grid (Desktop > 768px) ── */}
       <div
         role="tablist"
         aria-label="สถานีตรวจวัดระดับน้ำ"

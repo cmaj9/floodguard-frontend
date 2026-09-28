@@ -26,20 +26,41 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('wl_auth_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id) return parsed;
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Failed to parse saved user:', e);
+    }
+    return null;
+  });
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('wl_auth_user');
+      if (saved) return false;
+    } catch {}
+    return true;
+  });
 
   const isGuest = !user || user.id === 'citizen_guest';
 
   useEffect(() => {
     async function initAuth() {
-      // 1. Check local storage first
+      // 1. If user is already loaded from local storage, no need to overwrite unless checking LIFF
       const saved = localStorage.getItem('wl_auth_user');
       if (saved) {
         try {
-          setUser(JSON.parse(saved));
-          setIsLoading(false);
-          return;
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.id && parsed.id !== 'citizen_guest') {
+            setUser(parsed);
+            setIsLoading(false);
+            return;
+          }
         } catch {
           localStorage.removeItem('wl_auth_user');
         }
@@ -131,6 +152,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginAsCitizen = useCallback((guestName?: string) => {
+    // If a real logged-in user already exists in localStorage, preserve it!
+    const saved = localStorage.getItem('wl_auth_user');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id && parsed.id !== 'citizen_guest') {
+          setUser(parsed);
+          return;
+        }
+      } catch {}
+    }
+
     const citizenUser: AuthUser = {
       id: 'citizen_guest',
       name: guestName || 'ประชาชนทั่วไป (ผู้เยี่ยมชม)',

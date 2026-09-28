@@ -10,3 +10,7 @@ All agents working within this workspace must adhere to the design thinking, UI/
 - [ ] **Engineering Feasibility**: Semantic HTML, layout stability (no CLS), GPU-accelerated micro-interactions (100–300ms), and `prefers-reduced-motion` compliance.
 - [ ] **Semantic Versioning (3 Decimals)**: Adhere to [.agents/rules/git_versioning.md](file:///.agents/rules/git_versioning.md) by bumping `package.json` (`vX.Y.Z`), formatting commit messages (`vX.Y.Z - <type>: ...`), and tagging git releases.
 - [ ] **Strict User Confirmation for Git (Mandatory)**: ห้ามทำการ `git commit` หรือ `git push` ขึ้น Git เองโดยพลการเด็ดขาด! ต้องรอให้ผู้ใช้สั่ง commit ก่อนเท่านั้น จึงจะทำการ commit และ push ได้
+- [ ] **Visual-First & Minimal Text**: ห้ามเขียนข้อความซ้ำซ้อน ใช้สีบอกสถานะ ใช้กรอบและไอคอนแทนคำบรรยายยาวๆ (ห้ามใช้ไอคอนเรืองแสงเบลอ ให้ใช้สีแยกหมวดหมู่)
+- [ ] **Zero Horizontal Overflow**: ทุกหน้าต้องไม่ล้นจอ 100% ตารางบนมือถือต้องแปลงเป็น Hybrid Responsive Data Cards เสมอ
+- [ ] **Strict 3-Tier RBAC**: ควบคุมสิทธิ์ของประชาชน, เจ้าหน้าที่ท้องถิ่น และผู้ดูแลระบบตามเมทริกซ์สิทธิ์อย่างเคร่งครัด (ประชาชนห้ามมีปุ่ม Export CSV)
+

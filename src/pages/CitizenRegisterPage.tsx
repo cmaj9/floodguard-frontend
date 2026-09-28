@@ -502,7 +502,7 @@ export default function CitizenRegisterPage() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div className="form-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                   <div className="form-group">
                     <label className="label" htmlFor="reg-pass" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <KeyIcon size={14} style={{ color: 'var(--text-muted)' }} />
@@ -559,7 +559,7 @@ export default function CitizenRegisterPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                <div className="form-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                   <div className="form-group">
                     <label className="label" htmlFor="reg-phone" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <PhoneIcon size={14} style={{ color: 'var(--text-muted)' }} />
@@ -805,7 +805,7 @@ export default function CitizenRegisterPage() {
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                <div className="form-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
                   <div className="form-group">
                     <label className="label" htmlFor="line-phone" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <PhoneIcon size={14} style={{ color: 'var(--text-muted)' }} />

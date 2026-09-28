@@ -5,6 +5,7 @@ import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
 import StationMap from '../components/map/StationMap';
 import StationRecentReadingsCard from '../components/dashboard/StationRecentReadingsCard';
 import FloatingActionDock from '../components/dashboard/FloatingActionDock';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import {
   AlertTriangleIcon,
   XCircleIcon,
@@ -39,11 +40,6 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     ? swr.reference_point_name.trim()
     : 'จุดอ้างอิง';
 
-  const parseCoord = (val: any, fallback: number): number => {
-    const n = Number(val);
-    return Number.isFinite(n) && n !== 0 ? n : fallback;
-  };
-
   return {
     id: swr.station_id,
     name: swr.station_name,
@@ -51,8 +47,8 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     location: swr.location_name || '',
     district: district,
     province: province,
-    lat: parseCoord(swr.latitude, 14.03593),
-    lng: parseCoord(swr.longitude, 100.72516),
+    lat: Number(swr.latitude) || 14.03593,
+    lng: Number(swr.longitude) || 100.72516,
     currentLevel: swr.raw_distance !== null && swr.raw_distance !== undefined
       ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
       : (swr.water_level !== null ? Number(swr.water_level) : 0),
@@ -79,6 +75,12 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     snr: swr.snr !== null ? Number(swr.snr) : 14.5,
     tiltX: swr.tilt_x !== null ? Number(swr.tilt_x) : 4.3,
     tiltY: swr.tilt_y !== null ? Number(swr.tilt_y) : -1.1,
+    tiltOffsetX: swr.tilt_offset_x != null ? Number(swr.tilt_offset_x) : undefined,
+    tiltOffsetY: swr.tilt_offset_y != null ? Number(swr.tilt_offset_y) : undefined,
+    relTiltX: swr.rel_tilt_x != null ? Number(swr.rel_tilt_x) : undefined,
+    relTiltY: swr.rel_tilt_y != null ? Number(swr.rel_tilt_y) : undefined,
+    relativeTotalTilt: swr.relative_total_tilt != null ? Number(swr.relative_total_tilt) : undefined,
+    isPoleTilted: swr.is_pole_tilted,
     gatewayName: swr.gateway_name || 'Gateway_01',
     gatewayStatus: swr.gateway_status || 'online',
     model: swr.model || 'Heltec-WiFi-LoRa-32(V3)',
@@ -239,11 +241,10 @@ export default function DashboardPage() {
 
   return (
     <div
-      className="page-container"
+      className="page-container dashboard-page-container"
       style={{
         maxWidth: 1400,
         margin: '0 auto',
-        padding: '1.25rem 1rem 5rem 1rem', // extra bottom padding for floating dock
       }}
     >
       {/* ── Registered Citizen Notice if 0 subscribed stations ── */}
@@ -397,33 +398,40 @@ export default function DashboardPage() {
       {/* ── 3. CENTRAL TELEMETRY CANVAS ── */}
       {selectedStation && (
         <div className={`dashboard-telemetry-container ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}>
-          <StationTelemetryHub station={selectedStation} />
+          <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงผลมาตรวัดสถานี">
+            <StationTelemetryHub station={selectedStation} />
+          </ErrorBoundary>
         </div>
       )}
 
       {/* ── 4. LOWER CANVAS: GIS MAP + RECENT READINGS ── */}
-      <div id="map-section" className="dashboard-map-grid">
+      <div
+        id="map-section"
+        className={`dashboard-map-grid ${mobileTab === 'telemetry' ? 'mobile-map-hidden' : ''}`}
+      >
         {/* Left: GIS Map */}
         <div
           className={`dashboard-map-wrapper ${mobileTab === 'telemetry' ? 'mobile-hidden' : ''}`}
-          style={{ minHeight: '440px' }}
         >
-          <StationMap
-            stations={stations}
-            selectedStation={selectedStation?.id || null}
-            onSelectStation={(id) => setSelectedStationId(id)}
-            height="100%"
-            showCardHeader={true}
-          />
+          <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการโหลดแผนที่สถานี">
+            <StationMap
+              stations={stations}
+              selectedStation={selectedStation?.id || null}
+              onSelectStation={(id) => setSelectedStationId(id)}
+              height="100%"
+              showCardHeader={true}
+            />
+          </ErrorBoundary>
         </div>
 
         {/* Right: Recent Readings (5 latest, compact) */}
         {selectedStation && (
           <div
             className={`dashboard-readings-wrapper ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}
-            style={{ minHeight: '440px' }}
           >
-            <StationRecentReadingsCard station={selectedStation} />
+            <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงประวัติล่าสุด">
+              <StationRecentReadingsCard station={selectedStation} />
+            </ErrorBoundary>
           </div>
         )}
       </div>

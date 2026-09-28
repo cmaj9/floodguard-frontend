@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchReadingsHistory, fetchStations } from "../services/apiService";
-import type { Reading, StationWithReading } from "../types";
+import type { Reading, StationWithReading, WaterStatus } from "../types";
 import {
   ClipboardListIcon,
   XIcon,
@@ -18,7 +17,11 @@ import {
   WifiIcon,
   FlagIcon,
   InboxIcon,
+  DownloadIcon,
+  CheckCircleIcon,
+  CompassIcon,
 } from "../components/ui/Icons";
+import Papa from "papaparse";
 import { SegmentedControl, type SegmentedOption } from "../components/ui/SegmentedControl";
 import { CompactFilterDropdown, type DropdownOption } from "../components/ui/CompactFilterDropdown";
 import {
@@ -52,12 +55,37 @@ function fmtTimestamp(ts: string): string {
   } catch { return ts; }
 }
 
-function getWaterStatus(level: number | null, isBlindZone?: boolean): { label: string; color: string; bg: string; dot: string } {
-  if (isBlindZone) return { label: "Blind Zone", color: "#ff5252", bg: "rgba(255,82,82,0.15)", dot: "#ff5252" };
-  if (level == null) return { label: "ไม่มีข้อมูล", color: "#6ba3c4", bg: "rgba(107,163,196,0.12)", dot: "#6ba3c4" };
-  if (level >= 0) return { label: "ล้นตลิ่ง/วิกฤต", color: "#ff5252", bg: "rgba(255,82,82,0.12)", dot: "#ff5252" };
-  if (level >= -0.5) return { label: "เฝ้าระวัง", color: "#ffab40", bg: "rgba(255,171,64,0.12)", dot: "#ffab40" };
-  return { label: "ปกติ", color: "#06d6a0", bg: "rgba(6,214,160,0.12)", dot: "#06d6a0" };
+function getReadingWaterStatus(
+  r: Reading,
+  station?: StationWithReading
+): { status: WaterStatus; label: string; color: string; bg: string; dot: string } {
+  if (r.water_level == null) {
+    return { status: "unknown", label: "ไม่มีข้อมูล", color: "#6ba3c4", bg: "rgba(107,163,196,0.12)", dot: "#6ba3c4" };
+  }
+
+  // 1. Primary: Use water_status computed by Backend SQL (Single Source of Truth)
+  let s: WaterStatus = r.water_status || "unknown";
+
+  // 2. Fallback: If water_status is missing/unknown, compare level against station thresholds
+  if (s === "unknown") {
+    const crit = r.critical_level ?? (station?.critical_level != null ? Number(station.critical_level) : null);
+    const warn = r.warning_level ?? (station?.warning_level != null ? Number(station.warning_level) : null);
+    if (crit != null && r.water_level >= crit) {
+      s = "critical";
+    } else if (warn != null && r.water_level >= warn) {
+      s = "warning";
+    } else {
+      s = "normal";
+    }
+  }
+
+  if (s === "critical") {
+    return { status: "critical", label: "วิกฤต", color: "#EF4444", bg: "rgba(239, 68, 68, 0.15)", dot: "#EF4444" };
+  }
+  if (s === "warning") {
+    return { status: "warning", label: "เฝ้าระวัง", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.15)", dot: "#F59E0B" };
+  }
+  return { status: "normal", label: "ปกติ", color: "#10B981", bg: "rgba(16, 185, 129, 0.15)", dot: "#10B981" };
 }
 
 function BatteryBar({ pct }: { pct: number | null }) {
@@ -78,18 +106,62 @@ type KpiFilterMode = "all" | "min" | "max" | "avg";
 type HistoryViewMode = "table" | "chart";
 
 export default function DataHistoryPage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user && user.role !== "admin") navigate("/dashboard");
-  }, [user, navigate]);
+  const { user, isGuest } = useAuth();
+  const canExport = !isGuest && (user?.role === "admin" || user?.role === "staff");
 
   const [readings, setReadings] = useState<Reading[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isExported, setIsExported] = useState(false);
+
+  const handleExportCSV = () => {
+    if (readings.length === 0 || loading) return;
+    const currentStation = stations.find((s) => s.station_id === filterStation);
+    const stationName = currentStation?.station_name || (filterStation ? filterStation : "all_stations");
+
+    const rows = readings.map((r) => {
+      const st = stations.find((s) => s.station_id === r.station_id) || currentStation;
+      const statusObj = getReadingWaterStatus(r, st);
+      return {
+        "วันที่และเวลา": fmtTimestamp(r.timestamp),
+        "รหัสสถานี": r.station_id,
+        "ชื่อสถานี": r.station_name || "-",
+        "ระดับน้ำ (ม.)": r.water_level != null ? (r.water_level > 0 ? "+" : "") + Number(r.water_level).toFixed(2) : "-",
+        "สถานะระดับน้ำ": statusObj.label,
+        "ระยะเซนเซอร์วัดได้ (ม.)": r.raw_distance != null ? Number(r.raw_distance).toFixed(2) : "-",
+        "สถานะจุดบอด": r.is_blind_zone ? "Blind Zone" : "ปกติ",
+        "อุณหภูมิ (°C)": r.temperature != null ? Number(r.temperature).toFixed(1) : "-",
+        "ความชื้นสัมพัทธ์ (%)": r.humidity != null ? Number(r.humidity).toFixed(1) : "-",
+        "แบตเตอรี่ (%)": r.battery_percent != null ? Number(r.battery_percent).toFixed(0) : "-",
+        "แรงดันแบตเตอรี่ (V)": r.battery_voltage != null ? Number(r.battery_voltage).toFixed(2) : "-",
+        "ความแรงสัญญาณ RSSI (dBm)": r.rssi != null ? Number(r.rssi).toFixed(0) : "-",
+        "SNR (dB)": r.snr != null ? Number(r.snr).toFixed(1) : "-",
+        "มุมเอียง Gyro X (°)": r.tilt_x != null ? Number(r.tilt_x).toFixed(1) : "-",
+        "มุมเอียง Gyro Y (°)": r.tilt_y != null ? Number(r.tilt_y).toFixed(1) : "-",
+        "Offset X (°)": r.tilt_offset_x != null ? Number(r.tilt_offset_x).toFixed(1) : "0.0",
+        "Offset Y (°)": r.tilt_offset_y != null ? Number(r.tilt_offset_y).toFixed(1) : "0.0",
+        "ความเอียงสัมพัทธ์รวม (°)": r.relative_total_tilt != null ? Number(r.relative_total_tilt).toFixed(1) : "-",
+        "สถานะความมั่นคงของเสา": r.is_pole_tilted ? "เสาเอียง (>15°)" : (r.relative_total_tilt != null ? "เสาได้ระนาบ (ปกติ)" : "-"),
+      };
+    });
+
+    const csv = Papa.unparse(rows, { header: true });
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `readings_history_${stationName}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setIsExported(true);
+    setTimeout(() => setIsExported(false), 2500);
+  };
 
   const [stations, setStations] = useState<StationWithReading[]>([]);
   const [filterStation, setFilterStation] = useState("");
@@ -263,12 +335,11 @@ export default function DataHistoryPage() {
     { value: "chart", label: "กราฟสถิติ", icon: <BarChart3Icon size={13} /> },
   ];
 
-  if (!user || user.role !== "admin") return null;
-
   return (
     <div className="page-container" style={{ paddingBottom: 50 }}>
       {/* ══ 2. UNIFIED SPACE-EFFICIENT CONTROL BAR (Patterns 1 & 4) ════════ */}
       <div
+        className="history-toolbar"
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -287,7 +358,7 @@ export default function DataHistoryPage() {
         }}
       >
         {/* Left: Compact Dropdown for Station Filter */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="history-filter-station-wrap" style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <CompactFilterDropdown
             options={stationDropdownOptions}
             value={filterStation}
@@ -316,7 +387,7 @@ export default function DataHistoryPage() {
         </div>
 
         {/* Center: Sliding Pill Switcher for Time Range Presets (Enlarged) */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="history-time-presets-wrap" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <SegmentedControl
             options={timePresetOptions}
             value={timePreset}
@@ -326,8 +397,8 @@ export default function DataHistoryPage() {
           />
         </div>
 
-        {/* Right: View Mode Toggle (Enlarged) */}
-        <div style={{ display: "flex", alignItems: "center" }}>
+        {/* Right: View Mode Toggle & CSV Export Button */}
+        <div className="history-view-mode-wrap" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <SegmentedControl
             options={viewModeOptions}
             value={viewMode}
@@ -335,6 +406,43 @@ export default function DataHistoryPage() {
             size="lg"
             ariaLabel="สลับมุมมองตารางหรือกราฟ"
           />
+
+          {canExport && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleExportCSV}
+              disabled={readings.length === 0 || loading}
+              title={
+                readings.length === 0
+                  ? "ไม่มีข้อมูลสำหรับส่งออก"
+                  : `ส่งออกข้อมูลประวัติ ${readings.length} รายการเป็นไฟล์ CSV`
+              }
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                borderRadius: "0.5rem",
+                height: 38,
+                padding: "0 14px",
+                boxShadow: "none",
+              }}
+            >
+              {isExported ? (
+                <>
+                  <CheckCircleIcon size={14} style={{ color: "#10B981" }} />
+                  <span style={{ color: "#10B981" }}>ดาวน์โหลดสำเร็จ</span>
+                </>
+              ) : (
+                <>
+                  <DownloadIcon size={14} />
+                  <span>ส่งออก CSV</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -380,6 +488,7 @@ export default function DataHistoryPage() {
 
       {/* ══ 3. DUAL-FUNCTION METRIC / KPI FILTER TABS (Pattern 2) ══════════ */}
       <div
+        className="kpi-filter-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
@@ -583,6 +692,7 @@ export default function DataHistoryPage() {
                     { icon: <DropletsIcon size={12} />, label: "ความชื้น", w: 100 },
                     { icon: <BatteryChargingIcon size={12} />, label: "แบตเตอรี่", w: 100 },
                     { icon: <WifiIcon size={12} />, label: "สัญญาณ LoRa/WiFi", w: 140 },
+                    { icon: <CompassIcon size={12} />, label: "มุมเอียง Gyro (X / Y)", w: 160 },
                     { icon: <FlagIcon size={12} />, label: "สถานะ", w: 100 },
                   ].map((h) => (
                     <th
@@ -611,7 +721,7 @@ export default function DataHistoryPage() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>
+                    <td colSpan={9} style={{ textAlign: "center", padding: 60, color: "var(--text-muted)" }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
                         <div
                           style={{
@@ -629,7 +739,7 @@ export default function DataHistoryPage() {
                   </tr>
                 ) : displayedReadings.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="empty-state" style={{ textAlign: "center", padding: "40px 20px" }}>
                         <div className="empty-state-icon" style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
                           <InboxIcon size={36} style={{ color: "var(--text-muted)" }} />
@@ -641,7 +751,8 @@ export default function DataHistoryPage() {
                   </tr>
                 ) : (
                   displayedReadings.map((r, i) => {
-                    const status = getWaterStatus(r.water_level, r.is_blind_zone);
+                    const st = stations.find((s) => s.station_id === r.station_id);
+                    const status = getReadingWaterStatus(r, st);
                     const rowBg = i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)";
                     return (
                       <tr
@@ -692,7 +803,9 @@ export default function DataHistoryPage() {
                                 style={{
                                   fontSize: 14,
                                   fontWeight: 700,
-                                  color: r.water_level != null ? (r.water_level > 0 ? "#ff5252" : status.color) : "var(--text-muted)",
+                                  color: r.water_level != null
+                                    ? (status.status === "critical" ? "#EF4444" : status.status === "warning" ? "#F59E0B" : "var(--cyan-glow)")
+                                    : "var(--text-muted)",
                                   fontVariantNumeric: "tabular-nums",
                                 }}
                               >
@@ -755,6 +868,51 @@ export default function DataHistoryPage() {
                               )}
                             </div>
                           ) : (
+                            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>
+                          )}
+                        </td>
+
+                        {/* มุมเอียง Gyro (X / Y) และความนิ่งของเสา */}
+                        <td style={{ padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          {r.tilt_x != null && r.tilt_y != null ? (() => {
+                            const tX = Number(r.tilt_x);
+                            const tY = Number(r.tilt_y);
+                            const relTotal = r.relative_total_tilt != null ? Number(r.relative_total_tilt) : null;
+                            const isTilted = Boolean(r.is_pole_tilted || (relTotal != null && relTotal > 15));
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                  <span
+                                    style={{
+                                      width: 6,
+                                      height: 6,
+                                      borderRadius: "50%",
+                                      background: isTilted ? "#F59E0B" : "#10B981",
+                                      flexShrink: 0,
+                                    }}
+                                    title={isTilted ? "เสาเอียงเกินเกณฑ์ 15°" : "เสาได้ระนาบปกติ"}
+                                  />
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      fontWeight: 600,
+                                      color: isTilted ? "#F59E0B" : "var(--text-primary)",
+                                      fontVariantNumeric: "tabular-nums",
+                                    }}
+                                  >
+                                    X: {!isNaN(tX) ? (tX > 0 ? `+${tX.toFixed(1)}` : tX.toFixed(1)) : "—"}° / Y: {!isNaN(tY) ? (tY > 0 ? `+${tY.toFixed(1)}` : tY.toFixed(1)) : "—"}°
+                                  </span>
+                                </div>
+                                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                                  {isTilted
+                                    ? `เสาเอียง ${relTotal != null && !isNaN(relTotal) ? `${relTotal.toFixed(1)}°` : ""} (>15°)`
+                                    : relTotal != null && !isNaN(relTotal)
+                                    ? `เบี่ยงเบน ${relTotal.toFixed(1)}° (เสาได้ระนาบ)`
+                                    : "เสาได้ระนาบ (ปกติ)"}
+                                </span>
+                              </div>
+                            );
+                          })() : (
                             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>
                           )}
                         </td>

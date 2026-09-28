@@ -66,6 +66,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
     <div
       ref={containerRef}
       id={id}
+      className="compact-dropdown-container"
       style={{
         position: 'relative',
         display: 'inline-flex',

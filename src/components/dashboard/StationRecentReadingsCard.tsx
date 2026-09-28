@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import type { Station, Reading } from '../../types';
 import { fetchReadingsByStation } from '../../services/apiService';
-import { useAuth } from '../../context/AuthContext';
 import {
   ActivityIcon,
   BatteryChargingIcon,
   BatteryLowIcon,
   ThermometerIcon,
-  ArrowRightIcon,
   ClockIcon,
 } from '../ui/Icons';
 
@@ -16,8 +13,22 @@ interface StationRecentReadingsCardProps {
   station: Station;
 }
 
+function formatReadingTime(timestamp: unknown): string {
+  if (!timestamp) return '-';
+  try {
+    const d = new Date(timestamp as string | number | Date);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  } catch {
+    return '-';
+  }
+}
+
 export default function StationRecentReadingsCard({ station }: StationRecentReadingsCardProps) {
-  const { user } = useAuth();
   const [readings, setReadings] = useState<Reading[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -42,8 +53,8 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
     };
   }, [station.id]);
 
-  const hasWarn = station.warningLevel !== undefined && station.warningLevel !== null;
-  const hasCrit = station.criticalLevel !== undefined && station.criticalLevel !== null;
+  const hasWarn = station.warningLevel !== undefined && station.warningLevel !== null && !isNaN(Number(station.warningLevel));
+  const hasCrit = station.criticalLevel !== undefined && station.criticalLevel !== null && !isNaN(Number(station.criticalLevel));
   const warningLevel = hasWarn ? Number(station.warningLevel) : null;
   const criticalLevel = hasCrit ? Number(station.criticalLevel) : null;
 
@@ -63,6 +74,7 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
     >
       {/* ── Card Header ── */}
       <div
+        className="recent-readings-header"
         style={{
           padding: '0.875rem 1.25rem',
           background: '#111827',
@@ -71,115 +83,106 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
+          gap: '0.75rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ color: 'var(--cyan-glow)', display: 'flex', alignItems: 'center' }}>
-            <ActivityIcon size={18} />
+            <ActivityIcon size={20} />
           </div>
-          <h2
-            style={{
-              fontSize: '0.9375rem',
-              fontWeight: 700,
-              color: '#F8FAFC',
-              margin: 0,
-              letterSpacing: '-0.01em',
-            }}
-          >
-            ประวัติการตรวจวัดล่าสุด
-          </h2>
-          <span
-            style={{
-              fontSize: '0.6875rem',
-              color: 'var(--cyan-glow)',
-              background: 'rgba(6, 182, 212, 0.12)',
-              border: '1px solid rgba(6, 182, 212, 0.25)',
-              padding: '0.15rem 0.55rem',
-              borderRadius: '9999px',
-              fontWeight: 700,
-            }}
-          >
-            5 รายการล่าสุด
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <h2
+              style={{
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#F8FAFC',
+                margin: 0,
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              ประวัติการตรวจวัด
+            </h2>
+            <span
+              style={{
+                fontSize: '0.8125rem',
+                color: 'var(--cyan-glow)',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              5 รายการล่าสุด
+            </span>
+          </div>
         </div>
 
-        {user?.role === 'admin' ? (
-          <Link
-            to="/history"
-            style={{
-              fontSize: '0.75rem',
-              color: 'var(--cyan-glow)',
-              textDecoration: 'none',
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              padding: '0.25rem 0.5rem',
-              borderRadius: '0.375rem',
-              background: 'rgba(6, 182, 212, 0.08)',
-              border: '1px solid rgba(6, 182, 212, 0.2)',
-              transition: 'all 0.2s ease',
-            }}
-            title="ดูประวัติการตรวจวัดทั้งหมดในระบบ"
-          >
-            <span>ดูประวัติทั้งหมด</span>
-            <ArrowRightIcon size={12} />
-          </Link>
-        ) : (
-          <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)' }}>
-            ส่งสัญญาณทุก 5 นาที
-          </span>
-        )}
+        <span
+          style={{
+            fontSize: '0.8125rem',
+            color: 'var(--text-secondary)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+        >
+          <ClockIcon size={14} style={{ color: 'var(--sky-highlight)' }} />
+          <span>บันทึกทุก 5 นาที</span>
+        </span>
       </div>
 
       {/* ── Table Content ── */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column' }}>
         {isLoading ? (
           <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <div
                 key={i}
                 className="skeleton-box"
-                style={{ height: '44px', width: '100%', borderRadius: '0.5rem' }}
+                style={{ height: '48px', width: '100%', borderRadius: '0.5rem' }}
               />
             ))}
           </div>
         ) : readings.length > 0 ? (
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '0.8125rem',
-              textAlign: 'left',
-            }}
-          >
+          <>
+            <div className="recent-readings-table-wrap">
+              <table
+                className="recent-readings-table"
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '0.875rem',
+                  textAlign: 'left',
+                }}
+              >
             <thead>
               <tr
                 style={{
                   borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   color: 'var(--text-secondary)',
                   background: 'rgba(255, 255, 255, 0.02)',
-                  fontSize: '0.75rem',
+                  fontSize: '0.875rem',
                 }}
               >
-                <th style={{ padding: '0.65rem 1rem', fontWeight: 600 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <ClockIcon size={12} /> เวลาบันทึก
+                <th style={{ padding: '0.85rem 1.125rem', fontWeight: 600 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <ClockIcon size={14} /> เวลาบันทึก
                   </span>
                 </th>
-                <th style={{ padding: '0.65rem 1rem', fontWeight: 600 }}>
+                <th style={{ padding: '0.85rem 1.125rem', fontWeight: 600 }}>
                   ระดับน้ำ ({station.referencePointName || 'จุดอ้างอิง'})
                 </th>
-                <th style={{ padding: '0.65rem 1rem', fontWeight: 600 }}>สถานะ</th>
-                <th style={{ padding: '0.65rem 1rem', fontWeight: 600 }}>แบตเตอรี่</th>
-                <th style={{ padding: '0.65rem 1rem', fontWeight: 600 }}>อุณหภูมิ</th>
+                <th style={{ padding: '0.85rem 1.125rem', fontWeight: 600 }}>สถานะ</th>
+                <th style={{ padding: '0.85rem 1.125rem', fontWeight: 600 }}>แบตเตอรี่</th>
+                <th style={{ padding: '0.85rem 1.125rem', fontWeight: 600 }}>อุณหภูมิ</th>
               </tr>
             </thead>
             <tbody>
               {readings.map((r, idx) => {
                 const lvl = r.water_level !== null ? Number(r.water_level) : null;
-                const isCrit = lvl !== null && hasCrit && lvl >= criticalLevel!;
-                const isWarn = lvl !== null && !isCrit && hasWarn && lvl >= warningLevel!;
+                const isCrit = r.water_status === 'critical' || (lvl !== null && hasCrit && lvl >= criticalLevel!);
+                const isWarn = !isCrit && (r.water_status === 'warning' || (lvl !== null && hasWarn && lvl >= warningLevel!));
 
                 const statusBg = isCrit
                   ? 'rgba(239, 68, 68, 0.15)'
@@ -210,56 +213,52 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
                     {/* Time */}
                     <td
                       style={{
-                        padding: '0.65rem 1rem',
+                        padding: '0.85rem 1.125rem',
                         color: 'var(--text-secondary)',
                         fontFamily: 'monospace',
-                        fontSize: '0.75rem',
+                        fontSize: '0.875rem',
                       }}
                     >
-                      {new Date(r.timestamp).toLocaleTimeString('th-TH', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                      })}
+                      {formatReadingTime(r.timestamp)}
                     </td>
 
                     {/* Water Level */}
-                    <td style={{ padding: '0.65rem 1rem' }}>
+                    <td style={{ padding: '0.85rem 1.125rem' }}>
                       <span
                         style={{
                           fontWeight: 800,
                           color: 'var(--cyan-glow)',
                           fontFamily: 'monospace',
-                          fontSize: '0.875rem',
+                          fontSize: '1.0625rem',
                         }}
                       >
                         {lvl !== null ? (lvl > 0 ? '+' : '') + lvl.toFixed(2) : '-'}
                       </span>
-                      <span style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginLeft: 3 }}>
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginLeft: 4 }}>
                         ม.
                       </span>
                     </td>
 
                     {/* Status Badge */}
-                    <td style={{ padding: '0.65rem 1rem' }}>
+                    <td style={{ padding: '0.85rem 1.125rem' }}>
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
-                          padding: '0.15rem 0.45rem',
+                          gap: '0.35rem',
+                          padding: '0.25rem 0.6rem',
                           borderRadius: '9999px',
                           background: statusBg,
                           border: `1px solid ${statusBorder}`,
                           color: statusColor,
-                          fontSize: '0.6875rem',
+                          fontSize: '0.8125rem',
                           fontWeight: 700,
                         }}
                       >
                         <span
                           style={{
-                            width: 5,
-                            height: 5,
+                            width: 6,
+                            height: 6,
                             borderRadius: '50%',
                             background: statusColor,
                           }}
@@ -269,40 +268,40 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
                     </td>
 
                     {/* Battery */}
-                    <td style={{ padding: '0.65rem 1rem' }}>
+                    <td style={{ padding: '0.85rem 1.125rem' }}>
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.35rem',
+                          gap: '0.4rem',
                           color: battColor,
                           fontWeight: 600,
                           fontFamily: 'monospace',
-                          fontSize: '0.75rem',
+                          fontSize: '0.875rem',
                         }}
                       >
                         {batt !== null && batt <= 20 ? (
-                          <BatteryLowIcon size={12} />
+                          <BatteryLowIcon size={15} />
                         ) : (
-                          <BatteryChargingIcon size={12} />
+                          <BatteryChargingIcon size={15} />
                         )}
                         <span>{batt !== null ? `${batt}%` : '-'}</span>
                       </span>
                     </td>
 
                     {/* Temperature */}
-                    <td style={{ padding: '0.65rem 1rem' }}>
+                    <td style={{ padding: '0.85rem 1.125rem' }}>
                       <span
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '0.3rem',
+                          gap: '0.35rem',
                           color: '#E2E8F0',
-                          fontSize: '0.75rem',
+                          fontSize: '0.875rem',
                           fontFamily: 'monospace',
                         }}
                       >
-                        <ThermometerIcon size={11} style={{ color: '#F59E0B' }} />
+                        <ThermometerIcon size={14} style={{ color: '#F59E0B' }} />
                         <span>{r.temperature !== null ? `${Number(r.temperature).toFixed(1)}°C` : '-'}</span>
                       </span>
                     </td>
@@ -311,7 +310,122 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
               })}
             </tbody>
           </table>
-        ) : (
+        </div>
+
+        {/* Mobile Hybrid Responsive Data Cards (<= 768px) */}
+        <div className="recent-readings-cards">
+          {readings.map((r, idx) => {
+            const lvl = r.water_level !== null ? Number(r.water_level) : null;
+            const isCrit = lvl !== null && hasCrit && lvl >= criticalLevel!;
+            const isWarn = lvl !== null && !isCrit && hasWarn && lvl >= warningLevel!;
+
+            const statusBorder = isCrit
+              ? '#EF4444'
+              : isWarn
+              ? '#F59E0B'
+              : '#10B981';
+            const statusText = isCrit ? 'วิกฤต' : isWarn ? 'เฝ้าระวัง' : 'ปกติ';
+            const statusBg = isCrit
+              ? 'rgba(239, 68, 68, 0.15)'
+              : isWarn
+              ? 'rgba(245, 158, 11, 0.15)'
+              : 'rgba(16, 185, 129, 0.15)';
+
+            const batt = r.battery_percent !== null ? Number(r.battery_percent) : null;
+            const battColor =
+              batt === null ? 'var(--text-secondary)' : batt > 50 ? '#10B981' : batt > 20 ? '#F59E0B' : '#EF4444';
+
+            return (
+              <div
+                key={r.reading_id || idx}
+                className="reading-mobile-card"
+                style={{
+                  borderLeft: `3.5px solid ${statusBorder}`,
+                }}
+              >
+                {/* Left: Time & Reference Point */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '74px', minWidth: '74px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <ClockIcon size={11} style={{ color: 'var(--text-muted)' }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.8125rem', fontWeight: 700, color: '#F8FAFC', whiteSpace: 'nowrap' }}>
+                      {formatReadingTime(r.timestamp)}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {station.referencePointName || 'ขอบตะลิ่ง'}
+                  </span>
+                </div>
+
+                {/* Middle: Water Level & Status Badge (Centered) */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flex: 1 }}>
+                  <span style={{ fontFamily: 'monospace', fontSize: '1.0625rem', fontWeight: 800, color: 'var(--cyan-glow)', whiteSpace: 'nowrap' }}>
+                    {lvl !== null ? (lvl > 0 ? '+' : '') + lvl.toFixed(2) : '-'}
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--text-secondary)', marginLeft: '2px' }}>
+                      ม.
+                    </span>
+                  </span>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      padding: '1px 6px',
+                      borderRadius: '9999px',
+                      background: statusBg,
+                      border: `1px solid ${statusBorder}50`,
+                      color: statusBorder,
+                      fontSize: '0.6875rem',
+                      fontWeight: 700,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: statusBorder }} />
+                    {statusText}
+                  </span>
+                </div>
+
+                {/* Right: Battery & Temperature */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', width: '92px', minWidth: '92px', flexShrink: 0 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px',
+                      color: battColor,
+                      fontSize: '0.75rem',
+                      fontFamily: 'monospace',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {batt !== null && batt <= 20 ? (
+                      <BatteryLowIcon size={12} />
+                    ) : (
+                      <BatteryChargingIcon size={12} />
+                    )}
+                    <span>{batt !== null ? `${batt}%` : '-'}</span>
+                  </span>
+                  {r.temperature !== null && (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        color: '#94A3B8',
+                        fontSize: '0.75rem',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      <ThermometerIcon size={11} style={{ color: '#F59E0B' }} />
+                      <span>{Number(r.temperature).toFixed(1)}°</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    ) : (
           <div
             style={{
               padding: '2.5rem 1.25rem',
@@ -335,28 +449,31 @@ export default function StationRecentReadingsCard({ station }: StationRecentRead
       <div
         style={{
           marginTop: 'auto',
-          padding: '0.5rem 1.25rem',
+          padding: '0.75rem 1.25rem',
           borderTop: '1px solid rgba(255, 255, 255, 0.05)',
           background: 'rgba(0, 0, 0, 0.25)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '0.6875rem',
+          flexWrap: 'wrap',
+          gap: '6px 14px',
+          fontSize: '0.8125rem',
           color: 'var(--text-secondary)',
           flexShrink: 0,
         }}
       >
-        <span>
-          สถานี <strong style={{ color: '#FFFFFF' }}>{station.name}</strong> ({station.id})
+        <span style={{ whiteSpace: 'nowrap' }}>
+          สถานี <strong style={{ color: '#FFFFFF' }}>{station.name}</strong>{' '}
+          <span style={{ color: 'var(--sky-highlight)', fontFamily: 'monospace', fontWeight: 700 }}>({station.id})</span>
         </span>
-        <span>
+        <span style={{ whiteSpace: 'nowrap' }}>
           เกณฑ์เฝ้าระวัง{' '}
           <strong style={{ color: '#F59E0B' }}>
-            {hasWarn ? `${warningLevel! >= 0 ? '+' : ''}${warningLevel!.toFixed(2)}ม.` : 'ไม่กำหนด'}
+            {hasWarn && warningLevel !== null ? `${warningLevel >= 0 ? '+' : ''}${warningLevel.toFixed(2)}ม.` : 'ไม่กำหนด'}
           </strong>{' '}
           · วิกฤต{' '}
           <strong style={{ color: '#EF4444' }}>
-            {hasCrit ? `${criticalLevel! >= 0 ? '+' : ''}${criticalLevel!.toFixed(2)}ม.` : 'ไม่กำหนด'}
+            {hasCrit && criticalLevel !== null ? `${criticalLevel >= 0 ? '+' : ''}${criticalLevel.toFixed(2)}ม.` : 'ไม่กำหนด'}
           </strong>
         </span>
       </div>

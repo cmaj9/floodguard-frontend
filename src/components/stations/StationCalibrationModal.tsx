@@ -1,7 +1,7 @@
 import { useState, useEffect, useId } from 'react';
 import Modal from '../ui/Modal';
 import type { Station } from '../../types';
-import { SlidersIcon, AlertTriangleIcon, InfoIcon } from '../ui/Icons';
+import { SlidersIcon, AlertTriangleIcon, InfoIcon, CompassIcon } from '../ui/Icons';
 
 interface StationCalibrationModalProps {
   isOpen: boolean;
@@ -13,7 +13,8 @@ interface StationCalibrationModalProps {
     warning_level: number | null;
     critical_level: number | null;
     blind_zone_offset?: number;
-    tilt_compensation_enabled?: boolean;
+    tilt_offset_x?: number;
+    tilt_offset_y?: number;
   }) => Promise<void>;
 }
 
@@ -27,6 +28,8 @@ export default function StationCalibrationModal({
   const refNameInputId = useId();
   const warningInputId = useId();
   const criticalInputId = useId();
+  const tiltOffsetXId = useId();
+  const tiltOffsetYId = useId();
   const testSliderId = useId();
 
   // Form State
@@ -34,7 +37,8 @@ export default function StationCalibrationModal({
   const [refName, setRefName] = useState<string>('ขอบตลิ่ง');
   const [warningLevel, setWarningLevel] = useState<string>('-0.50');
   const [criticalLevel, setCriticalLevel] = useState<string>('0.00');
-  const [tiltCompensation, setTiltCompensation] = useState<boolean>(true);
+  const [tiltOffsetX, setTiltOffsetX] = useState<string>('0.0');
+  const [tiltOffsetY, setTiltOffsetY] = useState<string>('0.0');
 
   // Interactive Simulator slider: test raw sensor distance (Air Gap)
   const [testRawDistance, setTestRawDistance] = useState<number>(2.50);
@@ -51,7 +55,8 @@ export default function StationCalibrationModal({
       setRefName(station.referencePointName || 'ขอบตลิ่ง');
       setWarningLevel(station.warningLevel !== null && station.warningLevel !== undefined ? String(station.warningLevel) : '');
       setCriticalLevel(station.criticalLevel !== null && station.criticalLevel !== undefined ? String(station.criticalLevel) : '');
-      setTiltCompensation(station.tiltCompensationEnabled !== false);
+      setTiltOffsetX(station.tiltOffsetX !== undefined && station.tiltOffsetX !== null ? String(station.tiltOffsetX) : '0.0');
+      setTiltOffsetY(station.tiltOffsetY !== undefined && station.tiltOffsetY !== null ? String(station.tiltOffsetY) : '0.0');
 
       // Default test distance to current raw distance or sensorToRef + 0.5
       const currentRaw = station.rawDistance ?? (currentSensorToRef + 0.8);
@@ -93,6 +98,9 @@ export default function StationCalibrationModal({
       return;
     }
 
+    const offX = tiltOffsetX.trim() !== '' && !isNaN(Number(tiltOffsetX)) ? Number(tiltOffsetX) : 0;
+    const offY = tiltOffsetY.trim() !== '' && !isNaN(Number(tiltOffsetY)) ? Number(tiltOffsetY) : 0;
+
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
@@ -102,7 +110,8 @@ export default function StationCalibrationModal({
         warning_level: warn,
         critical_level: crit,
         blind_zone_offset: 0.28,
-        tilt_compensation_enabled: tiltCompensation,
+        tilt_offset_x: offX,
+        tilt_offset_y: offY,
       });
       onClose();
     } catch (err: any) {
@@ -294,34 +303,96 @@ export default function StationCalibrationModal({
               </div>
             </div>
 
-            {/* Field: Tilt Compensation Toggle */}
+            {/* Field: Tilt Zero-Reference Offset */}
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0.625rem 0.75rem',
-                borderRadius: '0.625rem',
-                background: 'rgba(255, 255, 255, 0.03)',
+                background: 'rgba(255, 255, 255, 0.02)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '0.75rem',
+                padding: '0.75rem',
               }}
             >
-              <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  ชดเชยการเอียงของเสา
+              <div
+                style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+              >
+                <CompassIcon size={14} style={{ color: '#38BDF8' }} />
+                <span>ระนาบตั้งต้นของเสา</span>
+              </div>
+
+              <div style={{ fontSize: '0.6875rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: '0.625rem', lineHeight: 1.4 }}>
+                กำหนดมุมติดตั้งจริงเป็นระนาบตรง (0°) เพื่อตรวจจับเสาเอียง (&gt;15°)
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor={tiltOffsetXId} className="label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    แกน X อ้างอิง (°)
+                  </label>
+                  <input
+                    id={tiltOffsetXId}
+                    type="number"
+                    step="0.1"
+                    className="input"
+                    value={tiltOffsetX}
+                    onChange={(e) => setTiltOffsetX(e.target.value)}
+                    placeholder="0.0"
+                    style={{ fontSize: '0.875rem' }}
+                  />
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  ปรับชดเชยระยะแนวดิ่งอัตโนมัติเมื่อเสาตรวจวัดเอียง
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label htmlFor={tiltOffsetYId} className="label" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                    แกน Y อ้างอิง (°)
+                  </label>
+                  <input
+                    id={tiltOffsetYId}
+                    type="number"
+                    step="0.1"
+                    className="input"
+                    value={tiltOffsetY}
+                    onChange={(e) => setTiltOffsetY(e.target.value)}
+                    placeholder="0.0"
+                    style={{ fontSize: '0.875rem' }}
+                  />
                 </div>
               </div>
-              <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={tiltCompensation}
-                  onChange={(e) => setTiltCompensation(e.target.checked)}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
-              </label>
+
+              {station.tiltX !== undefined && station.tiltX !== null && station.tiltY !== undefined && station.tiltY !== null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTiltOffsetX(String(station.tiltX));
+                    setTiltOffsetY(String(station.tiltY));
+                  }}
+                  style={{
+                    width: '100%',
+                    marginTop: '0.625rem',
+                    background: 'rgba(56, 189, 248, 0.08)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    color: '#38BDF8',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    borderRadius: '0.5rem',
+                    padding: '0.45rem 0.75rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                  }}
+                  title={`ตั้งค่ามุมปัจจุบัน (X: ${station.tiltX}°, Y: ${station.tiltY}°) เป็นระนาบตรง`}
+                >
+                  <span>ใช้มุมปัจจุบันของเซนเซอร์ ({station.tiltX}°, {station.tiltY}°)</span>
+                </button>
+              )}
             </div>
           </div>
 

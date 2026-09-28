@@ -7,15 +7,16 @@ import type { User, UserRole } from '../types';
 import { fetchUsers, createUser, updateUser, deleteUser } from '../services/apiService';
 import { PlusIcon, CheckCircleIcon, AlertTriangleIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
+import ManagementBackBar from '../components/ui/ManagementBackBar';
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // Access control
+  // Access control: Only Admin can manage system users (RBAC Rule)
   useEffect(() => {
-    if (currentUser && currentUser.role !== 'staff' && currentUser.role !== 'admin') {
-      navigate('/dashboard');
+    if (currentUser && currentUser.role !== 'admin') {
+      navigate('/management');
     }
   }, [currentUser, navigate]);
 
@@ -117,6 +118,29 @@ export default function UsersPage() {
 
   return (
     <div className="page-container">
+      {/* Sticky Management Back Bar */}
+      <ManagementBackBar
+        title="จัดการผู้ใช้งานระบบ"
+        actions={
+          <button
+            id="add-user-btn"
+            className="btn btn-primary btn-sm"
+            onClick={handleAdd}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              padding: '6px 14px',
+            }}
+          >
+            <PlusIcon size={14} />
+            <span>เพิ่มผู้ใช้ใหม่</span>
+          </button>
+        }
+      />
+
       {/* Success Notification Banner */}
       {successMsg && (
         <div
@@ -157,15 +181,12 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Segmented Control Role Filter & Actions */}
+      {/* Segmented Control Role Filter */}
       <div
         style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 20,
-          flexWrap: 'wrap',
-          gap: 12,
         }}
       >
         <SegmentedControl
@@ -179,24 +200,6 @@ export default function UsersPage() {
           size="md"
           ariaLabel="กรองบทบาทผู้ใช้"
         />
-
-        <button
-          id="add-user-btn"
-          className="btn btn-primary"
-          onClick={handleAdd}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 7,
-            height: 38,
-            padding: '0 16px',
-            fontSize: 13.5,
-            fontWeight: 600,
-          }}
-        >
-          <PlusIcon size={15} />
-          <span>เพิ่มผู้ใช้ใหม่</span>
-        </button>
       </div>
 
       <div className="card" style={{ padding: 20 }}>

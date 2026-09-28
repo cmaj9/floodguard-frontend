@@ -152,6 +152,8 @@ export async function updateStationCalibration(
     critical_level?: number | null;
     blind_zone_offset?: number;
     tilt_compensation_enabled?: boolean;
+    tilt_offset_x?: number;
+    tilt_offset_y?: number;
   }
 ): Promise<StationWithReading> {
   const res = await api.put<ApiResponse<StationWithReading>>(

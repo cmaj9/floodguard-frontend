@@ -9,8 +9,9 @@ import StationDeleteModal from '../components/stations/StationDeleteModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
 import { fetchStations, updateStation, createStation, updateStationCalibration, updateStationStatus, fetchNextStationId, deleteStation } from '../services/apiService';
 import StationMap from '../components/map/StationMap';
-import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon, MapPinIcon } from '../components/ui/Icons';
+import { TableIcon, MapIcon, PlusIcon, AlertTriangleIcon, Edit3Icon, Trash2Icon, SlidersIcon, BellIcon } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
+import ManagementBackBar from '../components/ui/ManagementBackBar';
 
 const statusLabel: Record<WaterStatus, string> = { normal: 'ปกติ', warning: 'เฝ้าระวัง', critical: 'วิกฤต', unknown: 'ไม่มีข้อมูล' };
 const statusClass: Record<WaterStatus, string> = { normal: 'badge-normal', warning: 'badge-warning', critical: 'badge-critical', unknown: 'badge-unknown' };
@@ -67,6 +68,12 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     snr: swr.snr != null ? Number(swr.snr) : undefined,
     tiltX: swr.tilt_x != null ? Number(swr.tilt_x) : undefined,
     tiltY: swr.tilt_y != null ? Number(swr.tilt_y) : undefined,
+    tiltOffsetX: swr.tilt_offset_x != null ? Number(swr.tilt_offset_x) : undefined,
+    tiltOffsetY: swr.tilt_offset_y != null ? Number(swr.tilt_offset_y) : undefined,
+    relTiltX: swr.rel_tilt_x != null ? Number(swr.rel_tilt_x) : undefined,
+    relTiltY: swr.rel_tilt_y != null ? Number(swr.rel_tilt_y) : undefined,
+    relativeTotalTilt: swr.relative_total_tilt != null ? Number(swr.relative_total_tilt) : undefined,
+    isPoleTilted: swr.is_pole_tilted,
     gatewayName: swr.gateway_name || 'Gateway_01',
     gatewayStatus: swr.gateway_status || 'online',
     model: swr.model || undefined,
@@ -213,6 +220,8 @@ export default function StationsPage() {
           warning_level: data.warningLevel,
           critical_level: data.criticalLevel,
           max_level: data.maxLevel,
+          tilt_offset_x: (data as any).tilt_offset_x ?? (data.tiltOffsetX != null ? Number(data.tiltOffsetX) : 0),
+          tilt_offset_y: (data as any).tilt_offset_y ?? (data.tiltOffsetY != null ? Number(data.tiltOffsetY) : 0),
           status: targetStatus,
         });
         await updateStationStatus(editStation.id, targetStatus);
@@ -238,6 +247,8 @@ export default function StationsPage() {
           warning_level: data.warningLevel,
           critical_level: data.criticalLevel,
           max_level: data.maxLevel || null,
+          tilt_offset_x: (data as any).tilt_offset_x ?? (data.tiltOffsetX != null ? Number(data.tiltOffsetX) : 0),
+          tilt_offset_y: (data as any).tilt_offset_y ?? (data.tiltOffsetY != null ? Number(data.tiltOffsetY) : 0),
           status: targetStatus,
         });
         // Broadcast refresh to all pages
@@ -258,41 +269,47 @@ export default function StationsPage() {
 
   return (
     <div className="page-container">
-      {/* View switcher and Actions Header Bar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-        {/* View toggle (Pattern 1) */}
-        <SegmentedControl
-          options={[
-            { value: 'table', label: 'ตาราง', icon: <TableIcon size={14} /> },
-            { value: 'map', label: 'แผนที่', icon: <MapIcon size={14} /> },
-          ]}
-          value={view}
-          onChange={(val) => setView(val as 'table' | 'map')}
-          size="sm"
-          ariaLabel="สลับมุมมองสถานี"
-        />
+      <ManagementBackBar
+        title="จัดการสถานีวัดระดับน้ำ"
+        actions={
+          <>
+            {/* View toggle */}
+            <SegmentedControl
+              options={[
+                { value: 'table', label: 'ตาราง', icon: <TableIcon size={14} /> },
+                { value: 'map', label: 'แผนที่', icon: <MapIcon size={14} /> },
+              ]}
+              value={view}
+              onChange={(val) => setView(val as 'table' | 'map')}
+              size="sm"
+              ariaLabel="สลับมุมมองสถานี"
+            />
 
-        <button
-          id="global-notification-btn"
-          className="btn btn-secondary"
-          onClick={() => { setNotifyingStation(null); setNotificationModalOpen(true); }}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 15px', fontSize: 13.5, fontWeight: 600 }}
-          title="ตั้งค่าเกณฑ์การแจ้งเตือนส่วนกลางของระบบ"
-        >
-          <BellIcon size={15} />
-          <span>เกณฑ์แจ้งเตือนส่วนกลาง</span>
-        </button>
+            <button
+              id="global-notification-btn"
+              className="btn btn-secondary btn-sm"
+              onClick={() => { setNotifyingStation(null); setNotificationModalOpen(true); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '6px 12px' }}
+              title="ตั้งค่าเกณฑ์การแจ้งเตือนส่วนกลางของระบบ"
+            >
+              <BellIcon size={14} />
+              <span>เกณฑ์แจ้งเตือนส่วนกลาง</span>
+            </button>
 
-        <button
-          id="add-station-btn"
-          className="btn btn-primary"
-          onClick={handleAdd}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 38, padding: '0 16px', fontSize: 13.5, fontWeight: 600 }}
-        >
-          <PlusIcon size={15} />
-          <span>เพิ่มสถานี</span>
-        </button>
-      </div>
+            {isAdmin && (
+              <button
+                id="add-station-btn"
+                className="btn btn-primary btn-sm"
+                onClick={handleAdd}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, padding: '6px 14px' }}
+              >
+                <PlusIcon size={14} />
+                <span>เพิ่มสถานี</span>
+              </button>
+            )}
+          </>
+        }
+      />
 
       {loading && (
         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -335,9 +352,7 @@ export default function StationsPage() {
       {!loading && !error && (
         <>
           {view === 'table' ? (
-            <>
-              {/* Desktop Table View (>= 769px) */}
-              <div className="desktop-table-view card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <div className="table-wrap" style={{ borderRadius: 'var(--radius-lg)', border: 'none' }}>
                 <table style={{ width: '100%' }}>
                   <thead>
@@ -642,31 +657,33 @@ export default function StationsPage() {
                               >
                                 <Edit3Icon size={14} />
                               </button>
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => handleRequestDelete(s)}
-                                title="ลบสถานี"
-                                style={{
-                                  height: 32,
-                                  minWidth: 32,
-                                  padding: 0,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  borderRadius: 6,
-                                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                                  background: 'rgba(239, 68, 68, 0.08)',
-                                  color: '#EF4444',
-                                  fontSize: 11.5,
-                                  fontWeight: 600,
-                                  flexShrink: 0,
-                                  cursor: 'pointer',
-                                }}
-                                aria-label={`ลบสถานี ${s.name}`}
-                              >
-                                <Trash2Icon size={14} />
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  onClick={() => handleRequestDelete(s)}
+                                  title="ลบสถานี"
+                                  style={{
+                                    height: 32,
+                                    minWidth: 32,
+                                    padding: 0,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: 6,
+                                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                                    background: 'rgba(239, 68, 68, 0.08)',
+                                    color: '#EF4444',
+                                    fontSize: 11.5,
+                                    fontWeight: 600,
+                                    flexShrink: 0,
+                                    cursor: 'pointer',
+                                  }}
+                                  aria-label={`ลบสถานี ${s.name}`}
+                                >
+                                  <Trash2Icon size={14} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -676,143 +693,6 @@ export default function StationsPage() {
                 </table>
               </div>
             </div>
-
-            {/* Mobile Card List View (<= 768px) */}
-            <div className="mobile-cards-view">
-              {stations.map((s) => {
-                const refName = s.referencePointName || 'จุดอ้างอิง';
-                const level = s.currentLevel;
-                const levelFormatted = level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2);
-                const relativeSubtext = level < 0
-                  ? `ต่ำกว่า${refName} ${Math.abs(level).toFixed(2)} ม.`
-                  : level === 0
-                  ? `เสมอ${refName}`
-                  : `สูงกว่า${refName} ${level.toFixed(2)} ม.`;
-
-                return (
-                  <div key={s.id} className="mobile-station-card">
-                    {/* Header: ID + Name + Status */}
-                    <div className="m-card-header">
-                      <div className="m-card-title-group">
-                        <span className="station-code-pill">{s.id}</span>
-                        <span className="station-name-text">{s.name}</span>
-                      </div>
-                      <span className={`badge ${s.isActive ? statusClass[s.status] : 'badge-unknown'}`}>
-                        <span className="badge-dot" />
-                        {s.isActive ? statusLabel[s.status] : 'ปิดบริการ'}
-                      </span>
-                    </div>
-
-                    {/* Location & Type info */}
-                    <div className="m-card-subrow">
-                      <div className="m-location-pill">
-                        <MapPinIcon size={12} />
-                        <span>{s.location || `${s.district} · ${s.province}`}</span>
-                      </div>
-                      <span className="m-station-type-tag">{s.stationType}</span>
-                    </div>
-
-                    {/* 2x2 Metric Grid */}
-                    <div className="m-metrics-grid">
-                      <div className="m-metric-item">
-                        <span className="m-metric-label">ระดับน้ำจริงเทียบ{refName}</span>
-                        <span className={`m-metric-val ${level >= 0 ? 'level-danger' : 'level-safe'}`}>
-                          {s.isActive ? `${levelFormatted} ม.` : '-'}
-                        </span>
-                        <span className="m-metric-sub">{s.isActive ? relativeSubtext : 'ปิดให้บริการ'}</span>
-                      </div>
-                      <div className="m-metric-item">
-                        <span className="m-metric-label">จุดอ้างอิง ({refName})</span>
-                        <span className="m-metric-val text-sky">
-                          {s.sensorToRefDistance?.toFixed(2) ?? '2.00'} ม.
-                        </span>
-                        <span className="m-metric-sub">ระยะติดตั้งถึงจุดอ้างอิง</span>
-                      </div>
-                      <div className="m-metric-item">
-                        <span className="m-metric-label">ระยะเซนเซอร์วัดได้</span>
-                        <span className="m-metric-val">
-                          {s.isActive && s.rawDistance !== null && s.rawDistance !== undefined
-                            ? `${s.rawDistance.toFixed(3)} ม.`
-                            : '-'}
-                        </span>
-                        {s.isBlindZone && <span className="m-blind-zone-tag">Blind Zone</span>}
-                      </div>
-                      <div className="m-metric-item">
-                        <span className="m-metric-label">อุปกรณ์ / Gateway</span>
-                        <span className="m-metric-val font-mono">{s.deviceId}</span>
-                        <span className="m-metric-sub">{s.gatewayName || 'Gateway'}</span>
-                      </div>
-                    </div>
-
-                    {/* Status Toggle Bar */}
-                    <div className="m-status-bar">
-                      <span className="m-status-title">สถานะบริการ:</span>
-                      <div className="m-toggle-pill-wrap">
-                        <button
-                          type="button"
-                          className={`m-status-toggle-btn ${s.isActive ? 'active-online' : ''}`}
-                          onClick={() => handleRequestStatusChange(s, 'active')}
-                          disabled={statusUpdating[s.id]}
-                        >
-                          <span className="dot" />
-                          <span>ออนไลน์</span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`m-status-toggle-btn ${!s.isActive ? 'active-offline' : ''}`}
-                          onClick={() => handleRequestStatusChange(s, 'offline')}
-                          disabled={statusUpdating[s.id]}
-                        >
-                          <span className="dot" />
-                          <span>ออฟไลน์</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Actions Footer */}
-                    <div className="m-card-actions">
-                      <button
-                        type="button"
-                        className="btn btn-secondary m-action-btn"
-                        onClick={() => handleCalibrate(s)}
-                      >
-                        <SlidersIcon size={14} />
-                        <span>จุดอ้างอิง</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary m-action-btn"
-                        onClick={() => { setNotifyingStation(s); setNotificationModalOpen(true); }}
-                      >
-                        <BellIcon size={14} />
-                        <span>แจ้งเตือน</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-secondary m-action-btn"
-                        onClick={() => handleEdit(s)}
-                        aria-label={`แก้ไขสถานี ${s.name}`}
-                      >
-                        <Edit3Icon size={14} />
-                        <span>แก้ไข</span>
-                      </button>
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className="btn btn-danger-outline m-action-btn"
-                          onClick={() => handleRequestDelete(s)}
-                          aria-label={`ลบสถานี ${s.name}`}
-                        >
-                          <Trash2Icon size={14} />
-                          <span>ลบ</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
           ) : (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
               <StationMap
