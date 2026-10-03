@@ -15,6 +15,7 @@ import DataHistoryPage from './pages/DataHistoryPage';
 import SubscribePage from './pages/SubscribePage';
 import CitizenRegisterPage from './pages/CitizenRegisterPage';
 import ManagementHubPage from './pages/ManagementHubPage';
+import SetupCredentialsPage from './pages/SetupCredentialsPage';
 
 /**
  * Automatically handle LINE LIFF deep-link forwarding (?liff.state=/path)
@@ -113,6 +114,11 @@ function ProtectedRoute({
 
   if (!user) return <Navigate to="/login" replace />;
 
+  // Intercept new/unconfigured citizens before they can view water level telemetry
+  if (user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false) {
+    return <Navigate to="/setup-credentials" replace />;
+  }
+
   if (requiredRoles && !requiredRoles.includes(user.role)) {
     // If visitor or citizen tries to access staff/admin routes, send to login
     if (user.role === 'citizen') {
@@ -125,12 +131,29 @@ function ProtectedRoute({
 }
 
 function AppRoutes() {
-  const { user } = useAuth();
-  const isStaffOrAdmin = user && (user.role === 'staff' || user.role === 'admin');
+  const { user, isGuest } = useAuth();
+  const isAuthenticated = Boolean(user && !isGuest);
+  const needsCredentialsSetup = Boolean(
+    user && user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false
+  );
 
   return (
     <Routes>
-      <Route path="/login" element={isStaffOrAdmin ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            needsCredentialsSetup ? (
+              <Navigate to="/setup-credentials" replace />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
+      <Route path="/setup-credentials" element={<SetupCredentialsPage />} />
       <Route path="/register" element={<CitizenRegisterPage />} />
       <Route path="/subscribe" element={<SubscribePage />} />
       <Route

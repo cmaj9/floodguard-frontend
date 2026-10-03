@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import NotificationPanel from "../ui/NotificationPanel";
 import type { AppNotification } from "../../types";
 import { BellIcon, RefreshCwIcon } from "../ui/Icons";
@@ -28,7 +28,15 @@ export default function TopBar({
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const now = new Date();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    // Update every 30 seconds — accurate enough for HH:MM display
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const timeStr = now.toLocaleTimeString("th-TH", {
     hour: "2-digit",
     minute: "2-digit",

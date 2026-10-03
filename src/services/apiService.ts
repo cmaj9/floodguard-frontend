@@ -442,5 +442,20 @@ export async function checkCitizenStatusApi(
   return { registered: !!res.data.registered, data: res.data.data };
 }
 
+/**
+ * POST /api/users/setup-credentials
+ * Setup real email and password for citizen
+ */
+export async function setupCredentialsApi(data: {
+  userId?: string;
+  lineUserId?: string;
+  email: string;
+  password: string;
+}): Promise<AuthUser> {
+  const res = await api.post<ApiResponse<AuthUser>>('/api/users/setup-credentials', data);
+  if (!res.data.success) throw new Error(res.data.error ?? 'ตั้งค่าอีเมลและรหัสผ่านไม่สำเร็จ');
+  return res.data.data;
+}
+
 export default api;
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -13,13 +13,24 @@ import Logo from "../components/ui/Logo";
 import { loginWithLiff } from "../services/liffService";
 
 export default function LoginPage() {
-  const { login, loginAsCitizen } = useAuth();
+  const { user, isGuest, login, loginAsCitizen, isLoading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-redirect if already authenticated (including LINE Citizen)
+  useEffect(() => {
+    if (!isLoading && user && !isGuest) {
+      if (user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false) {
+        navigate("/setup-credentials", { replace: true });
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [user, isGuest, isLoading, navigate]);
 
   const handleCitizenAccess = () => {
     loginAsCitizen();
@@ -30,7 +41,7 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      await loginWithLiff();
+      await loginWithLiff(`${window.location.origin}/dashboard`);
     } catch (err: any) {
       console.warn("LINE Login error:", err);
       setError(
@@ -58,6 +69,49 @@ export default function LoginPage() {
       setError(res.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
     }
   };
+
+  const isLineCallback = typeof window !== "undefined" && window.location.search.includes("code=");
+
+  if (isLineCallback && isLoading) {
+    return (
+      <div className="login-bg" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div
+          className="login-card"
+          style={{
+            background: "linear-gradient(180deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderRadius: 20,
+            padding: "36px 28px",
+            textAlign: "center",
+            maxWidth: 400,
+            width: "90%",
+            boxShadow: "0 24px 48px -12px rgba(0, 0, 0, 0.6)",
+          }}
+        >
+          <Logo size="lg" />
+          <div style={{ marginTop: 24, marginBottom: 16 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                border: "3px solid rgba(6, 199, 85, 0.2)",
+                borderTopColor: "#06C755",
+                borderRadius: "50%",
+                margin: "0 auto",
+                animation: "spin 0.8s linear infinite",
+              }}
+            />
+          </div>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#FFFFFF", margin: "0 0 6px" }}>
+            กำลังเข้าสู่ระบบผ่าน LINE...
+          </h2>
+          <p style={{ fontSize: 13, color: "#94A3B8", margin: 0 }}>
+            กรุณารอสักครู่ ระบบกำลังยืนยันตัวตนและนำท่านเข้าสู่แดชบอร์ด
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="login-bg">

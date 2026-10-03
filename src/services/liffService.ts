@@ -110,12 +110,14 @@ export async function loginWithLiff(redirectUri?: string): Promise<void> {
     );
   }
 
+  const targetUri = redirectUri || `${window.location.origin}/dashboard`;
+
   if (liff.isLoggedIn()) {
-    window.location.href = redirectUri || '/dashboard';
+    window.location.href = targetUri;
     return;
   }
 
-  liff.login({ redirectUri: redirectUri || window.location.href });
+  liff.login({ redirectUri: targetUri });
 }
 
 export default liff;

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { AuthUser } from '../types';
-import { loginApi, registerCitizenApi, registerEmailApi } from '../services/apiService';
+import { loginApi, registerCitizenApi, registerEmailApi, setupCredentialsApi } from '../services/apiService';
 import { getLiffProfile } from '../services/liffService';
 
 interface RegisterData {
@@ -17,6 +17,7 @@ interface AuthContextType {
   isGuest: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  setupCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginAsCitizen: (guestName?: string) => void;
   logout: () => void;
   updateProfile: (data: Partial<AuthUser>) => void;
@@ -31,7 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem('wl_auth_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.id) return parsed;
+        if (parsed && parsed.id) {
+          const isSynthetic = Boolean(
+            parsed.email && (parsed.email.endsWith('@waterwatch.local') || parsed.email.endsWith('@floodguard.local'))
+          );
+          if (parsed.role === 'citizen') {
+            parsed.isCredentialsSet = Boolean(parsed.isCredentialsSet || parsed.is_credentials_set) && !isSynthetic;
+          }
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('[AuthContext] Failed to parse saved user:', e);
@@ -76,15 +85,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               lineUserId: profile.userId,
               displayName: profile.displayName || 'ผู้ใช้ LINE',
             });
+            const isSet = Boolean(
+              citizen.isCredentialsSet ??
+              citizen.is_credentials_set ??
+              (citizen.email && !citizen.email.endsWith('@waterwatch.local') && !citizen.email.endsWith('@floodguard.local'))
+            );
             const citizenUser: AuthUser = {
               id: String(citizen.id || `citizen_${profile.userId.slice(-6)}`),
               name: profile.displayName || citizen.name || 'ประชาชนผู้ใช้งาน',
-              email: citizen.email || `citizen_${profile.userId.slice(-6)}@floodguard.local`,
+              email: citizen.email || `citizen_${profile.userId.slice(-6)}@waterwatch.local`,
               role: 'citizen',
               stationIds: citizen.stationIds || [],
               phone: citizen.phone || '',
               district: citizen.district || '',
               lineUserId: profile.userId,
+              isCredentialsSet: isSet,
+              is_credentials_set: isSet,
             };
             setUser(citizenUser);
             localStorage.setItem('wl_auth_user', JSON.stringify(citizenUser));
@@ -95,12 +111,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const fallbackCitizen: AuthUser = {
               id: `citizen_${profile.userId.slice(-6)}`,
               name: profile.displayName || 'ประชาชนผู้ใช้งาน',
-              email: `citizen_${profile.userId.slice(-6)}@floodguard.local`,
+              email: `citizen_${profile.userId.slice(-6)}@waterwatch.local`,
               role: 'citizen',
               stationIds: [],
               phone: '',
               district: '',
               lineUserId: profile.userId,
+              isCredentialsSet: false,
+              is_credentials_set: false,
             };
             setUser(fallbackCitizen);
             localStorage.setItem('wl_auth_user', JSON.stringify(fallbackCitizen));
@@ -191,8 +209,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setupCredentials = useCallback(
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      setIsLoading(true);
+      try {
+        const updatedUser = await setupCredentialsApi({
+          userId: user?.id,
+          lineUserId: user?.lineUserId || undefined,
+          email,
+          password,
+        });
+
+        const finalUser: AuthUser = {
+          ...user,
+          ...updatedUser,
+          email: updatedUser.email,
+          isCredentialsSet: true,
+          is_credentials_set: true,
+        };
+        setUser(finalUser);
+        localStorage.setItem('wl_auth_user', JSON.stringify(finalUser));
+        setIsLoading(false);
+        return { success: true };
+      } catch (err: any) {
+        console.warn('[AuthContext] setupCredentials error:', err);
+        const errMsg = err?.response?.data?.error || err?.message || 'ตั้งค่าอีเมลและรหัสผ่านไม่สำเร็จ';
+        setIsLoading(false);
+        return { success: false, error: errMsg };
+      }
+    },
+    [user]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, isGuest, login, register, loginAsCitizen, logout, updateProfile, isLoading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isGuest,
+        login,
+        register,
+        setupCredentials,
+        loginAsCitizen,
+        logout,
+        updateProfile,
+        isLoading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
