@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
-import { MailIcon, PhoneIcon, MapPinIcon, KeyIcon, SaveIcon, CheckIcon } from '../components/ui/Icons';
+import { MailIcon, PhoneIcon, MapPinIcon, KeyIcon, SaveIcon, CheckIcon, LogOutIcon } from '../components/ui/Icons';
 
 const roleLabel: Record<UserRole, string> = {
   citizen: 'ประชาชนทั่วไป',
@@ -10,15 +11,22 @@ const roleLabel: Record<UserRole, string> = {
 };
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth();
+  const navigate = useNavigate();
+  const { user, updateProfile, logout } = useAuth();
   const [form, setForm] = useState({
     name: user?.name ?? '',
     phone: user?.phone ?? '',
     district: user?.district ?? '',
   });
   const [saved, setSaved] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   if (!user) return null;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const set = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -239,6 +247,118 @@ export default function ProfilePage() {
           </form>
         </div>
       </div>
+
+      {/* Mobile Logout Button (Visible only on responsive mobile with BottomBar) */}
+      <div className="profile-mobile-logout-wrap">
+        <button
+          type="button"
+          id="profile-mobile-logout-btn"
+          className="profile-mobile-logout-btn"
+          onClick={() => setShowLogoutModal(true)}
+          title="ออกจากระบบ"
+        >
+          <LogOutIcon size={18} />
+          <span>ออกจากระบบ</span>
+        </button>
+      </div>
+
+      {/* Safety Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowLogoutModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0B1120',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 16,
+              padding: 24,
+              maxWidth: 380,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 20 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#EF4444',
+                  flexShrink: 0,
+                }}
+              >
+                <LogOutIcon size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+                  ยืนยันการออกจากระบบ
+                </h3>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  คุณต้องการออกจากระบบบัญชีของคุณใช่หรือไม่?
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowLogoutModal(false)}
+                style={{
+                  padding: '9px 18px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={handleLogout}
+                style={{
+                  padding: '9px 18px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <LogOutIcon size={15} />
+                <span>ยืนยัน ออกจากระบบ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

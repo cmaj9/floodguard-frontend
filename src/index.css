@@ -1431,25 +1431,31 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────
-   MANAGEMENT STICKY BACK BAR
+   MANAGEMENT HEADER (FLAT DESKTOP / RESPONSIVE MOBILE)
    ───────────────────────────────────────────────────────────── */
 .management-back-bar {
-  position: sticky;
-  top: calc(56px + var(--safe-top));
-  z-index: 80;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px 14px;
-  padding: 10px 16px;
-  background: rgba(17, 24, 39, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  margin-bottom: 1.25rem;
+  gap: 12px 16px;
+  padding: 0 0 16px 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  width: 100%;
   box-sizing: border-box;
+}
+
+.management-back-btn {
+  display: none;
+}
+
+.management-title-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: #F8FAFC;
+  letter-spacing: -0.01em;
 }
 
 .management-back-bar-actions {
@@ -1457,6 +1463,11 @@ tbody tr:last-child td { border-bottom: none; }
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Profile Mobile Logout Button (Hidden on Desktop) */
+.profile-mobile-logout-wrap {
+  display: none;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -1965,17 +1976,75 @@ tbody tr:last-child td { border-bottom: none; }
 
   /* Management Back Bar on Mobile */
   .management-back-bar {
-    top: calc(52px + var(--safe-top)) !important;
-    padding: 8px 12px !important;
-    border-radius: 10px !important;
-    margin-bottom: 1rem !important;
-    gap: 8px 10px !important;
+    padding: 10px 14px !important;
+    background: rgba(15, 23, 42, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    margin-bottom: 1.25rem !important;
+    gap: 10px 12px !important;
+  }
+
+  .management-back-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #38BDF8;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .management-back-btn:active {
+    background: rgba(56, 189, 248, 0.16);
+    transform: scale(0.97);
+  }
+
+  .management-title-text {
+    font-size: 15px !important;
   }
 
   .management-back-bar-actions {
     width: 100%;
     justify-content: flex-end;
     gap: 6px !important;
+  }
+
+  /* Profile Mobile Logout Button */
+  .profile-mobile-logout-wrap {
+    display: block;
+    margin-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .profile-mobile-logout-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #EF4444;
+    cursor: pointer;
+    min-height: 44px;
+    transition: all 0.2s ease;
+  }
+
+  .profile-mobile-logout-btn:active {
+    background: rgba(239, 68, 68, 0.2);
+    transform: scale(0.98);
   }
 
   /* ── Mobile Bottom Navigation Bar ── */

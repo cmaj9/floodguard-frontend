@@ -125,7 +125,7 @@ export interface DbAlert {
   station_name?: string;
   location_name?: string;
   timestamp: string;
-  alert_type: 'water_level' | 'rate_of_rise' | 'offline' | 'battery' | 'geofence' | 'tilt';
+  alert_type: 'water_level' | 'rate_of_rise' | 'offline' | 'online' | 'battery' | 'geofence' | 'tilt';
   value: number | null;
   threshold: number | null;
   message: string;

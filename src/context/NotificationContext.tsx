@@ -30,6 +30,10 @@ function mapAlertToNotification(a: DbAlert): AppNotification {
       title = 'สถานีขาดการติดต่อ';
       type = 'warning';
       break;
+    case 'online':
+      title = 'สถานีกลับมาออนไลน์ตามปกติ';
+      type = 'info';
+      break;
     case 'battery':
       title = 'แบตเตอรี่สถานีต่ำ';
       type = 'warning';
