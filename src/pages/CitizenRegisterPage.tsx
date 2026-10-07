@@ -111,7 +111,7 @@ export default function CitizenRegisterPage() {
 
   const handleConnectLine = async () => {
     try {
-      await loginWithLiff();
+      await loginWithLiff('/register');
     } catch (err: any) {
       setErrorMessage(err.message || 'ไม่สามารถเชื่อมต่อ LINE LIFF ได้');
     }

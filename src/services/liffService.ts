@@ -11,24 +11,33 @@ export interface LiffUserProfile {
   statusMessage?: string;
 }
 
+/**
+ * LIFF ID is public (it appears in every https://liff.line.me/<ID> link), so a
+ * hardcoded fallback is safe. It protects production builds where the Vercel
+ * environment variable VITE_LIFF_ID is missing (.env files are gitignored).
+ */
+const DEFAULT_LIFF_ID = '2011710455-EuzadfEo';
+export const LIFF_ID = String(import.meta.env.VITE_LIFF_ID || DEFAULT_LIFF_ID).trim();
+
+/** Must match the Endpoint URL configured for the LIFF app in LINE Developers Console */
+export const LIFF_ENDPOINT = 'https://waterwatch-frontend-mu.vercel.app';
+
 let isInitialized = false;
 let initError: any = null;
 
 /**
- * Initialize LIFF with environment variable VITE_LIFF_ID
+ * Initialize LIFF
  */
 export async function initLiff(): Promise<boolean> {
   if (isInitialized) return true;
 
-  const liffId = import.meta.env.VITE_LIFF_ID || '';
-  if (!liffId) {
-    initError = new Error('ยังไม่ได้กำหนดค่า VITE_LIFF_ID ในระบบ');
-    console.warn('[LIFF Service] VITE_LIFF_ID is not configured in .env yet.');
+  if (!LIFF_ID) {
+    initError = new Error('missing LIFF ID');
     return false;
   }
 
   try {
-    await liff.init({ liffId });
+    await liff.init({ liffId: LIFF_ID });
     isInitialized = true;
     initError = null;
     console.log('[LIFF Service] Initialized successfully. InClient:', liff.isInClient());
@@ -85,33 +94,50 @@ export function isInLineClient(): boolean {
 }
 
 /**
- * Login with LIFF (for external browsers or when user clicks login with LINE)
+ * Build a LIFF deep link that opens the app inside LINE
+ * (falls back to LINE web login automatically if the LINE app is not installed)
  */
-export async function loginWithLiff(redirectUri?: string): Promise<void> {
-  const liffId = import.meta.env.VITE_LIFF_ID || '';
-  if (!liffId) {
-    throw new Error('ไม่พบการตั้งค่า LINE LIFF ID ในระบบ');
+export function getLiffDeepLink(path = '/dashboard'): string {
+  const safePath = path.startsWith('/') ? path : `/${path}`;
+  return `https://liff.line.me/${LIFF_ID}${safePath}`;
+}
+
+function isMobileDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+function friendlyInitError(err: any): string {
+  const msg = String(err?.message || err || '');
+  const lower = msg.toLowerCase();
+  if (lower.includes('url') || lower.includes('endpoint') || lower.includes('redirect')) {
+    return `URL ของหน้านี้ไม่ตรงกับ LIFF Endpoint (${LIFF_ENDPOINT}) กรุณาเปิดผ่านโดเมนหลัก`;
+  }
+  if (lower.includes('400') || lower.includes('channel') || lower.includes('developing')) {
+    return 'LINE Channel ปฏิเสธการเชื่อมต่อ กรุณาตรวจสอบว่า Channel เป็น Published และ LIFF ID ถูกต้อง';
+  }
+  return `ไม่สามารถเชื่อมต่อ LINE ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง${msg ? ` (${msg})` : ''}`;
+}
+
+/**
+ * Login with LINE
+ * - Mobile, or any origin other than the LIFF endpoint (localhost / preview) → open via liff.line.me
+ * - Desktop on the LIFF endpoint → liff.login() (LINE web login with QR / email)
+ */
+export async function loginWithLiff(path = '/dashboard'): Promise<void> {
+  const safePath = path.startsWith('/') ? path : `/${path}`;
+
+  if (isMobileDevice() || window.location.origin !== LIFF_ENDPOINT) {
+    window.location.href = getLiffDeepLink(safePath);
+    return;
   }
 
   const ready = await initLiff();
   if (!ready) {
-    const errorStr = String(initError?.message || initError || '');
-    if (
-      errorStr.includes('400') ||
-      errorStr.toLowerCase().includes('developing') ||
-      errorStr.toLowerCase().includes('status')
-    ) {
-      throw new Error(
-        'LINE Channel มีสถานะเป็น "Developing" ใน LINE Developers Console กรุณาเปลี่ยนสถานะเป็น "Published"'
-      );
-    }
-    throw new Error(
-      `ไม่สามารถเชื่อมต่อ LINE LIFF ได้ (${errorStr || 'กรุณาตรวจสอบว่า LINE Channel มีสถานะเป็น Published และรองรับ URL ปัจจุบัน'})`
-    );
+    throw new Error(friendlyInitError(initError));
   }
 
-  const targetUri = redirectUri || `${window.location.origin}/dashboard`;
-
+  const targetUri = `${LIFF_ENDPOINT}${safePath}`;
   if (liff.isLoggedIn()) {
     window.location.href = targetUri;
     return;

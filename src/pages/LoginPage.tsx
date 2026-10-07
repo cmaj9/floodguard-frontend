@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lineLoading, setLineLoading] = useState(false);
 
   // Auto-redirect if already authenticated (including LINE Citizen)
   useEffect(() => {
@@ -39,17 +40,16 @@ export default function LoginPage() {
 
   const handleLineLogin = async () => {
     setError("");
-    setLoading(true);
+    setLineLoading(true);
     try {
-      await loginWithLiff(`${window.location.origin}/dashboard`);
+      await loginWithLiff('/dashboard');
     } catch (err: any) {
       console.warn("LINE Login error:", err);
       setError(
         err?.message ||
           "ไม่สามารถเชื่อมต่อ LINE ได้ กรุณาตรวจสอบสถานะ Channel ใน LINE Developers ว่าเป็น Published"
       );
-    } finally {
-      setLoading(false);
+      setLineLoading(false);
     }
   };
 
@@ -431,6 +431,8 @@ export default function LoginPage() {
               type="button"
               id="line-liff-login-btn"
               onClick={handleLineLogin}
+              disabled={lineLoading || loading}
+              aria-busy={lineLoading}
               className="btn"
               style={{
                 width: "100%",
@@ -445,11 +447,29 @@ export default function LoginPage() {
                 color: "#FFFFFF",
                 border: "none",
                 borderRadius: 10,
-                cursor: "pointer",
+                cursor: lineLoading || loading ? "not-allowed" : "pointer",
+                opacity: lineLoading || loading ? 0.75 : 1,
                 transition: "opacity 0.2s ease",
               }}
             >
-              <span>เข้าสู่ระบบด้วย LINE (LIFF)</span>
+              {lineLoading ? (
+                <>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 14,
+                      height: 14,
+                      border: "2px solid rgba(255,255,255,0.3)",
+                      borderTopColor: "#fff",
+                      borderRadius: "50%",
+                      animation: "spin 0.8s linear infinite",
+                    }}
+                  />
+                  <span>กำลังเชื่อมต่อ LINE...</span>
+                </>
+              ) : (
+                <span>เข้าสู่ระบบด้วย LINE (LIFF)</span>
+              )}
             </button>
           </div>
 
