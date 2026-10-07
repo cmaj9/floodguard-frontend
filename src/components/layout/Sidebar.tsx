@@ -141,9 +141,9 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* Login Action: Only shown when visitor is Guest */}
-        {(!user || isGuest) && (
-          <div style={{ padding: "0 14px 10px" }}>
+        {/* Auth Action: Shows "เข้าสู่ระบบ" when Guest, and "ออกจากระบบ" when Logged In */}
+        <div style={{ padding: "0 14px 10px" }}>
+          {isGuest ? (
             <button
               type="button"
               id="sidebar-staff-login-btn"
@@ -162,8 +162,27 @@ export default function Sidebar() {
               </span>
               <span>เข้าสู่ระบบ</span>
             </button>
-          </div>
-        )}
+          ) : (
+            <button
+              type="button"
+              id="sidebar-logout-btn"
+              onClick={() => setShowLogoutConfirm(true)}
+              className="nav-item"
+              style={{
+                marginBottom: 0,
+              }}
+              title="ออกจากระบบ"
+            >
+              <span
+                className="nav-icon"
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <LogOutIcon size={24} />
+              </span>
+              <span>ออกจากระบบ</span>
+            </button>
+          )}
+        </div>
 
         {/* User info & Auth button */}
         <div
@@ -176,7 +195,7 @@ export default function Sidebar() {
             transition: "background 0.2s ease",
             borderRadius: !isGuest ? "12px" : undefined,
             margin: !isGuest ? "0 8px 8px" : undefined,
-            padding: !isGuest ? "12px" : "18px 20px",
+            padding: !isGuest ? "14px 18px" : "18px 20px",
           }}
           title={!isGuest ? "คลิกเพื่อดูและจัดการโปรไฟล์" : undefined}
         >
@@ -220,30 +239,6 @@ export default function Sidebar() {
               {isGuest ? "โหมดประชาชน" : roleLabel[user.role]}
             </span>
           </div>
-
-          {/* Show logout button only if the citizen is registered or staff/admin */}
-          {!isGuest && (
-            <button
-              className="btn-icon"
-              title="ออกจากระบบ"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowLogoutConfirm(true);
-              }}
-              style={{
-                width: 36,
-                height: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 10,
-                cursor: "pointer",
-              }}
-              aria-label="ออกจากระบบ"
-            >
-              <LogOutIcon size={18} />
-            </button>
-          )}
         </div>
       </aside>
 

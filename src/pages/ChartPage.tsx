@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import WaterLevelChart from '../components/charts/WaterLevelChart';
 import type { Station, TimeRange, WaterLevelReading, StationWithReading, Reading } from '../types';
@@ -101,126 +100,85 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
   };
 };
 
-function getWeekRangeLabel(date: Date): { key: string; label: string; start: Date } {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-  const monday = new Date(d);
-  monday.setDate(diff);
-  monday.setHours(0, 0, 0, 0);
-
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
-
-  const key = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
-  const label = `${format(monday, 'dd/MM')} - ${format(sunday, 'dd/MM')}`;
-  return { key, label, start: monday };
-}
-
-function aggregateReadings(
+/**
+ * กรองข้อมูลที่ผิดปกติ (Outlier Filtering) ตาม Datasheet เซนเซอร์ (0 - 600 cm / 0.00 - 6.00 m)
+ * และตัดค่าระยะใกล้เกินไปในระยะบอด Blind Zone (< 28 cm หรือ blindZoneOffset ของสถานี)
+ * พร้อมแปลงเป็นข้อมูลรายจุดตรวจวัดจริง (Real discrete points) โดยไม่หาค่าเฉลี่ย
+ */
+function filterAndMapReadings(
   readings: Reading[],
-  timeRange: TimeRange,
   stationId: string,
-  sToRef?: number
+  station?: Station
 ): WaterLevelReading[] {
-  if (!readings.length) return [];
+  if (!readings || !readings.length) return [];
 
-  const groups: Record<string, { items: Reading[]; timestamp: string; label?: string }> = {};
+  const sToRef = station?.sensorToRefDistance ?? 2.0;
+  const blindZoneLimit =
+    station?.blindZoneOffset !== undefined && station?.blindZoneOffset !== null && station.blindZoneOffset > 0
+      ? station.blindZoneOffset
+      : 0.28; // 28 cm
+
+  const result: WaterLevelReading[] = [];
 
   readings.forEach((r) => {
+    // 1. ตรวจสอบความถูกต้องของเวลา
     const d = new Date(r.timestamp);
     if (isNaN(d.getTime())) return;
 
-    let groupKey = '';
-    let groupTime = '';
-    let groupLabel: string | undefined = undefined;
+    // 2. ตรวจสอบระยะตรวจวัดเซนเซอร์ raw_distance
+    const rawDist =
+      r.raw_distance !== null && r.raw_distance !== undefined && !isNaN(Number(r.raw_distance))
+        ? Number(r.raw_distance)
+        : null;
 
-    if (timeRange === 'hourly') {
-      const yr = d.getFullYear();
-      const mo = String(d.getMonth() + 1).padStart(2, '0');
-      const da = String(d.getDate()).padStart(2, '0');
-      const hr = String(d.getHours()).padStart(2, '0');
-      groupKey = `${yr}-${mo}-${da} ${hr}:00`;
-      const hourDate = new Date(d);
-      hourDate.setMinutes(0, 0, 0);
-      groupTime = hourDate.toISOString();
-    } else if (timeRange === 'daily') {
-      const yr = d.getFullYear();
-      const mo = String(d.getMonth() + 1).padStart(2, '0');
-      const da = String(d.getDate()).padStart(2, '0');
-      groupKey = `${yr}-${mo}-${da}`;
-      const dayDate = new Date(d);
-      dayDate.setHours(0, 0, 0, 0);
-      groupTime = dayDate.toISOString();
-    } else {
-      const { key, label, start } = getWeekRangeLabel(d);
-      groupKey = key;
-      groupTime = start.toISOString();
-      groupLabel = label;
-    }
-
-    if (!groups[groupKey]) {
-      groups[groupKey] = { items: [], timestamp: groupTime, label: groupLabel };
-    }
-    groups[groupKey].items.push(r);
-  });
-
-  const groupKeys = Object.keys(groups).sort();
-  return groupKeys.map((key) => {
-    const group = groups[key];
-    const items = group.items;
-    const count = items.length;
-
-    const levels = items.map((r) => {
-      if (sToRef !== undefined && r.raw_distance !== null && r.raw_distance !== undefined) {
-        return Number((sToRef - Number(r.raw_distance)).toFixed(3));
+    // ระบบกรองข้อมูล Outlier:
+    // ตาม Datasheet เซนเซอร์วัดได้ 0 - 600 cm (0.00 - 6.00 ม.)
+    // ตัดค่าที่เกิน 600 cm (> 6.00 ม.) และค่าที่ใกล้เกินไปในระยะ Blind Zone (< 0.28 ม.) ออกจากกราฟ
+    if (rawDist !== null) {
+      if (rawDist < blindZoneLimit || rawDist > 6.0) {
+        return; // ตัดทิ้ง ไม่นำมาคำนวณหรือพล็อตกราฟ
       }
-      return r.water_level !== null && r.water_level !== undefined ? Number(r.water_level) : 0;
-    });
+    }
 
-    const sumLevel = levels.reduce((a, b) => a + b, 0);
-    const avgLevel = Number((sumLevel / count).toFixed(3));
-    const minLevel = Number(Math.min(...levels).toFixed(3));
-    const maxLevel = Number(Math.max(...levels).toFixed(3));
+    // 3. คำนวณระดับน้ำจริงเทียบจุดอ้างอิง
+    let calculatedLevel: number;
+    if (rawDist !== null) {
+      calculatedLevel = Number((sToRef - rawDist).toFixed(3));
+    } else if (r.water_level !== null && r.water_level !== undefined && !isNaN(Number(r.water_level))) {
+      calculatedLevel = Number(Number(r.water_level).toFixed(3));
+    } else {
+      return; // ไม่มีค่าระยะหรือระดับน้ำที่ใช้การได้
+    }
 
-    const calcAvg = (getter: (r: Reading) => number | null | undefined, decimals = 2) => {
-      const valid = items.map(getter).filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
-      if (!valid.length) return null;
-      return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(decimals));
-    };
+    // กรองค่าระดับน้ำที่กระโดดผิดปกติ
+    if (calculatedLevel < -6.0 || calculatedLevel > 6.0) {
+      return;
+    }
 
-    const avgRawDistance = calcAvg((r) => r.raw_distance, 3);
-    const avgTemperature = calcAvg((r) => r.temperature, 1);
-    const avgHumidity = calcAvg((r) => r.humidity, 1);
-    const avgBatteryVoltage = calcAvg((r) => r.battery_voltage, 2);
-    const avgBatteryPercent = calcAvg((r) => r.battery_percent, 0);
-    const avgRssi = calcAvg((r) => r.rssi, 0);
-    const avgSnr = calcAvg((r) => r.snr, 1);
-    const avgTiltX = calcAvg((r) => r.tilt_x, 2);
-    const avgTiltY = calcAvg((r) => r.tilt_y, 2);
-    const isBlindZone = items.some((r) => Boolean(r.is_blind_zone));
-
-    return {
-      timestamp: group.timestamp,
-      level: avgLevel,
+    result.push({
+      timestamp: r.timestamp,
+      level: calculatedLevel,
       stationId,
-      minLevel,
-      maxLevel,
-      count,
-      label: group.label,
-      rawDistance: avgRawDistance,
-      temperature: avgTemperature,
-      humidity: avgHumidity,
-      batteryVoltage: avgBatteryVoltage,
-      batteryPercent: avgBatteryPercent,
-      rssi: avgRssi,
-      snr: avgSnr,
-      tiltX: avgTiltX,
-      tiltY: avgTiltY,
-      isBlindZone,
-    };
+      minLevel: calculatedLevel,
+      maxLevel: calculatedLevel,
+      count: 1,
+      rawDistance: rawDist,
+      temperature: r.temperature != null ? Number(r.temperature) : undefined,
+      humidity: r.humidity != null ? Number(r.humidity) : undefined,
+      batteryVoltage: r.battery_voltage != null ? Number(r.battery_voltage) : undefined,
+      batteryPercent: r.battery_percent != null ? Number(r.battery_percent) : undefined,
+      rssi: r.rssi != null ? Number(r.rssi) : undefined,
+      snr: r.snr != null ? Number(r.snr) : undefined,
+      tiltX: r.tilt_x != null ? Number(r.tilt_x) : undefined,
+      tiltY: r.tilt_y != null ? Number(r.tilt_y) : undefined,
+      isBlindZone: Boolean(r.is_blind_zone) || (rawDist !== null && rawDist <= blindZoneLimit),
+    });
   });
+
+  // เรียงลำดับตามเวลาจากอดีตไปปัจจุบัน
+  result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  return result;
 }
 
 export default function ChartPage() {
@@ -237,10 +195,18 @@ export default function ChartPage() {
   const [stationsLoading, setStationsLoading] = useState(false);
   const [stationsError, setStationsError] = useState<string | null>(null);
 
-  const [readings, setReadings] = useState<WaterLevelReading[]>([]);
+  const [rawReadings, setRawReadings] = useState<Reading[]>([]);
   const [readingsLoading, setReadingsLoading] = useState(false);
   const [readingsError, setReadingsError] = useState<string | null>(null);
   const [isExported, setIsExported] = useState(false);
+
+  const selectedStation = useMemo(() => {
+    return stations.find((s) => s.id === selectedStationId);
+  }, [stations, selectedStationId]);
+
+  const readings = useMemo(() => {
+    return filterAndMapReadings(rawReadings, selectedStationId, selectedStation);
+  }, [rawReadings, selectedStationId, selectedStation]);
 
   const handleExportCSV = () => {
     if (!selectedStation || readings.length === 0 || readingsLoading) return;
@@ -313,13 +279,10 @@ export default function ChartPage() {
         }
 
         const data = await fetchReadingsInRange(selectedStationId, start, end);
-        const currStation = stations.find((s) => s.id === selectedStationId);
-        const sToRef = currStation?.sensorToRefDistance;
-        const aggregated = aggregateReadings(data, timeRange, selectedStationId, sToRef);
-        setReadings(aggregated);
+        setRawReadings(data);
       } catch (err: any) {
         setReadingsError(err.message || 'ไม่สามารถดึงประวัติระดับน้ำได้');
-        setReadings([]);
+        setRawReadings([]);
       } finally {
         setReadingsLoading(false);
       }
@@ -327,10 +290,6 @@ export default function ChartPage() {
 
     loadChartData();
   }, [selectedStationId, timeRange]);
-
-  const selectedStation = useMemo(() => {
-    return stations.find((s) => s.id === selectedStationId);
-  }, [stations, selectedStationId]);
 
   return (
     <div className="page-container" style={{ paddingBottom: '3rem' }}>
@@ -544,7 +503,7 @@ export default function ChartPage() {
                     title={
                       readings.length === 0
                         ? 'ไม่มีข้อมูลระดับน้ำสำหรับส่งออก'
-                        : `ส่งออกข้อมูลระดับน้ำ ${selectedStation?.name || ''} เป็นไฟล์ CSV (${timeRange === 'hourly' ? '1 วัน (รายชั่วโมง)' : timeRange === 'daily' ? '2 สัปดาห์ (เฉลี่ยรายวัน)' : '14 สัปดาห์ (เฉลี่ยรายสัปดาห์)'})`
+                        : `ส่งออกข้อมูลระดับน้ำ ${selectedStation?.name || ''} เป็นไฟล์ CSV (${timeRange === 'hourly' ? '24 ชั่วโมง' : timeRange === 'daily' ? '2 สัปดาห์' : '14 สัปดาห์'})`
                     }
                     style={{
                       display: 'inline-flex',

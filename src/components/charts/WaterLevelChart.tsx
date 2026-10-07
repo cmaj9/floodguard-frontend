@@ -11,7 +11,6 @@ import {
   ComposedChart,
 } from 'recharts';
 import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
 import type { WaterLevelReading, Station, TimeRange } from '../../types';
 
 interface WaterLevelChartProps {
@@ -21,7 +20,7 @@ interface WaterLevelChartProps {
   height?: number;
 }
 
-function CustomTooltip({ active, payload, label, station, timeRange }: any) {
+function CustomTooltip({ active, payload, label, station }: any) {
   if (!active || !payload?.length) return null;
   const pData = payload[0]?.payload;
   const val: number = payload[0]?.value ?? 0;
@@ -57,13 +56,6 @@ function CustomTooltip({ active, payload, label, station, timeRange }: any) {
       ? `เสมอ${refName} พอดี`
       : `สูงกว่า${refName} +${val.toFixed(2)} ม.`;
 
-  const timeSubtext =
-    timeRange === 'hourly'
-      ? '(เฉลี่ยรายชั่วโมง)'
-      : timeRange === 'daily'
-      ? '(เฉลี่ยรายวัน)'
-      : '(เฉลี่ยรายสัปดาห์)';
-
   return (
     <div
       style={{
@@ -93,14 +85,11 @@ function CustomTooltip({ active, payload, label, station, timeRange }: any) {
           {val >= 0 ? `+${val.toFixed(3)}` : val.toFixed(3)}
         </span>
         <span style={{ color: '#94A3B8', fontSize: 12 }}>ม. (รสม.)</span>
-        <span style={{ fontSize: 11, color: '#0284C7', marginLeft: 4 }}>{timeSubtext}</span>
       </div>
 
-      {pData?.minLevel !== undefined && pData?.maxLevel !== undefined && (
+      {pData?.rawDistance != null && (
         <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 4 }}>
-          ต่ำสุด {pData.minLevel >= 0 ? `+${pData.minLevel.toFixed(2)}` : pData.minLevel.toFixed(2)} ม. · สูงสุด{' '}
-          {pData.maxLevel >= 0 ? `+${pData.maxLevel.toFixed(2)}` : pData.maxLevel.toFixed(2)} ม.
-          {pData?.count ? ` · (${pData.count} ครั้ง)` : ''}
+          ระยะเซนเซอร์วัดได้: <strong style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>{Number(pData.rawDistance).toFixed(3)} ม.</strong>
         </div>
       )}
 
@@ -173,14 +162,12 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
         if (!isNaN(d.getTime())) {
           if (timeRange === 'hourly') {
             displayTime = format(d, 'HH:mm');
-            fullTime = `${format(d, 'dd/MM/yyyy HH:00')} น.`;
           } else if (timeRange === 'daily') {
-            displayTime = format(d, 'dd MMM', { locale: th });
-            fullTime = `วันที่ ${format(d, 'dd/MM/yyyy')}`;
+            displayTime = format(d, 'dd/MM HH:mm');
           } else {
-            displayTime = r.label || format(d, 'dd/MM');
-            fullTime = r.label || `สัปดาห์ที่ ${format(d, 'w')} (${format(d, 'dd/MM/yyyy')})`;
+            displayTime = format(d, 'dd/MM HH:mm');
           }
+          fullTime = `${format(d, 'dd/MM/yyyy · HH:mm:ss')} น.`;
         } else {
           displayTime = r.label || String(r.timestamp);
           fullTime = r.label || String(r.timestamp);
@@ -194,6 +181,7 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
         time: displayTime,
         level: r.level,
         fullTime,
+        rawDistance: r.rawDistance,
         minLevel: r.minLevel,
         maxLevel: r.maxLevel,
         count: r.count,
@@ -280,7 +268,7 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
           allowDataOverflow={false}
         />
 
-        <Tooltip content={<CustomTooltip station={station} timeRange={timeRange} />} />
+        <Tooltip content={<CustomTooltip station={station} />} />
 
         {/* 0.00m Reference Point line */}
         <ReferenceLine
