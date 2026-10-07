@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -17,6 +17,18 @@ export default function ManagementHubPage() {
   const { user, isGuest, logout, loginAsCitizen } = useAuth();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Desktop Guard: Management Hub is dedicated to mobile/tablet responsive viewports
+  useEffect(() => {
+    const checkDesktop = () => {
+      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+        navigate('/dashboard', { replace: true });
+      }
+    };
+    checkDesktop();
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+  }, [navigate]);
 
   const role = user?.role || 'citizen';
   const isAdmin = role === 'admin';

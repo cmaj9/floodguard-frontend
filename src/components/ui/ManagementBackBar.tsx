@@ -63,7 +63,10 @@ export default function ManagementBackBar({
       >
         <button
           type="button"
-          onClick={() => navigate('/management')}
+          onClick={() => {
+            const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+            navigate(isDesktop ? '/dashboard' : '/management');
+          }}
           className="btn btn-secondary btn-sm"
           style={{
             display: 'inline-flex',
@@ -80,10 +83,10 @@ export default function ManagementBackBar({
             whiteSpace: 'nowrap',
             transition: 'all 0.15s ease',
           }}
-          title="กลับไปยังศูนย์จัดการ"
+          title="กลับ"
         >
           <ArrowLeftIcon size={14} />
-          <span>ศูนย์จัดการ</span>
+          <span>{typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'แดชบอร์ด' : 'ศูนย์จัดการ'}</span>
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>

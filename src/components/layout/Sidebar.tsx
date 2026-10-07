@@ -12,7 +12,6 @@ import {
   LogOutIcon,
   KeyIcon,
   AlertTriangleIcon,
-  SlidersIcon,
 } from "../ui/Icons";
 import Logo from "../ui/Logo";
 import type { ReactNode } from "react";
@@ -42,12 +41,6 @@ const navItems: NavItem[] = [
     path: "/history",
     icon: <ClipboardListIcon size={24} />,
     label: "ประวัติข้อมูล",
-    roles: ["citizen", "staff", "admin"],
-  },
-  {
-    path: "/management",
-    icon: <SlidersIcon size={24} />,
-    label: "ศูนย์จัดการระบบ",
     roles: ["citizen", "staff", "admin"],
   },
   {
