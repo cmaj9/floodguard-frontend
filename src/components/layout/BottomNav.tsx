@@ -13,7 +13,7 @@ import {
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isGuest } = useAuth();
+  const { user, isGuest } = useAuth();
 
   interface MobileNavItem {
     path: string;
@@ -56,7 +56,20 @@ export default function BottomNav() {
     {
       path: isGuest ? '/login' : '/profile',
       label: isGuest ? 'เข้าสู่ระบบ' : 'โปรไฟล์',
-      icon: isGuest ? <KeyIcon size={20} /> : <UserIcon size={20} />,
+      icon: isGuest ? (
+        <KeyIcon size={20} />
+      ) : user?.pictureUrl ? (
+        <img
+          src={user.pictureUrl}
+          alt={user.name}
+          style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}
+          onError={(e) => {
+            (e.currentTarget as HTMLElement).style.display = 'none';
+          }}
+        />
+      ) : (
+        <UserIcon size={20} />
+      ),
       isActive: location.pathname === (isGuest ? '/login' : '/profile'),
       onClick: () => navigate(isGuest ? '/login' : '/profile'),
     },

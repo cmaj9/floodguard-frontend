@@ -25,11 +25,7 @@ export default function LoginPage() {
   // Auto-redirect if already authenticated (including LINE Citizen)
   useEffect(() => {
     if (!isLoading && user && !isGuest) {
-      if (user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false) {
-        navigate("/setup-credentials", { replace: true });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
+      navigate("/dashboard", { replace: true });
     }
   }, [user, isGuest, isLoading, navigate]);
 

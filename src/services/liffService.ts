@@ -120,12 +120,46 @@ function friendlyInitError(err: any): string {
 }
 
 /**
+ * Check if the current URL contains LINE/LIFF OAuth callback parameters
+ */
+export function hasLiffAuthParams(): boolean {
+  if (typeof window === 'undefined') return false;
+  const search = window.location.search || '';
+  const hash = window.location.hash || '';
+  return search.includes('code=') || search.includes('liff.state=') || hash.includes('access_token=');
+}
+
+/**
+ * Logout from LINE LIFF session if logged in
+ */
+export function logoutLiff(): void {
+  try {
+    if (liff.isLoggedIn()) {
+      liff.logout();
+    }
+  } catch (err) {
+    console.warn('[LIFF Service] Logout error:', err);
+  }
+}
+
+/**
  * Login with LINE
  * - Mobile, or any origin other than the LIFF endpoint (localhost / preview) → open via liff.line.me
  * - Desktop on the LIFF endpoint → liff.login() (LINE web login with QR / email)
  */
 export async function loginWithLiff(path = '/dashboard'): Promise<void> {
   const safePath = path.startsWith('/') ? path : `/${path}`;
+
+  // Clear any existing guest session so it doesn't mask the incoming login
+  try {
+    const saved = localStorage.getItem('wl_auth_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed?.id === 'citizen_guest') {
+        localStorage.removeItem('wl_auth_user');
+      }
+    }
+  } catch {}
 
   if (isMobileDevice() || window.location.origin !== LIFF_ENDPOINT) {
     window.location.href = getLiffDeepLink(safePath);

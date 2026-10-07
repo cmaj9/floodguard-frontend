@@ -148,8 +148,8 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* Login Action: Placed above one's Account */}
-        {(!user || user.role === "citizen" || isGuest) && (
+        {/* Login Action: Only shown when visitor is Guest */}
+        {(!user || isGuest) && (
           <div style={{ padding: "0 14px 10px" }}>
             <button
               type="button"
@@ -173,14 +173,39 @@ export default function Sidebar() {
         )}
 
         {/* User info & Auth button */}
-        <div className="sidebar-user">
+        <div
+          className="sidebar-user"
+          onClick={() => {
+            if (!isGuest) navigate("/profile");
+          }}
+          style={{
+            cursor: !isGuest ? "pointer" : "default",
+            transition: "background 0.2s ease",
+            borderRadius: !isGuest ? "12px" : undefined,
+            margin: !isGuest ? "0 8px 8px" : undefined,
+            padding: !isGuest ? "12px" : "18px 20px",
+          }}
+          title={!isGuest ? "คลิกเพื่อดูและจัดการโปรไฟล์" : undefined}
+        >
           <div
             className="user-avatar"
             style={{
               background: isGuest ? "rgba(2, 132, 199, 0.2)" : undefined,
+              overflow: "hidden",
             }}
           >
-            {initials}
+            {!isGuest && user.pictureUrl ? (
+              <img
+                src={user.pictureUrl}
+                alt={user.name}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                }}
+              />
+            ) : (
+              initials
+            )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
@@ -208,7 +233,10 @@ export default function Sidebar() {
             <button
               className="btn-icon"
               title="ออกจากระบบ"
-              onClick={() => setShowLogoutConfirm(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowLogoutConfirm(true);
+              }}
               style={{
                 width: 36,
                 height: 36,

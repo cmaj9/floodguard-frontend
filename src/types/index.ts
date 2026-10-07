@@ -92,6 +92,7 @@ export interface AuthUser {
   district: string;
   lineUserId?: string | null;
   line_user_id?: string | null;
+  pictureUrl?: string | null;
   isActive?: boolean;
   isCredentialsSet?: boolean;
   is_credentials_set?: boolean;
@@ -110,6 +111,7 @@ export interface User {
   district: string;
   lineUserId?: string | null;
   line_user_id?: string | null;
+  pictureUrl?: string | null;
   isActive?: boolean;
   is_active?: boolean;
   isCredentialsSet?: boolean;

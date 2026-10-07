@@ -5,7 +5,8 @@
 import axios from 'axios';
 import type { Reading, StationWithReading, User, AuthUser, DbAlert, NotificationSettings, SubscriberPreferences } from '../types';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const DEFAULT_API_URL = 'https://waterwatch-backend-production.up.railway.app';
+const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -422,6 +423,7 @@ export async function saveSubscriberPreferences(
 export async function registerCitizenApi(data: {
   lineUserId: string;
   displayName?: string;
+  pictureUrl?: string;
   phone?: string;
   district?: string;
   stationIds?: string[];

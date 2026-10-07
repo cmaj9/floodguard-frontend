@@ -31,7 +31,9 @@ function LiffRedirectHandler() {
       try {
         const decodedPath = decodeURIComponent(liffState);
         if (decodedPath.startsWith('/') && decodedPath !== location.pathname) {
-          navigate(decodedPath, { replace: true });
+          params.delete('liff.state');
+          const remainingSearch = params.toString() ? `?${params.toString()}` : '';
+          navigate(`${decodedPath}${remainingSearch}`, { replace: true });
         }
       } catch (e) {
         console.warn('[LIFF] Failed to decode liff.state:', e);
@@ -40,6 +42,11 @@ function LiffRedirectHandler() {
   }, [location, navigate]);
 
   return null;
+}
+
+function RootRedirect() {
+  const location = useLocation();
+  return <Navigate to={{ pathname: '/dashboard', search: location.search }} replace />;
 }
 
 const queryClient = new QueryClient({
@@ -57,7 +64,7 @@ function ProtectedRoute({
   allowGuest?: boolean;
   requiredRoles?: ('citizen' | 'staff' | 'admin')[];
 }) {
-  const { user, isLoading, loginAsCitizen } = useAuth();
+  const { user, isGuest, isLoading, loginAsCitizen } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !user && allowGuest) {
@@ -112,12 +119,7 @@ function ProtectedRoute({
     return <>{children}</>;
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-
-  // Intercept new/unconfigured citizens before they can view water level telemetry
-  if (user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false) {
-    return <Navigate to="/setup-credentials" replace />;
-  }
+  if (!user || (isGuest && !allowGuest)) return <Navigate to="/login" replace />;
 
   if (requiredRoles && !requiredRoles.includes(user.role)) {
     // If visitor or citizen tries to access staff/admin routes, send to login
@@ -133,9 +135,6 @@ function ProtectedRoute({
 function AppRoutes() {
   const { user, isGuest } = useAuth();
   const isAuthenticated = Boolean(user && !isGuest);
-  const needsCredentialsSetup = Boolean(
-    user && user.role === 'citizen' && user.id !== 'citizen_guest' && user.isCredentialsSet === false
-  );
 
   return (
     <Routes>
@@ -143,11 +142,7 @@ function AppRoutes() {
         path="/login"
         element={
           isAuthenticated ? (
-            needsCredentialsSetup ? (
-              <Navigate to="/setup-credentials" replace />
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )
+            <Navigate to="/dashboard" replace />
           ) : (
             <LoginPage />
           )
@@ -236,7 +231,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { AuthUser } from '../types';
 import { loginApi, registerCitizenApi, registerEmailApi, setupCredentialsApi } from '../services/apiService';
-import { getLiffProfile } from '../services/liffService';
+import { getLiffProfile, hasLiffAuthParams, isInLineClient, logoutLiff } from '../services/liffService';
 
 interface RegisterData {
   name: string;
@@ -28,6 +28,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
+    // If incoming request has LIFF OAuth callback parameters, don't read stale guest data
+    if (hasLiffAuthParams()) {
+      return null;
+    }
     try {
       const saved = localStorage.getItem('wl_auth_user');
       if (saved) {
@@ -49,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
+    // Always start loading if there are incoming LIFF callback params
+    if (hasLiffAuthParams()) return true;
     try {
       const saved = localStorage.getItem('wl_auth_user');
       if (saved) return false;
@@ -60,22 +66,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function initAuth() {
-      // 1. If user is already loaded from local storage, no need to overwrite unless checking LIFF
-      const saved = localStorage.getItem('wl_auth_user');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.id && parsed.id !== 'citizen_guest') {
-            setUser(parsed);
-            setIsLoading(false);
-            return;
+      const isLiffCallback = hasLiffAuthParams() || isInLineClient();
+
+      // If we don't have pending LIFF callback or in-client session, check if a real user is already saved
+      if (!isLiffCallback) {
+        const saved = localStorage.getItem('wl_auth_user');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed && parsed.id && parsed.id !== 'citizen_guest') {
+              setUser(parsed);
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            localStorage.removeItem('wl_auth_user');
           }
-        } catch {
-          localStorage.removeItem('wl_auth_user');
         }
       }
 
-      // 2. Try LIFF Auto-Authentication if inside LINE or LIFF
+      // 2. Try LIFF Auto-Authentication (either from callback, in-client, or active session)
       try {
         const profile = await getLiffProfile();
         if (profile && profile.userId) {
@@ -84,24 +94,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const citizen = await registerCitizenApi({
               lineUserId: profile.userId,
               displayName: profile.displayName || 'ผู้ใช้ LINE',
+              pictureUrl: profile.pictureUrl,
             });
+
+            const role = (citizen.role as any) || 'citizen';
             const isSet = Boolean(
               citizen.isCredentialsSet ??
               citizen.is_credentials_set ??
               (citizen.email && !citizen.email.endsWith('@waterwatch.local') && !citizen.email.endsWith('@floodguard.local'))
             );
+
             const citizenUser: AuthUser = {
-              id: String(citizen.id || `citizen_${profile.userId.slice(-6)}`),
+              id: String(citizen.id || (citizen as any).user_id || `citizen_${profile.userId.slice(-6)}`),
               name: profile.displayName || citizen.name || 'ประชาชนผู้ใช้งาน',
               email: citizen.email || `citizen_${profile.userId.slice(-6)}@waterwatch.local`,
-              role: 'citizen',
-              stationIds: citizen.stationIds || [],
+              role: role,
+              stationIds: citizen.stationIds || (citizen as any).station_ids || [],
               phone: citizen.phone || '',
               district: citizen.district || '',
               lineUserId: profile.userId,
+              pictureUrl: profile.pictureUrl || null,
               isCredentialsSet: isSet,
               is_credentials_set: isSet,
             };
+
             setUser(citizenUser);
             localStorage.setItem('wl_auth_user', JSON.stringify(citizenUser));
             setIsLoading(false);
@@ -117,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               phone: '',
               district: '',
               lineUserId: profile.userId,
+              pictureUrl: profile.pictureUrl || null,
               isCredentialsSet: false,
               is_credentials_set: false,
             };
@@ -198,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('wl_auth_user');
+    logoutLiff();
   }, []);
 
   const updateProfile = useCallback((data: Partial<AuthUser>) => {

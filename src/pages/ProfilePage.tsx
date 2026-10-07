@@ -41,29 +41,61 @@ export default function ProfilePage() {
           <div
             className="user-avatar"
             style={{
-              width: 80,
-              height: 80,
+              width: 84,
+              height: 84,
               fontSize: 32,
               margin: '0 auto 16px',
+              overflow: 'hidden',
+              borderRadius: '50%',
+              border: '2px solid rgba(14, 165, 233, 0.4)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             }}
           >
-            {user.name.slice(0, 1)}
+            {user.pictureUrl ? (
+              <img
+                src={user.pictureUrl}
+                alt={user.name}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              user.name.slice(0, 1)
+            )}
           </div>
-          <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{user.name}</h3>
+          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{user.name}</h3>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>{user.email}</p>
 
-          <span
-            className={`badge ${
-              user.role === 'admin'
-                ? 'badge-role-admin'
-                : user.role === 'staff'
-                ? 'badge-role-staff'
-                : 'badge-role-citizen'
-            }`}
-            style={{ fontSize: 13, padding: '5px 14px' }}
-          >
-            {roleLabel[user.role]}
-          </span>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <span
+              className={`badge ${
+                user.role === 'admin'
+                  ? 'badge-role-admin'
+                  : user.role === 'staff'
+                  ? 'badge-role-staff'
+                  : 'badge-role-citizen'
+              }`}
+              style={{ fontSize: 12, padding: '4px 12px' }}
+            >
+              {roleLabel[user.role]}
+            </span>
+
+            {user.lineUserId && (
+              <span
+                className="badge"
+                style={{
+                  fontSize: 12,
+                  padding: '4px 12px',
+                  backgroundColor: 'rgba(6, 199, 85, 0.15)',
+                  color: '#06C755',
+                  borderColor: 'rgba(6, 199, 85, 0.3)',
+                }}
+              >
+                ● เชื่อมต่อ LINE แล้ว
+              </span>
+            )}
+          </div>
 
           <div className="divider" />
 
@@ -83,6 +115,34 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+
+          {/* Optional password setup prompt if not set */}
+          {user.role === 'citizen' && !user.isCredentialsSet && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: '12px 14px',
+                borderRadius: 10,
+                background: 'rgba(2, 132, 199, 0.08)',
+                border: '1px solid rgba(2, 132, 199, 0.25)',
+                textAlign: 'left',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 4 }}>
+                เข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.4 }}>
+                คุณเข้าสู่ระบบผ่าน LINE สามารถตั้งค่าอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบแบบปกติได้
+              </div>
+              <a
+                href="/setup-credentials"
+                className="btn btn-secondary"
+                style={{ width: '100%', fontSize: 12, padding: '6px 12px', textAlign: 'center', display: 'block' }}
+              >
+                ตั้งค่าอีเมลและรหัสผ่าน
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Edit form */}
