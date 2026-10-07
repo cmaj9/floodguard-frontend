@@ -171,7 +171,13 @@ export default function BasinTrendChart({ data, isLoading }: BasinTrendChartProp
         {isLoading ? (
           <div className="skeleton-box" style={{ width: '100%', height: '260px' }} />
         ) : (
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+            minWidth="100%"
+            minHeight={260}
+            initialDimension={{ width: 350, height: 260 }}
+          >
             <AreaChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
               <defs>
                 {/* Subtle vertical fill gradient under stroke line (15% top, 0% bottom) */}
@@ -194,6 +200,7 @@ export default function BasinTrendChart({ data, isLoading }: BasinTrendChartProp
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
+                minTickGap={28}
               />
 
               <YAxis

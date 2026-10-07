@@ -2328,6 +2328,37 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ─────────────────────────────────────────────────────────────
+   MOBILE ONLY (<= 768px): ZERO HORIZONTAL OVERFLOW & TEXT COLLISION SHIELD
+   Strictly isolated — 0% impact on desktop layouts.
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html,
+  body,
+  #root,
+  .app-layout {
+    max-width: 100vw !important;
+    overflow-x: clip !important;
+  }
+
+  .station-telemetry-header,
+  .telemetry-tab-btn,
+  .management-tile,
+  .metric-filter-card {
+    min-width: 0 !important;
+    word-break: break-word !important;
+  }
+
+  .recharts-responsive-container {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .recharts-cartesian-axis-tick text {
+    font-size: 10px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
    PRINT MODE (A4 Executive Summary)
    ───────────────────────────────────────────────────────────── */
 @media print {

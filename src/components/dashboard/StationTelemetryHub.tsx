@@ -1848,8 +1848,14 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               </div>
             </div>
           ) : (
-            <div style={{ width: "100%", height: 260 }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div style={{ width: "100%", minWidth: 0, height: 260 }}>
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minWidth="100%"
+                minHeight={260}
+                initialDimension={{ width: 350, height: 260 }}
+              >
               <AreaChart
                 data={chartData}
                 margin={{ top: 15, right: 15, left: 10, bottom: 0 }}
@@ -1876,6 +1882,8 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   stroke="#64748B"
                   fontSize={11}
                   tickLine={false}
+                  interval="preserveStartEnd"
+                  minTickGap={28}
                 />
                 <YAxis
                   stroke="#64748B"

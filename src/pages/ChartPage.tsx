@@ -676,7 +676,7 @@ export default function ChartPage() {
                 </div>
               </div>
             ) : (
-              <div style={{ width: '100%', height: 480 }}>
+              <div style={{ width: '100%', minWidth: 0, height: 480, position: 'relative' }}>
                 <WaterLevelChart
                   readings={readings}
                   station={selectedStation}

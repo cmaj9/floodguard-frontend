@@ -236,11 +236,14 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
     return [calculatedMin, calculatedMax];
   }, [data, warnVal, critVal]);
 
-  // Show every Nth label to avoid crowding
-  const labelStep = data.length > 30 ? Math.floor(data.length / 12) : data.length > 15 ? 2 : 1;
-
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer
+      width="100%"
+      height={height}
+      minWidth="100%"
+      minHeight={height}
+      initialDimension={{ width: 350, height: height }}
+    >
       <ComposedChart data={data} margin={{ top: 20, right: 32, left: 8, bottom: 6 }}>
         <defs>
           <linearGradient id="levelGrad" x1="0" y1="0" x2="0" y2="1">
@@ -264,7 +267,8 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
           tick={{ fill: '#64748B', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          interval={labelStep - 1}
+          interval="preserveStartEnd"
+          minTickGap={28}
         />
         <YAxis
           tick={{ fill: '#64748B', fontSize: 11 }}
@@ -345,7 +349,7 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
           dataKey="level"
           stroke="url(#lineGrad)"
           strokeWidth={2.5}
-          dot={false}
+          dot={data.length <= 12 ? { r: 3.5, fill: '#38BDF8', stroke: '#fff', strokeWidth: 1.5 } : false}
           activeDot={{ r: 5, fill: '#38BDF8', stroke: '#fff', strokeWidth: 2 }}
           isAnimationActive={true}
         />
