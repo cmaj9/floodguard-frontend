@@ -7,6 +7,11 @@ import {
   saveSubscriberPreferences,
 } from '../services/apiService';
 import {
+  getLiffProfile,
+  isInLineClient,
+  closeLiffWindow,
+} from '../services/liffService';
+import {
   BellIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
@@ -22,6 +27,8 @@ export default function SubscribePage() {
   const initialUid = searchParams.get('uid') || '';
   const [lineUserId, setLineUserId] = useState<string>(initialUid);
   const [displayName, setDisplayName] = useState<string>('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [inLine, setInLine] = useState<boolean>(false);
   const [stations, setStations] = useState<StationWithReading[]>([]);
   const [selectedStationIds, setSelectedStationIds] = useState<string[]>([]);
   const [selectedAlertTypes, setSelectedAlertTypes] = useState<string[]>([
@@ -38,16 +45,39 @@ export default function SubscribePage() {
   useEffect(() => {
     async function initData() {
       setLoading(true);
+      const isClient = isInLineClient();
+      setInLine(isClient);
+
       try {
         const stationList = await fetchStations();
         setStations(stationList);
 
-        // If lineUserId is provided in URL, fetch existing subscriptions
-        if (initialUid) {
+        let activeUid = initialUid;
+
+        // Auto-fetch LINE profile if not provided in URL
+        if (!activeUid) {
           try {
-            const prefs = await fetchSubscriberPreferences(initialUid);
+            const profile = await getLiffProfile();
+            if (profile?.userId) {
+              activeUid = profile.userId;
+              setLineUserId(profile.userId);
+              if (profile.displayName) setDisplayName(profile.displayName);
+              if (profile.pictureUrl) setAvatarUrl(profile.pictureUrl);
+              setInLine(true);
+            }
+          } catch (liffErr) {
+            console.warn('[SubscribePage] Could not retrieve LIFF profile:', liffErr);
+          }
+        } else {
+          setInLine(true);
+        }
+
+        // If lineUserId is available, fetch existing subscriptions
+        if (activeUid) {
+          try {
+            const prefs = await fetchSubscriberPreferences(activeUid);
             if (prefs) {
-              if (prefs.display_name) setDisplayName(prefs.display_name);
+              if (prefs.display_name && !displayName) setDisplayName(prefs.display_name);
               if (Array.isArray(prefs.station_ids) && prefs.station_ids.length > 0) {
                 setSelectedStationIds(prefs.station_ids);
               } else {
@@ -121,11 +151,25 @@ export default function SubscribePage() {
         display_name: displayName.trim() || undefined,
         station_ids: selectedStationIds,
       });
-      setSavedSuccess(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Save to localStorage so Dashboard remembers across visits
+      localStorage.setItem('subscribed_station_ids', JSON.stringify(selectedStationIds));
+
+      const chosenNames = stations
+        .filter((s) => selectedStationIds.includes(s.station_id))
+        .map((s) => s.station_name || s.station_id);
+
+      // Navigate immediately to Dashboard and display selected stations
+      navigate('/dashboard', {
+        replace: true,
+        state: {
+          justSubscribed: true,
+          subscribedStationIds: selectedStationIds,
+          subscribedStationNames: chosenNames,
+        },
+      });
     } catch (err: any) {
       setErrorMessage(err.message || 'บันทึกข้อมูลการติดตามไม่สำเร็จ');
-    } finally {
       setSubmitting(false);
     }
   };
@@ -170,7 +214,7 @@ export default function SubscribePage() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            ตั้งค่าการแจ้งเตือน WaterWatch
+            ตั้งค่าการแจ้งเตือน FloodGuard
           </h1>
           <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
             รับการแจ้งเตือนระดับน้ำและสถานการณ์น้ำท่วมเรียลไทม์ผ่าน LINE Official Account
@@ -204,7 +248,7 @@ export default function SubscribePage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -214,6 +258,16 @@ export default function SubscribePage() {
                 <MapIcon size={14} />
                 <span>เปิดดูแดชบอร์ดระดับน้ำ</span>
               </button>
+              {inLine && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => closeLiffWindow()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>กลับสู่ LINE Chat</span>
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -257,6 +311,55 @@ export default function SubscribePage() {
               <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>ข้อมูลบัญชีผู้รับการแจ้งเตือน</h2>
             </div>
 
+            {/* Auto-detected LINE Profile Banner */}
+            {inLine && lineUserId && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 16px',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  borderRadius: 12,
+                  marginBottom: 16,
+                }}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName || 'LINE User'}
+                    style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '50%',
+                      background: 'rgba(56, 189, 248, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--color-primary)',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {(displayName || 'L')[0]}
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {displayName || 'ผู้ใช้งาน LINE'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <CheckCircleIcon size={14} />
+                    <span>เชื่อมต่อบัญชี LINE สำเร็จ (ตรวจพบอัตโนมัติ 1-Tap)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label
@@ -270,6 +373,7 @@ export default function SubscribePage() {
                   type="text"
                   className="form-input"
                   value={lineUserId}
+                  readOnly={inLine && Boolean(lineUserId)}
                   onChange={(e) => setLineUserId(e.target.value)}
                   placeholder="เช่น U1234567890abcdef..."
                   style={{
@@ -278,11 +382,15 @@ export default function SubscribePage() {
                     fontSize: 14,
                     fontFamily: 'monospace',
                     borderRadius: 8,
+                    background: inLine && Boolean(lineUserId) ? 'rgba(255, 255, 255, 0.04)' : undefined,
+                    cursor: inLine && Boolean(lineUserId) ? 'default' : 'text',
                   }}
                   required
                 />
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, margin: 0 }}>
-                  รหัสผู้ใช้ LINE ที่ผูกกับระบบ (หากเปิดจากลิงก์ใน LINE ระบบจะกรอกให้อัตโนมัติ)
+                  {inLine && Boolean(lineUserId)
+                    ? 'ตรวจพบ LINE User ID อัตโนมัติจากห้องแชทเรียบร้อยแล้ว'
+                    : 'รหัสผู้ใช้ LINE ที่ผูกกับระบบ (หากเปิดจากลิงก์ใน LINE ระบบจะกรอกให้อัตโนมัติ)'}
                 </p>
               </div>
 

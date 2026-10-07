@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import StationSegmentedControl from '../components/dashboard/StationSegmentedControl';
 import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
@@ -12,6 +13,7 @@ import {
   RefreshCwIcon,
   ActivityIcon,
   MapIcon,
+  CheckCircleIcon,
 } from '../components/ui/Icons';
 import type { Station, StationWithReading } from '../types';
 import { fetchStations } from '../services/apiService';
@@ -91,12 +93,32 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 
 export default function DashboardPage() {
   const { user, isGuest } = useAuth();
+  const location = useLocation();
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'telemetry' | 'map'>('telemetry');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Subscribed stations state (from navigation state or localStorage)
+  const [subscribedStationIds] = useState<string[]>(() => {
+    if (location.state?.subscribedStationIds && Array.isArray(location.state.subscribedStationIds)) {
+      return location.state.subscribedStationIds;
+    }
+    try {
+      const saved = localStorage.getItem('subscribed_station_ids');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const [showSubscribedBanner, setShowSubscribedBanner] = useState<boolean>(
+    Boolean(location.state?.justSubscribed)
+  );
+  const [isFilteringSubscribed, setIsFilteringSubscribed] = useState<boolean>(
+    Boolean(location.state?.justSubscribed)
+  );
 
   // ── Load Real Data from API ───────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -107,28 +129,14 @@ export default function DashboardPage() {
 
       if (stationData && stationData.length > 0) {
         const mapped = stationData.map(mapStationWithReadingToStation);
-        
-        // Check if user is a registered citizen who logged in with a real account
-        const isRegisteredCitizen =
-          Boolean(user) &&
-          user?.role === 'citizen' &&
-          user?.id !== 'citizen_guest' &&
-          !isGuest;
+        setStations(mapped);
 
-        let filtered = mapped;
-        if (isRegisteredCitizen) {
-          const userStationIds = user?.stationIds || (user as any)?.station_ids || [];
-          // If registered citizen: show ONLY stations they registered for
-          filtered = mapped.filter((s) => userStationIds.includes(s.id));
-        } else {
-          // If unregistered citizen (visitor / guest) OR staff / admin: show ALL stations!
-          filtered = mapped;
-        }
-
-        setStations(filtered);
-
-        // Automatically select ST-001 or the first station on initial load
-        setSelectedStationId((prev) => (prev && filtered.some((s) => s.id === prev) ? prev : filtered[0]?.id || null));
+        // Auto-select initial station: prefer first subscribed station if redirected
+        setSelectedStationId((prev) => {
+          if (prev && mapped.some((s) => s.id === prev)) return prev;
+          if (location.state?.subscribedStationIds?.[0]) return location.state.subscribedStationIds[0];
+          return mapped[0]?.id || null;
+        });
       } else {
         // Fallback demo stations if API returns 0 items
         const fallbackStations: Station[] = [
@@ -227,17 +235,35 @@ export default function DashboardPage() {
     user?.id !== 'citizen_guest' &&
     !isGuest;
 
+  // ── Subscribed Station Names ──
+  const subscribedNames = useMemo(() => {
+    if (location.state?.subscribedStationNames && Array.isArray(location.state.subscribedStationNames)) {
+      return location.state.subscribedStationNames;
+    }
+    return stations
+      .filter((s) => subscribedStationIds.includes(s.id))
+      .map((s) => s.name || s.id);
+  }, [location.state, stations, subscribedStationIds]);
+
+  // ── Displayed Stations (Filtered to user selection if active) ──
+  const displayedStations = useMemo(() => {
+    if (isFilteringSubscribed && subscribedStationIds.length > 0) {
+      const filtered = stations.filter((s) => subscribedStationIds.includes(s.id));
+      if (filtered.length > 0) return filtered;
+    }
+    return stations;
+  }, [stations, isFilteringSubscribed, subscribedStationIds]);
+
   const criticalStations = useMemo(
-    () => stations.filter((s) => s.status === 'critical'),
-    [stations]
+    () => displayedStations.filter((s) => s.status === 'critical'),
+    [displayedStations]
   );
 
   // The active selected station object
   const selectedStation = useMemo(
-    () => stations.find((s) => s.id === selectedStationId) || stations[0] || null,
-    [stations, selectedStationId]
+    () => displayedStations.find((s) => s.id === selectedStationId) || displayedStations[0] || null,
+    [displayedStations, selectedStationId]
   );
-
 
   return (
     <div
@@ -247,6 +273,122 @@ export default function DashboardPage() {
         margin: '0 auto',
       }}
     >
+      {/* ── Subscribed Confirmation Banner ── */}
+      {showSubscribedBanner && (
+        <div
+          className="bento-card animate-fade-in"
+          style={{
+            marginBottom: '1.25rem',
+            padding: '16px 20px',
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(15, 23, 42, 0.95) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.45)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 16,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: 'rgba(16, 185, 129, 0.2)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10B981',
+                flexShrink: 0,
+              }}
+            >
+              <CheckCircleIcon size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#10B981', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span>บันทึกสำเร็จ</span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: 14 }}>กำลังติดตาม</span>
+                <span
+                  style={{
+                    color: '#FFFFFF',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    padding: '2px 10px',
+                    borderRadius: '6px',
+                    fontSize: 14,
+                    fontWeight: 700,
+                  }}
+                >
+                  {subscribedNames.length > 0 ? subscribedNames.join(', ') : 'ทุกสถานี'}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span>
+                  {isFilteringSubscribed
+                    ? `ระบบกำลังแสดงเฉพาะสถานีที่คุณเลือก (${displayedStations.length} สถานี)`
+                    : `กำลังแสดงสถานีทั้งหมด (${stations.length} สถานี)`}
+                </span>
+                {stations.length > displayedStations.length && isFilteringSubscribed ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsFilteringSubscribed(false)}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      color: '#38BDF8',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      padding: '2px 10px',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                    }}
+                  >
+                    แสดงทุกสถานี ({stations.length})
+                  </button>
+                ) : !isFilteringSubscribed && subscribedStationIds.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsFilteringSubscribed(true)}
+                    style={{
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      border: '1px solid rgba(16, 185, 129, 0.35)',
+                      color: '#10B981',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      padding: '2px 10px',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                    }}
+                  >
+                    แสดงเฉพาะสถานีที่เลือก ({subscribedStationIds.length})
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowSubscribedBanner(false)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              borderRadius: '8px',
+              color: 'var(--text-secondary)',
+              padding: '6px 8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="ปิดแถบแจ้งเตือน"
+          >
+            <XCircleIcon size={18} />
+          </button>
+        </div>
+      )}
       {/* ── Registered Citizen Notice if 0 subscribed stations ── */}
       {!isLoading && !loadError && isRegisteredCitizen && stations.length === 0 && (
         <div
@@ -368,7 +510,7 @@ export default function DashboardPage() {
 
       {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER ── */}
       <StationSegmentedControl
-        stations={stations}
+        stations={displayedStations}
         selectedStationId={selectedStation?.id || null}
         onSelectStation={(id) => setSelectedStationId(id)}
       />
@@ -415,7 +557,7 @@ export default function DashboardPage() {
         >
           <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการโหลดแผนที่สถานี">
             <StationMap
-              stations={stations}
+              stations={displayedStations}
               selectedStation={selectedStation?.id || null}
               onSelectStation={(id) => setSelectedStationId(id)}
               height="100%"
@@ -439,7 +581,7 @@ export default function DashboardPage() {
       {/* ── 5. FLOATING COMMAND BAR / ACTION DOCK (Desktop only) ── */}
       <div className="desktop-only-action-dock">
         <FloatingActionDock
-          stations={stations}
+          stations={displayedStations}
           selectedStationId={selectedStation?.id || null}
           onSelectStation={(id) => setSelectedStationId(id)}
           onRefresh={loadData}
