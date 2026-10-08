@@ -38,6 +38,7 @@ export async function initLiff(): Promise<boolean> {
 
   try {
     await liff.init({ liffId: LIFF_ID });
+    await liff.ready;
     isInitialized = true;
     initError = null;
     console.log('[LIFF Service] Initialized successfully. InClient:', liff.isInClient());
@@ -57,8 +58,13 @@ export async function getLiffProfile(): Promise<LiffUserProfile | null> {
   if (!ready) return null;
 
   try {
-    if (!liff.isLoggedIn() && !liff.isInClient()) {
-      return null;
+    if (!liff.isLoggedIn()) {
+      if (liff.isInClient()) {
+        await liff.ready;
+      }
+      if (!liff.isLoggedIn()) {
+        return null;
+      }
     }
     const profile = await liff.getProfile();
     return {

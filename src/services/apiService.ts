@@ -473,5 +473,20 @@ export async function changePasswordApi(data: {
   return res.data.data;
 }
 
+/**
+ * POST /api/users/link-line
+ * Link LINE account to currently logged-in user
+ */
+export async function linkLineApi(data: {
+  userId: string;
+  lineUserId: string;
+  displayName?: string;
+  pictureUrl?: string;
+}): Promise<AuthUser> {
+  const res = await api.post<ApiResponse<AuthUser>>('/api/users/link-line', data);
+  if (!res.data.success) throw new Error(res.data.error ?? 'เชื่อมต่อบัญชี LINE ไม่สำเร็จ');
+  return res.data.data;
+}
+
 export default api;
 

@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
-import { updateUser, changePasswordApi } from '../services/apiService';
+import { updateUser, changePasswordApi, setupCredentialsApi, linkLineApi } from '../services/apiService';
+import { getLiffProfile, loginWithLiff } from '../services/liffService';
 import {
   MailIcon,
   PhoneIcon,
@@ -15,6 +16,7 @@ import {
   EyeOffIcon,
   AlertTriangleIcon,
   CheckCircleIcon,
+  RefreshCwIcon,
 } from '../components/ui/Icons';
 
 const roleLabel: Record<UserRole, string> = {
@@ -25,6 +27,7 @@ const roleLabel: Record<UserRole, string> = {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, updateProfile, logout } = useAuth();
 
   // Profile info state
@@ -53,7 +56,212 @@ export default function ProfilePage() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  // ── Slide-in Top Toast Notification State ──
+  const [toastNotification, setToastNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: 'email' | 'line';
+  } | null>(null);
+
+  const [isClosingToast, setIsClosingToast] = useState(false);
+  const touchStartY = useRef<number | null>(null);
+
+  const handleDismissToast = useCallback(() => {
+    setIsClosingToast(true);
+    setTimeout(() => {
+      setToastNotification(null);
+      setIsClosingToast(false);
+    }, 350);
+  }, []);
+
+  useEffect(() => {
+    if (!toastNotification?.show) return;
+    const timer = setTimeout(() => {
+      handleDismissToast();
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [toastNotification, handleDismissToast]);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current !== null) {
+      const currentY = e.touches[0].clientY;
+      if (touchStartY.current - currentY > 20) {
+        handleDismissToast();
+        touchStartY.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+  };
+
+  // ── Case 1: Email Setup Modal State (for LINE user who hasn't set email) ──
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailModalForm, setEmailModalForm] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [showModalPass, setShowModalPass] = useState(false);
+  const [emailModalError, setEmailModalError] = useState('');
+  const [emailModalSaving, setEmailModalSaving] = useState(false);
+
+  const handleOpenEmailModal = () => {
+    setEmailModalForm({ email: '', password: '', confirmPassword: '' });
+    setEmailModalError('');
+    setShowEmailModal(true);
+  };
+
+  const handleCloseEmailModal = () => {
+    setShowEmailModal(false);
+    setEmailModalError('');
+  };
+
+  const handleSubmitEmailSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    const cleanMail = emailModalForm.email.trim().toLowerCase();
+    if (!cleanMail) {
+      setEmailModalError('กรุณากรอกอีเมล');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanMail)) {
+      setEmailModalError('รูปแบบอีเมลไม่ถูกต้อง');
+      return;
+    }
+    if (!emailModalForm.password || emailModalForm.password.length < 6) {
+      setEmailModalError('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+      return;
+    }
+    if (emailModalForm.password !== emailModalForm.confirmPassword) {
+      setEmailModalError('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
+    }
+
+    setEmailModalSaving(true);
+    setEmailModalError('');
+    try {
+      const updated = await setupCredentialsApi({
+        userId: user.id,
+        lineUserId: user.lineUserId || undefined,
+        email: cleanMail,
+        password: emailModalForm.password,
+      });
+
+      localStorage.setItem('wl_auth_user', JSON.stringify(updated));
+      updateProfile(updated);
+      setShowEmailModal(false);
+
+      setToastNotification({
+        show: true,
+        type: 'email',
+        title: 'ตั้งค่าอีเมลสำเร็จ',
+        message: `บันทึกอีเมล ${cleanMail} สำหรับเข้าสู่ระบบเรียบร้อยแล้ว`,
+      });
+    } catch (err: any) {
+      console.warn('Setup email error:', err);
+      setEmailModalError(err?.message || 'บันทึกการตั้งค่าอีเมลไม่สำเร็จ');
+    } finally {
+      setEmailModalSaving(false);
+    }
+  };
+
+  // ── Case 2: LINE Linking State & Handler (for Email user who hasn't linked LINE) ──
+  const [isLinkingLine, setIsLinkingLine] = useState(false);
+
+  // Auto-detect return from LINE OAuth redirect
+  useEffect(() => {
+    let isMounted = true;
+    async function checkPendingLineLink() {
+      if (searchParams.get('link_line') === 'true' && user && !user.lineUserId) {
+        setIsLinkingLine(true);
+        try {
+          const liffProf = await getLiffProfile();
+          if (liffProf?.userId && isMounted) {
+            const updated = await linkLineApi({
+              userId: user.id,
+              lineUserId: liffProf.userId,
+              displayName: liffProf.displayName,
+              pictureUrl: liffProf.pictureUrl,
+            });
+            localStorage.setItem('wl_auth_user', JSON.stringify(updated));
+            updateProfile(updated);
+            setToastNotification({
+              show: true,
+              type: 'line',
+              title: 'เชื่อมต่อบัญชี LINE สำเร็จ',
+              message: `ผูกบัญชี LINE กับระบบ FloodGuard เรียบร้อยแล้ว`,
+            });
+          }
+        } catch (err: any) {
+          console.warn('Auto link LINE error:', err);
+          if (isMounted) setProfileError(err?.message || 'เชื่อมต่อบัญชี LINE ไม่สำเร็จ');
+        } finally {
+          if (isMounted) {
+            setIsLinkingLine(false);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('link_line');
+            setSearchParams(nextParams, { replace: true });
+          }
+        }
+      }
+    }
+    checkPendingLineLink();
+    return () => {
+      isMounted = false;
+    };
+  }, [searchParams, user, updateProfile, setSearchParams]);
+
+  const handleConnectLineClick = async () => {
+    if (!user) return;
+    setIsLinkingLine(true);
+    setProfileError('');
+    try {
+      const liffProf = await getLiffProfile();
+      if (liffProf?.userId) {
+        // LIFF already authenticated, link directly
+        const updated = await linkLineApi({
+          userId: user.id,
+          lineUserId: liffProf.userId,
+          displayName: liffProf.displayName,
+          pictureUrl: liffProf.pictureUrl,
+        });
+        localStorage.setItem('wl_auth_user', JSON.stringify(updated));
+        updateProfile(updated);
+        setToastNotification({
+          show: true,
+          type: 'line',
+          title: 'เชื่อมต่อบัญชี LINE สำเร็จ',
+          message: `ผูกบัญชี LINE เรียบร้อยแล้ว ระบบจะส่งการแจ้งเตือนเตือนภัยน้ำผ่าน LINE`,
+        });
+        setIsLinkingLine(false);
+      } else {
+        // Redirect to LINE Login with link_line flag
+        await loginWithLiff('/profile?link_line=true');
+      }
+    } catch (err: any) {
+      console.warn('Connect LINE error:', err);
+      setProfileError(err?.message || 'ไม่สามารถเชื่อมต่อ LINE ได้ในขณะนี้');
+      setIsLinkingLine(false);
+    }
+  };
+
   if (!user) return null;
+
+  // Condition Checks
+  const isLineUserWithoutEmail = Boolean(
+    user.lineUserId &&
+      (!user.isCredentialsSet ||
+        user.email?.endsWith('@waterwatch.local') ||
+        user.email?.endsWith('@floodguard.local'))
+  );
+  const isEmailUserWithoutLine = Boolean(!user.lineUserId);
 
   const handleLogout = () => {
     logout();
@@ -75,7 +283,7 @@ export default function ProfilePage() {
     try {
       setProfileSaving(true);
       setProfileError('');
-      // Save directly to PostgreSQL database
+      // Save directly to database
       await updateUser(user.id, {
         name: form.name.trim(),
         phone: form.phone.trim(),
@@ -154,9 +362,153 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container" style={{ position: 'relative' }}>
+      {/* ── Slide-in Top Notification Toast ── */}
+      {toastNotification?.show && (
+        <div
+          role="status"
+          aria-live="polite"
+          onClick={handleDismissToast}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          title="แตะหรือเลื่อนขึ้นเพื่อปิด"
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: '50%',
+            transform: isClosingToast
+              ? 'translate(-50%, -150%)'
+              : 'translate(-50%, 0)',
+            opacity: isClosingToast ? 0 : 1,
+            zIndex: 99999,
+            width: 'calc(100% - 32px)',
+            maxWidth: 480,
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(16px)',
+            border:
+              toastNotification.type === 'line'
+                ? '1px solid rgba(6, 199, 85, 0.45)'
+                : '1px solid rgba(56, 189, 248, 0.45)',
+            boxShadow:
+              toastNotification.type === 'line'
+                ? '0 16px 36px rgba(6, 199, 85, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)'
+                : '0 16px 36px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)',
+            borderRadius: 14,
+            padding: '12px 16px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            cursor: 'pointer',
+            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease',
+            animation: 'slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            touchAction: 'pan-y',
+          }}
+        >
+          {/* Subtle swipe pill handle */}
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255, 255, 255, 0.22)',
+              margin: '0 auto -2px',
+            }}
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background:
+                    toastNotification.type === 'line'
+                      ? 'rgba(6, 199, 85, 0.15)'
+                      : 'rgba(56, 189, 248, 0.15)',
+                  border:
+                    toastNotification.type === 'line'
+                      ? '1px solid rgba(6, 199, 85, 0.3)'
+                      : '1px solid rgba(56, 189, 248, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: toastNotification.type === 'line' ? '#22C55E' : '#38BDF8',
+                  flexShrink: 0,
+                }}
+              >
+                <CheckCircleIcon size={20} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span>{toastNotification.title}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      background:
+                        toastNotification.type === 'line'
+                          ? 'rgba(6, 199, 85, 0.2)'
+                          : 'rgba(56, 189, 248, 0.2)',
+                      color: toastNotification.type === 'line' ? '#4ADE80' : '#7DD3FC',
+                    }}
+                  >
+                    {toastNotification.type === 'line' ? 'LINE' : 'Email'}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {toastNotification.message}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDismissToast();
+              }}
+              aria-label="ปิดแจ้งเตือน"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: 11,
+                padding: '4px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              ปิด (เลื่อนขึ้น)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="profile-layout-grid">
-        {/* Profile summary card */}
+        {/* ── Left Side: Profile Summary Card ── */}
         <div className="card" style={{ textAlign: 'center' }}>
           <div
             className="user-avatar"
@@ -236,36 +588,173 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          {/* Optional password setup prompt if citizen has not set password */}
-          {user.role === 'citizen' && !user.isCredentialsSet && (
-            <div
-              style={{
-                marginTop: 16,
-                padding: '12px 14px',
-                borderRadius: 10,
-                background: 'rgba(2, 132, 199, 0.08)',
-                border: '1px solid rgba(2, 132, 199, 0.25)',
-                textAlign: 'left',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-primary)', marginBottom: 4 }}>
-                เข้าสู่ระบบด้วยอีเมล/รหัสผ่าน
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.4 }}>
-                คุณเข้าสู่ระบบผ่าน LINE สามารถตั้งค่าอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบแบบปกติได้
-              </div>
-              <a
-                href="/setup-credentials"
-                className="btn btn-secondary"
-                style={{ width: '100%', fontSize: 12, padding: '6px 12px', textAlign: 'center', display: 'block' }}
-              >
-                ตั้งค่าอีเมลและรหัสผ่าน
-              </a>
+          {/* ── Security & Connection Actions Inside Profile Box ── */}
+          <div
+            style={{
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8' }}>
+              ความปลอดภัยและการเชื่อมต่อ
             </div>
-          )}
+
+            {/* CASE 1: LINE User who hasn't set up Email/Password */}
+            {isLineUserWithoutEmail && (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(2, 132, 199, 0.08)',
+                  border: '1px solid rgba(2, 132, 199, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <MailIcon size={14} />
+                    <span>อีเมลเข้าสู่ระบบ</span>
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: 4 }}>
+                    ยังไม่ตั้งค่า
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenEmailModal}
+                  className="btn btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    justifyContent: 'center',
+                    background: '#0284C7',
+                    border: 'none',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <KeyIcon size={14} />
+                  <span>ตั้งค่าอีเมลและรหัสผ่าน</span>
+                </button>
+              </div>
+            )}
+
+            {/* CASE 2: Email User who hasn't connected LINE */}
+            {isEmailUserWithoutLine && (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'rgba(6, 199, 85, 0.08)',
+                  border: '1px solid rgba(6, 199, 85, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#4ADE80', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 800, fontSize: 11, background: '#06C755', color: '#FFF', padding: '1px 5px', borderRadius: 4 }}>LINE</span>
+                    <span>การแจ้งเตือน LINE</span>
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
+                    ยังไม่เชื่อมต่อ
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleConnectLineClick}
+                  disabled={isLinkingLine}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    justifyContent: 'center',
+                    background: '#06C755',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: 8,
+                    cursor: isLinkingLine ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {isLinkingLine ? (
+                    <>
+                      <RefreshCwIcon size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
+                      <span>กำลังเชื่อมต่อ LINE...</span>
+                    </>
+                  ) : (
+                    <span>เชื่อมต่อบัญชี LINE</span>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* CASE 3: Status Pills (When Both or One is Connected) */}
+            {(!isLineUserWithoutEmail || !isEmailUserWithoutLine) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {!isEmailUserWithoutLine && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(6, 199, 85, 0.08)',
+                      border: '1px solid rgba(6, 199, 85, 0.2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontWeight: 800, fontSize: 10, background: '#06C755', color: '#FFF', padding: '1px 4px', borderRadius: 3 }}>LINE</span>
+                      <span>เชื่อมต่อแล้ว</span>
+                    </span>
+                    <span style={{ color: '#4ADE80', fontSize: 11, fontWeight: 600 }}>เปิดรับแจ้งเตือน</span>
+                  </div>
+                )}
+                {!isLineUserWithoutEmail && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(2, 132, 199, 0.08)',
+                      border: '1px solid rgba(2, 132, 199, 0.2)',
+                      fontSize: 12,
+                    }}
+                  >
+                    <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <MailIcon size={13} style={{ color: '#38BDF8' }} />
+                      <span>อีเมลเข้าสู่ระบบ</span>
+                    </span>
+                    <span style={{ color: '#38BDF8', fontSize: 11, fontWeight: 600 }}>พร้อมใช้งาน</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right side forms: Personal Profile + Password Change */}
+        {/* ── Right Side Forms: Personal Profile + Password Change ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Form 1: Edit Profile Card */}
           <div className="card">
@@ -333,7 +822,7 @@ export default function ProfilePage() {
                     className="input"
                     value={form.district}
                     onChange={(e) => setProfileField('district', e.target.value)}
-                    placeholder="เมือง..."
+                    placeholder="ระบุอำเภอ/เขตที่อาศัยอยู่"
                   />
                 </div>
               </div>
@@ -448,7 +937,7 @@ export default function ProfilePage() {
                     onClick={() => setShowCurrentPassword((prev) => !prev)}
                     style={{
                       position: 'absolute',
-                      right: 8,
+                      right: 10,
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
@@ -459,29 +948,21 @@ export default function ProfilePage() {
                       display: 'flex',
                       alignItems: 'center',
                     }}
-                    title={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                    aria-label={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   >
                     {showCurrentPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                   </button>
                 </div>
                 {passErrors.currentPassword && (
-                  <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                    <AlertTriangleIcon size={13} />
-                    <span>{passErrors.currentPassword}</span>
-                  </div>
+                  <span style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                    {passErrors.currentPassword}
+                  </span>
                 )}
               </div>
 
-              {/* New Password & Confirm Password */}
+              {/* New Password + Confirm Password */}
               <div className="form-grid-2col" style={{ display: 'grid', gap: '0 16px' }}>
                 <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <label className="label" htmlFor="profile-new-password" style={{ marginBottom: 0 }}>
-                      รหัสผ่านใหม่ *
-                    </label>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>อย่างน้อย 6 ตัวอักษร</span>
-                  </div>
+                  <label className="label" htmlFor="profile-new-password">รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร) *</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       id="profile-new-password"
@@ -490,14 +971,14 @@ export default function ProfilePage() {
                       type={showNewPassword ? 'text' : 'password'}
                       value={passForm.newPassword}
                       onChange={(e) => setPassField('newPassword', e.target.value)}
-                      placeholder="กำหนดรหัสผ่านใหม่"
+                      placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword((prev) => !prev)}
                       style={{
                         position: 'absolute',
-                        right: 8,
+                        right: 10,
                         top: '50%',
                         transform: 'translateY(-50%)',
                         background: 'none',
@@ -508,17 +989,14 @@ export default function ProfilePage() {
                         display: 'flex',
                         alignItems: 'center',
                       }}
-                      title={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                      aria-label={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                     >
                       {showNewPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                     </button>
                   </div>
                   {passErrors.newPassword && (
-                    <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                      <AlertTriangleIcon size={13} />
-                      <span>{passErrors.newPassword}</span>
-                    </div>
+                    <span style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                      {passErrors.newPassword}
+                    </span>
                   )}
                 </div>
 
@@ -532,14 +1010,14 @@ export default function ProfilePage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={passForm.confirmPassword}
                       onChange={(e) => setPassField('confirmPassword', e.target.value)}
-                      placeholder="ยืนยันรหัสผ่านใหม่อีกครั้ง"
+                      placeholder="••••••••"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword((prev) => !prev)}
                       style={{
                         position: 'absolute',
-                        right: 8,
+                        right: 10,
                         top: '50%',
                         transform: 'translateY(-50%)',
                         background: 'none',
@@ -550,30 +1028,39 @@ export default function ProfilePage() {
                         display: 'flex',
                         alignItems: 'center',
                       }}
-                      title={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
-                      aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                     >
                       {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                     </button>
                   </div>
                   {passErrors.confirmPassword && (
-                    <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                      <AlertTriangleIcon size={13} />
-                      <span>{passErrors.confirmPassword}</span>
-                    </div>
+                    <span style={{ color: 'var(--color-danger)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                      {passErrors.confirmPassword}
+                    </span>
                   )}
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setPassForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                    setPassErrors({});
+                    setPassGeneralError('');
+                  }}
+                >
+                  ล้างข้อมูล
+                </button>
+                <button
+                  id="change-password-submit"
                   type="submit"
                   className="btn btn-primary"
                   disabled={passSaving}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                   <KeyIcon size={15} />
-                  <span>{passSaving ? 'กำลังเปลี่ยนรหัสผ่าน...' : 'เปลี่ยนรหัสผ่าน'}</span>
+                  <span>{passSaving ? 'กำลังบันทึก...' : 'เปลี่ยนรหัสผ่าน'}</span>
                 </button>
               </div>
             </form>
@@ -581,21 +1068,186 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Mobile Logout Button (Visible only on responsive mobile with BottomBar) */}
-      <div className="profile-mobile-logout-wrap">
-        <button
-          type="button"
-          id="profile-mobile-logout-btn"
-          className="profile-mobile-logout-btn"
-          onClick={() => setShowLogoutModal(true)}
-          title="ออกจากระบบ"
+      {/* ── Minimal Email Setup Modal ── */}
+      {showEmailModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+          onClick={handleCloseEmailModal}
         >
-          <LogOutIcon size={18} />
-          <span>ออกจากระบบ</span>
-        </button>
-      </div>
+          <div
+            className="card"
+            style={{
+              maxWidth: 420,
+              width: '100%',
+              background: '#0F172A',
+              border: '1px solid rgba(2, 132, 199, 0.4)',
+              borderRadius: 16,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+              padding: '24px 20px',
+              animation: 'fadeIn 0.2s ease',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(2, 132, 199, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#38BDF8',
+                  }}
+                >
+                  <MailIcon size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#FFFFFF' }}>ตั้งค่าอีเมลเข้าสู่ระบบ</h3>
+                  <div style={{ fontSize: 11, color: '#94A3B8' }}>สำหรับเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseEmailModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94A3B8',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  padding: 4,
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-      {/* Safety Logout Confirmation Modal */}
+            {emailModalError && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#F87171',
+                  fontSize: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <AlertTriangleIcon size={15} style={{ flexShrink: 0 }} />
+                <span>{emailModalError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitEmailSetup}>
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label className="label" htmlFor="setup-email" style={{ fontSize: 12, marginBottom: 4 }}>
+                  อีเมล *
+                </label>
+                <input
+                  id="setup-email"
+                  className="input"
+                  type="email"
+                  value={emailModalForm.email}
+                  onChange={(e) => setEmailModalForm((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="your@email.com"
+                  required
+                  style={{ height: 40 }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 12 }}>
+                <label className="label" htmlFor="setup-pass" style={{ fontSize: 12, marginBottom: 4 }}>
+                  รหัสผ่าน (6 ตัวขึ้นไป) *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="setup-pass"
+                    className="input"
+                    type={showModalPass ? 'text' : 'password'}
+                    value={emailModalForm.password}
+                    onChange={(e) => setEmailModalForm((prev) => ({ ...prev, password: e.target.value }))}
+                    placeholder="อย่างน้อย 6 ตัวอักษร"
+                    required
+                    style={{ height: 40, paddingRight: 36 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowModalPass((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: 6,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94A3B8',
+                      cursor: 'pointer',
+                      padding: 4,
+                    }}
+                  >
+                    {showModalPass ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 18 }}>
+                <label className="label" htmlFor="setup-confirm-pass" style={{ fontSize: 12, marginBottom: 4 }}>
+                  ยืนยันรหัสผ่าน *
+                </label>
+                <input
+                  id="setup-confirm-pass"
+                  className="input"
+                  type={showModalPass ? 'text' : 'password'}
+                  value={emailModalForm.confirmPassword}
+                  onChange={(e) => setEmailModalForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                  placeholder="กรอกรหัสผ่านซ้ำ"
+                  required
+                  style={{ height: 40 }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleCloseEmailModal}
+                  style={{ padding: '10px', fontSize: 13, justifyContent: 'center' }}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={emailModalSaving}
+                  className="btn btn-primary"
+                  style={{ padding: '10px', fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
+                >
+                  {emailModalSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Logout confirmation modal */}
       {showLogoutModal && (
         <div
           className="modal-overlay"
@@ -692,6 +1344,26 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes slideDownToast {
+          0% {
+            transform: translate(-50%, -130%);
+            opacity: 0;
+          }
+          100% {
+            transform: translate(-50%, 0);
+            opacity: 1;
+          }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.96); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

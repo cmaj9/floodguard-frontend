@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import StationSegmentedControl from '../components/dashboard/StationSegmentedControl';
@@ -119,6 +119,80 @@ export default function DashboardPage() {
   const [isFilteringSubscribed, setIsFilteringSubscribed] = useState<boolean>(
     Boolean(location.state?.justSubscribed)
   );
+
+  // ── Slide-in Toast Notification for Registration / LINE Login ──
+  const [toastNotification, setToastNotification] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    type: 'email' | 'line';
+  } | null>(() => {
+    if (location.state?.registerSuccess) {
+      const regType = (location.state.registerType as 'email' | 'line') || 'email';
+      const name = location.state.registeredName || user?.name || '';
+      return {
+        show: true,
+        type: regType,
+        title: regType === 'line' ? 'ลงทะเบียนสำเร็จผ่าน LINE' : 'ลงทะเบียนสำเร็จผ่านอีเมล',
+        message: name
+          ? `ยินดีต้อนรับคุณ ${name} สู่ระบบเตือนภัยน้ำ FloodGuard`
+          : 'ยินดีต้อนรับสู่ระบบเตือนภัยน้ำ FloodGuard บันทึกข้อมูลและสถานีเรียบร้อยแล้ว',
+      };
+    }
+    if (location.state?.alreadyLoggedIn) {
+      const name = location.state.registeredName || user?.name || '';
+      return {
+        show: true,
+        type: 'line',
+        title: 'เข้าสู่ระบบสำเร็จผ่าน LINE',
+        message: name ? `ยินดีต้อนรับกลับ คุณ ${name}` : 'ยินดีต้อนรับกลับสู่ระบบ FloodGuard',
+      };
+    }
+    return null;
+  });
+
+  const [isClosingToast, setIsClosingToast] = useState(false);
+
+  useEffect(() => {
+    if (!toastNotification?.show) return;
+    const timer = setTimeout(() => {
+      setIsClosingToast(true);
+      setTimeout(() => {
+        setToastNotification(null);
+        setIsClosingToast(false);
+      }, 350);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [toastNotification]);
+
+  const touchStartY = useRef<number | null>(null);
+
+  const handleDismissToast = useCallback(() => {
+    setIsClosingToast(true);
+    setTimeout(() => {
+      setToastNotification(null);
+      setIsClosingToast(false);
+    }, 350);
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current !== null) {
+      const currentY = e.touches[0].clientY;
+      // If user swipes up by > 20px, dismiss toast
+      if (touchStartY.current - currentY > 20) {
+        handleDismissToast();
+        touchStartY.current = null;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+  };
 
   // ── Load Real Data from API ───────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -273,6 +347,150 @@ export default function DashboardPage() {
         margin: '0 auto',
       }}
     >
+      {/* ── Slide-in Top Registration Notification Toast ── */}
+      {toastNotification?.show && (
+        <div
+          role="status"
+          aria-live="polite"
+          onClick={handleDismissToast}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          title="แตะหรือเลื่อนขึ้นเพื่อปิด"
+          style={{
+            position: 'fixed',
+            top: 20,
+            left: '50%',
+            transform: isClosingToast
+              ? 'translate(-50%, -150%)'
+              : 'translate(-50%, 0)',
+            opacity: isClosingToast ? 0 : 1,
+            zIndex: 99999,
+            width: 'calc(100% - 32px)',
+            maxWidth: 480,
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(16px)',
+            border:
+              toastNotification.type === 'line'
+                ? '1px solid rgba(6, 199, 85, 0.45)'
+                : '1px solid rgba(56, 189, 248, 0.45)',
+            boxShadow:
+              toastNotification.type === 'line'
+                ? '0 16px 36px rgba(6, 199, 85, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)'
+                : '0 16px 36px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)',
+            borderRadius: 14,
+            padding: '12px 16px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            cursor: 'pointer',
+            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease',
+            animation: 'slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            touchAction: 'pan-y',
+          }}
+        >
+          {/* Subtle swipe-up drag pill indicator */}
+          <div
+            style={{
+              width: 36,
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255, 255, 255, 0.22)',
+              margin: '0 auto -2px',
+            }}
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background:
+                    toastNotification.type === 'line'
+                      ? 'rgba(6, 199, 85, 0.15)'
+                      : 'rgba(56, 189, 248, 0.15)',
+                  border:
+                    toastNotification.type === 'line'
+                      ? '1px solid rgba(6, 199, 85, 0.3)'
+                      : '1px solid rgba(56, 189, 248, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: toastNotification.type === 'line' ? '#22C55E' : '#38BDF8',
+                  flexShrink: 0,
+                }}
+              >
+                <CheckCircleIcon size={20} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span>{toastNotification.title}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '1px 6px',
+                      borderRadius: 4,
+                      background:
+                        toastNotification.type === 'line'
+                          ? 'rgba(6, 199, 85, 0.2)'
+                          : 'rgba(56, 189, 248, 0.2)',
+                      color: toastNotification.type === 'line' ? '#4ADE80' : '#7DD3FC',
+                    }}
+                  >
+                    {toastNotification.type === 'line' ? 'LINE' : 'Email'}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: 'var(--text-secondary)',
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {toastNotification.message}
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDismissToast();
+              }}
+              aria-label="ปิดแจ้งเตือน"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: 11,
+                padding: '4px 8px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              ปิด (เลื่อนขึ้น)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Subscribed Confirmation Banner ── */}
       {showSubscribedBanner && (
         <div
@@ -588,6 +806,19 @@ export default function DashboardPage() {
           isLoading={isLoading}
         />
       </div>
+
+      <style>{`
+        @keyframes slideDownToast {
+          0% {
+            transform: translate(-50%, -130%);
+            opacity: 0;
+          }
+          100% {
+            transform: translate(-50%, 0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }
