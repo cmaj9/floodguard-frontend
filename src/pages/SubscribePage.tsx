@@ -17,7 +17,7 @@ import {
   AlertTriangleIcon,
   MapPinIcon,
   MapIcon,
-  ShieldCheckIcon,
+  UserIcon,
 } from '../components/ui/Icons';
 
 export default function SubscribePage() {
@@ -31,10 +31,6 @@ export default function SubscribePage() {
   const [inLine, setInLine] = useState<boolean>(false);
   const [stations, setStations] = useState<StationWithReading[]>([]);
   const [selectedStationIds, setSelectedStationIds] = useState<string[]>([]);
-  const [selectedAlertTypes, setSelectedAlertTypes] = useState<string[]>([
-    'water_level',
-    'rate_of_rise',
-  ]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -81,20 +77,17 @@ export default function SubscribePage() {
               if (Array.isArray(prefs.station_ids) && prefs.station_ids.length > 0) {
                 setSelectedStationIds(prefs.station_ids);
               } else {
-                // By default select all active stations
                 setSelectedStationIds(
                   stationList.filter((s) => s.status === 'active').map((s) => s.station_id)
                 );
               }
             }
           } catch {
-            // New user, select active stations by default
             setSelectedStationIds(
               stationList.filter((s) => s.status === 'active').map((s) => s.station_id)
             );
           }
         } else {
-          // Default all active
           setSelectedStationIds(
             stationList.filter((s) => s.status === 'active').map((s) => s.station_id)
           );
@@ -126,14 +119,6 @@ export default function SubscribePage() {
     setSelectedStationIds([]);
   };
 
-  const handleToggleAlertType = (type: string) => {
-    setSelectedAlertTypes((prev) =>
-      prev.includes(type)
-        ? prev.filter((t) => t !== type)
-        : [...prev, type]
-    );
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!lineUserId.trim()) {
@@ -159,7 +144,6 @@ export default function SubscribePage() {
         .filter((s) => selectedStationIds.includes(s.station_id))
         .map((s) => s.station_name || s.station_id);
 
-      // Navigate immediately to Dashboard and display selected stations
       navigate('/dashboard', {
         replace: true,
         state: {
@@ -180,90 +164,89 @@ export default function SubscribePage() {
         minHeight: '100vh',
         background: 'radial-gradient(ellipse at top, #0d1a33 0%, #080C14 70%)',
         color: 'var(--text-primary)',
-        padding: '32px 16px 80px',
+        padding: '24px 16px calc(32px + env(safe-area-inset-bottom, 0px))',
+        boxSizing: 'border-box',
+        overflowX: 'hidden',
+        width: '100%',
       }}
     >
-      <div style={{ maxWidth: 680, margin: '0 auto' }}>
-        {/* Top Branding */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+      <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
+        {/* Compact Header */}
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: 'rgba(37, 99, 235, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              color: 'var(--color-primary)',
-              marginBottom: 16,
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              color: '#38BDF8',
+              marginBottom: 12,
             }}
           >
-            <BellIcon size={28} />
+            <BellIcon size={22} />
           </div>
           <h1
             style={{
-              fontSize: 24,
+              fontSize: 20,
               fontWeight: 800,
               letterSpacing: '-0.02em',
-              margin: '0 0 8px 0',
-              background: 'linear-gradient(to right, #FFFFFF, #94A3B8)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
+              margin: '0 0 6px 0',
+              color: '#FFFFFF',
             }}
           >
-            ตั้งค่าการแจ้งเตือน FloodGuard
+            เลือกสถานีแจ้งเตือนผ่าน LINE
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-            รับการแจ้งเตือนระดับน้ำและสถานการณ์น้ำท่วมเรียลไทม์ผ่าน LINE Official Account
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+            รับการแจ้งเตือนระดับน้ำและสถานการณ์น้ำท่วมเรียลไทม์
           </p>
         </div>
 
         {/* Success Banner */}
         {savedSuccess && (
           <div
-            className="card"
             style={{
-              marginBottom: 24,
-              padding: '20px 24px',
+              marginBottom: 16,
+              padding: '14px 16px',
               background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              borderRadius: 'var(--radius-lg)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: 12,
               display: 'flex',
               flexDirection: 'column',
-              gap: 12,
+              gap: 10,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <CheckCircleIcon size={24} style={{ color: '#10B981', flexShrink: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CheckCircleIcon size={20} style={{ color: '#10B981', flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#10B981' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#10B981' }}>
                   บันทึกการตั้งค่าการติดตามเรียบร้อยแล้ว
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  ระบบจะส่งข้อความแจ้งเตือนสถานการณ์น้ำของสถานีที่ท่านเลือกผ่านทาง LINE ทันทีเมื่อมีเหตุเฝ้าระวังหรือวิกฤต
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                  ระบบจะส่งข้อความแจ้งเตือนผ่านทาง LINE อัตโนมัติเมื่อมีเหตุการณ์น้ำ
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => navigate('/dashboard')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
               >
                 <MapIcon size={14} />
-                <span>เปิดดูแดชบอร์ดระดับน้ำ</span>
+                <span>เปิดดูแดชบอร์ด</span>
               </button>
               {inLine && (
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => closeLiffWindow()}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
                 >
                   <span>กลับสู่ LINE Chat</span>
                 </button>
@@ -276,301 +259,319 @@ export default function SubscribePage() {
         {errorMessage && (
           <div
             style={{
-              marginBottom: 24,
-              padding: '14px 18px',
+              marginBottom: 16,
+              padding: '12px 16px',
               background: 'rgba(239, 68, 68, 0.12)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 12,
               color: '#EF4444',
               display: 'flex',
               alignItems: 'center',
-              gap: 10,
-              fontSize: 14,
+              gap: 8,
+              fontSize: 13,
             }}
           >
-            <AlertTriangleIcon size={18} />
+            <AlertTriangleIcon size={16} style={{ flexShrink: 0 }} />
             <span>{errorMessage}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* User Account Info Card */}
+          {/* Compact User Profile Capsule */}
           <div
-            className="card"
             style={{
-              marginBottom: 20,
-              padding: '20px 24px',
-              background: 'rgba(17, 24, 39, 0.75)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              background: 'rgba(17, 24, 39, 0.7)',
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 'var(--radius-lg)',
+              borderRadius: 12,
+              marginBottom: 16,
+              gap: 10,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <ShieldCheckIcon size={18} style={{ color: 'var(--color-primary)' }} />
-              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>ข้อมูลบัญชีผู้รับการแจ้งเตือน</h2>
-            </div>
-
-            {/* Auto-detected LINE Profile Banner */}
-            {inLine && lineUserId && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  padding: '12px 16px',
-                  background: 'rgba(56, 189, 248, 0.1)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  borderRadius: 12,
-                  marginBottom: 16,
-                }}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={displayName || 'LINE User'}
-                    style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName || 'LINE User'}
+                  style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: '50%',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#38BDF8',
+                    flexShrink: 0,
+                  }}
+                >
+                  <UserIcon size={16} />
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: '#FFFFFF',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {displayName || 'ผู้ใช้งาน LINE'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: '#10B981',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span
                     style={{
-                      width: 44,
-                      height: 44,
+                      width: 6,
+                      height: 6,
                       borderRadius: '50%',
-                      background: 'rgba(56, 189, 248, 0.2)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--color-primary)',
-                      fontWeight: 700,
+                      background: '#10B981',
+                      display: 'inline-block',
                     }}
-                  >
-                    {(displayName || 'L')[0]}
-                  </div>
-                )}
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {displayName || 'ผู้ใช้งาน LINE'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircleIcon size={14} />
-                    <span>เชื่อมต่อบัญชี LINE สำเร็จ (ตรวจพบอัตโนมัติ 1-Tap)</span>
-                  </div>
+                  />
+                  <span>เชื่อมต่อ LINE แล้ว</span>
                 </div>
               </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label
-                  htmlFor="line-user-id"
-                  style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}
-                >
-                  LINE User ID
-                </label>
-                <input
-                  id="line-user-id"
-                  type="text"
-                  className="form-input"
-                  value={lineUserId}
-                  readOnly={inLine && Boolean(lineUserId)}
-                  onChange={(e) => setLineUserId(e.target.value)}
-                  placeholder="เช่น U1234567890abcdef..."
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: 14,
-                    fontFamily: 'monospace',
-                    borderRadius: 8,
-                    background: inLine && Boolean(lineUserId) ? 'rgba(255, 255, 255, 0.04)' : undefined,
-                    cursor: inLine && Boolean(lineUserId) ? 'default' : 'text',
-                  }}
-                  required
-                />
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, margin: 0 }}>
-                  {inLine && Boolean(lineUserId)
-                    ? 'ตรวจพบ LINE User ID อัตโนมัติจากห้องแชทเรียบร้อยแล้ว'
-                    : 'รหัสผู้ใช้ LINE ที่ผูกกับระบบ (หากเปิดจากลิงก์ใน LINE ระบบจะกรอกให้อัตโนมัติ)'}
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="display-name"
-                  style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}
-                >
-                  ชื่อเรียก หรือชื่อที่ต้องการแสดง (ไม่บังคับ)
-                </label>
-                <input
-                  id="display-name"
-                  type="text"
-                  className="form-input"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="เช่น คุณสมชาย หรือ ประชาชน ม.3"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    fontSize: 14,
-                    borderRadius: 8,
-                  }}
-                />
-              </div>
             </div>
+
+            {/* If lineUserId is missing (rare fallback when testing outside LINE), show mini ID input */}
+            {!lineUserId && (
+              <input
+                type="text"
+                placeholder="ระบุ LINE ID"
+                value={lineUserId}
+                onChange={(e) => setLineUserId(e.target.value)}
+                style={{
+                  fontSize: 12,
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  background: 'rgba(0,0,0,0.3)',
+                  color: '#fff',
+                  width: 120,
+                }}
+              />
+            )}
           </div>
 
           {/* Station Selection Card */}
           <div
-            className="card"
             style={{
-              marginBottom: 20,
-              padding: '20px 24px',
-              background: 'rgba(17, 24, 39, 0.75)',
+              background: 'rgba(17, 24, 39, 0.7)',
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 'var(--radius-lg)',
+              borderRadius: 14,
+              padding: '16px',
+              marginBottom: 20,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px 0' }}>
-                  เลือกสถานีที่ต้องการรับการแจ้งเตือน
-                </h2>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-                  เลือกเฉพาะสถานีในพื้นที่ที่ท่านต้องการเฝ้าระวัง ({selectedStationIds.length}/{stations.length} สถานี)
-                </p>
+            {/* Header: Title + Select All / Clear */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 14,
+                gap: 8,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF' }}>
+                  สถานีเฝ้าระวัง
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 9999,
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38BDF8',
+                  }}
+                >
+                  {selectedStationIds.length}/{stations.length}
+                </span>
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
                 <button
                   type="button"
                   onClick={handleSelectAll}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: 6,
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
                   เลือกทั้งหมด
                 </button>
                 <button
                   type="button"
                   onClick={handleDeselectAll}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'var(--text-secondary)',
+                    borderRadius: 6,
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  ยกเลิกทั้งหมด
+                  ยกเลิก
                 </button>
               </div>
             </div>
 
             {loading ? (
-              <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                 กำลังโหลดรายชื่อสถานี...
               </div>
             ) : stations.length === 0 ? (
-              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                 ไม่พบข้อมูลสถานีในระบบ
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {stations.map((st) => {
                   const isSelected = selectedStationIds.includes(st.station_id);
                   const isOffline = st.status !== 'active';
-                  const refName = st.reference_point_name || 'จุดอ้างอิง';
 
                   return (
                     <div
                       key={st.station_id}
                       onClick={() => !isOffline && handleToggleStation(st.station_id)}
                       style={{
-                        padding: '14px 16px',
-                        borderRadius: 12,
+                        padding: '12px 14px',
+                        borderRadius: 10,
                         background: isSelected
-                          ? 'rgba(6, 182, 212, 0.08)'
+                          ? 'rgba(56, 189, 248, 0.08)'
                           : 'rgba(255, 255, 255, 0.02)',
                         border: isSelected
-                          ? '1px solid rgba(6, 182, 212, 0.35)'
+                          ? '1px solid rgba(56, 189, 248, 0.35)'
                           : '1px solid rgba(255, 255, 255, 0.06)',
                         cursor: isOffline ? 'not-allowed' : 'pointer',
-                        opacity: isOffline ? 0.6 : 1,
+                        opacity: isOffline ? 0.55 : 1,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        gap: 14,
+                        gap: 12,
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <div
                           style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: 6,
+                            width: 18,
+                            height: 18,
+                            borderRadius: 5,
                             border: isSelected
-                              ? '2px solid var(--color-primary)'
-                              : '2px solid rgba(148, 163, 184, 0.4)',
-                            background: isSelected ? 'var(--color-primary)' : 'transparent',
+                              ? '2px solid #38BDF8'
+                              : '2px solid rgba(148, 163, 184, 0.35)',
+                            background: isSelected ? '#38BDF8' : 'transparent',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0,
-                            color: '#fff',
+                            color: '#0F172A',
                             transition: '0.15s',
                           }}
                         >
-                          {isSelected && <CheckCircleIcon size={14} />}
+                          {isSelected && <CheckCircleIcon size={13} />}
                         </div>
 
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 600, fontSize: 14 }}>{st.station_name}</span>
-                            <span
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: 14,
+                              color: '#FFFFFF',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {st.station_name || st.station_id}
+                          </div>
+                          {st.location_name && (
+                            <div
                               style={{
-                                fontSize: 11,
-                                padding: '1px 6px',
-                                borderRadius: 4,
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                color: '#38BDF8',
+                                fontSize: 12,
+                                color: 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                marginTop: 2,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
                               }}
                             >
-                              {refName}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <MapPinIcon size={12} />
-                            <span>{st.location_name || 'ไม่ระบุพิกัด'}</span>
-                          </div>
+                              <MapPinIcon size={11} style={{ flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {st.location_name}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Status badge */}
-                      <div>
+                      {/* Status indicator */}
+                      <div style={{ flexShrink: 0 }}>
                         {isOffline ? (
                           <span
                             style={{
-                              fontSize: 11,
-                              padding: '3px 8px',
-                              borderRadius: 6,
+                              fontSize: 10,
+                              padding: '2px 6px',
+                              borderRadius: 4,
                               background: 'rgba(148, 163, 184, 0.12)',
                               color: 'var(--text-muted)',
-                              border: '1px solid rgba(148, 163, 184, 0.25)',
-                              whiteSpace: 'nowrap',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
                             }}
                           >
-                            ปิดบริการชั่วคราว
+                            ปิดปรับปรุง
                           </span>
                         ) : (
-                          <span
-                            style={{
-                              fontSize: 11,
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              background: 'rgba(16, 185, 129, 0.12)',
-                              color: '#10B981',
-                              border: '1px solid rgba(16, 185, 129, 0.25)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            พร้อมให้บริการ
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: '#10B981',
+                                display: 'inline-block',
+                              }}
+                            />
+                            <span style={{ fontSize: 11, color: '#10B981', fontWeight: 500 }}>
+                              พร้อมใช้งาน
+                            </span>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -580,103 +581,42 @@ export default function SubscribePage() {
             )}
           </div>
 
-          {/* Alert Categories Selection Card */}
+          {/* Sticky CTA Bottom Bar */}
           <div
-            className="card"
             style={{
-              marginBottom: 24,
-              padding: '20px 24px',
-              background: 'rgba(17, 24, 39, 0.75)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 'var(--radius-lg)',
-            }}
-          >
-            <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px 0' }}>ประเภทเหตุการณ์ที่ต้องการรับแจ้ง</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 16px 0' }}>
-              เลือกเงื่อนไขที่ต้องการให้ LINE ส่งข้อความหาท่าน
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  padding: '12px 14px',
-                  borderRadius: 8,
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedAlertTypes.includes('water_level')}
-                  onChange={() => handleToggleAlertType('water_level')}
-                  style={{ marginTop: 3 }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                    ระดับน้ำเข้าใกล้จุดเฝ้าระวังหรือจุดวิกฤต
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                    แจ้งเตือนเมื่อระดับน้ำเพิ่มสูงจนถึงเกณฑ์ความปลอดภัยของตลิ่งหรือจุดอ้างอิง
-                  </div>
-                </div>
-              </label>
-
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  padding: '12px 14px',
-                  borderRadius: 8,
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedAlertTypes.includes('rate_of_rise')}
-                  onChange={() => handleToggleAlertType('rate_of_rise')}
-                  style={{ marginTop: 3 }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-                    ระดับน้ำเพิ่มขึ้นฉับพลัน (Rate of Rise)
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                    แจ้งเตือนล่วงหน้าเมื่อน้ำไหลบ่ารวดเร็วกว่าปกติ เพื่อให้เตรียมพร้อมรับมือน้ำหลาก
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Submit CTA */}
-          <button
-            type="submit"
-            disabled={submitting || selectedStationIds.length === 0}
-            className="btn btn-primary"
-            style={{
+              position: 'sticky',
+              bottom: 12,
+              zIndex: 10,
               width: '100%',
-              padding: '14px 24px',
-              fontSize: 16,
-              fontWeight: 700,
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 10,
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)',
             }}
           >
-            <BellIcon size={18} />
-            <span>{submitting ? 'กำลังบันทึกการตั้งค่า...' : 'บันทึกการตั้งค่าการแจ้งเตือน'}</span>
-          </button>
+            <button
+              type="submit"
+              disabled={submitting || selectedStationIds.length === 0}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                padding: '13px 20px',
+                fontSize: 15,
+                fontWeight: 700,
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                background: selectedStationIds.length === 0 ? undefined : '#0284C7',
+                boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+                cursor: selectedStationIds.length === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <BellIcon size={16} />
+              <span>
+                {submitting
+                  ? 'กำลังบันทึก...'
+                  : `บันทึกการติดตาม (${selectedStationIds.length} สถานี)`}
+              </span>
+            </button>
+          </div>
         </form>
       </div>
     </div>

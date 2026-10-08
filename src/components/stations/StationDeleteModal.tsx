@@ -34,10 +34,8 @@ export default function StationDeleteModal({
   const targetName = (station.name || '').trim();
   const targetId = (station.id || '').trim();
 
-  // Match either exact station name or station ID for flexible and safe user confirmation
-  const isMatch =
-    confirmText.trim() === targetName ||
-    confirmText.trim() === targetId;
+  // Match exact station name for safety confirmation
+  const isMatch = confirmText.trim() === targetName;
 
   const handleDelete = async () => {
     if (!isMatch || isDeleting) return;
@@ -46,8 +44,8 @@ export default function StationDeleteModal({
     try {
       await onConfirm(station.id);
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'เกิดข้อผิดพลาดในการลบสถานี');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการลบสถานี');
       setIsDeleting(false);
     }
   };
@@ -62,57 +60,63 @@ export default function StationDeleteModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
+              width: 36,
+              height: 36,
+              borderRadius: 10,
               background: 'rgba(239, 68, 68, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#EF4444',
+              flexShrink: 0,
             }}
           >
-            <Trash2Icon size={18} />
+            <Trash2Icon size={20} />
           </div>
-          <span>ยืนยันการลบสถานีตรวจวัด</span>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+            ยืนยันการลบสถานีตรวจวัด
+          </div>
         </div>
       }
-      subtitle="การดำเนินการนี้จะลบข้อมูลออกจากฐานข้อมูลอย่างถาวร"
-      maxWidth="540px"
+      maxWidth="420px"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 12 }}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary"
             onClick={onClose}
             disabled={isDeleting}
-            style={{ padding: '8px 16px', fontSize: 13 }}
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8 }}
           >
             ยกเลิก
           </button>
           <button
             type="button"
-            className="btn btn-sm"
+            className="btn"
             onClick={handleDelete}
             disabled={!isMatch || isDeleting}
             style={{
-              padding: '8px 20px',
+              padding: '9px 20px',
               fontSize: 13,
-              fontWeight: 700,
-              background: isMatch ? '#EF4444' : 'rgba(239, 68, 68, 0.3)',
-              color: '#FFFFFF',
+              fontWeight: 600,
+              borderRadius: 8,
+              background: isMatch ? '#EF4444' : 'rgba(239, 68, 68, 0.2)',
+              color: isMatch ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
               border: 'none',
               cursor: isMatch && !isDeleting ? 'pointer' : 'not-allowed',
-              opacity: isMatch ? 1 : 0.6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
               transition: 'all 0.18s ease',
             }}
           >
-            {isDeleting ? 'กำลังลบสถานี...' : 'ยืนยันลบสถานีถาวร'}
+            <Trash2Icon size={15} />
+            <span>{isDeleting ? 'กำลังลบ...' : 'ยืนยันลบ'}</span>
           </button>
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Error Banner */}
         {error && (
           <div
@@ -124,84 +128,75 @@ export default function StationDeleteModal({
               color: '#EF4444',
               fontSize: 13,
               fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
           >
-            {error}
+            <AlertTriangleIcon size={16} />
+            <span>{error}</span>
           </div>
         )}
 
-        {/* Station Target Info Card */}
+        {/* Hero Card: Prominent Station ID + Large 20px Station Name */}
         <div
           style={{
-            padding: '14px 16px',
-            borderRadius: 10,
-            background: 'rgba(15, 23, 42, 0.65)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 12,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#FFFFFF', marginBottom: 2 }}>
-              {station.name || 'ไม่ระบุชื่อสถานี'}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              {station.location || 'ไม่มีข้อมูลสถานที่'}
-            </div>
-          </div>
-          <span
-            style={{
-              padding: '4px 10px',
-              borderRadius: 9999,
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: 'monospace',
-              background: 'rgba(255, 255, 255, 0.08)',
-              color: '#94A3B8',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-            }}
-          >
-            {station.id}
-          </span>
-        </div>
-
-        {/* Danger Warning Box */}
-        <div
-          style={{
-            padding: '12px 14px',
-            borderRadius: 8,
-            background: 'rgba(239, 68, 68, 0.08)',
+            padding: '16px 18px',
+            borderRadius: 12,
+            background: 'rgba(239, 68, 68, 0.06)',
             border: '1px solid rgba(239, 68, 68, 0.25)',
             display: 'flex',
-            alignItems: 'flex-start',
-            gap: 10,
+            flexDirection: 'column',
+            gap: 6,
           }}
         >
-          <AlertTriangleIcon size={18} style={{ color: '#EF4444', flexShrink: 0, marginTop: 2 }} />
-          <div style={{ fontSize: 12.5, color: '#F87171', lineHeight: 1.5 }}>
-            <strong>คำเตือน:</strong> การดำเนินการนี้ไม่สามารถยกเลิกได้ ประวัติการวัดระดับน้ำ การแจ้งเตือน และการเชื่อมต่อเซนเซอร์ทั้งหมดของสถานีนี้จะถูกลบออกจากระบบอย่างถาวร
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                fontFamily: 'monospace',
+                padding: '2px 8px',
+                borderRadius: 6,
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                color: '#EF4444',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {targetId}
+            </span>
+            {station.location && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {station.location}
+              </span>
+            )}
+          </div>
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 700,
+              color: '#FFFFFF',
+              lineHeight: 1.3,
+              wordBreak: 'break-word',
+            }}
+          >
+            {targetName || targetId}
           </div>
         </div>
 
-        {/* Safety Verification Input */}
+        {/* Verification Input */}
         <div>
           <label
             htmlFor="delete-confirm-input"
             style={{
               fontSize: 13,
-              color: 'var(--text-primary)',
+              color: 'var(--text-secondary)',
               display: 'block',
               marginBottom: 8,
-              lineHeight: 1.4,
             }}
           >
-            เพื่อยืนยันความปลอดภัย กรุณาพิมพ์ชื่อสถานี{' '}
-            <strong style={{ color: '#EF4444', userSelect: 'all' }}>
-              "{targetName || targetId}"
-            </strong>{' '}
-            ในช่องด้านล่าง:
+            พิมพ์ชื่อสถานี <strong style={{ color: '#EF4444', userSelect: 'all' }}>"{targetName}"</strong> เพื่อยืนยัน:
           </label>
           <input
             id="delete-confirm-input"
@@ -209,7 +204,7 @@ export default function StationDeleteModal({
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            placeholder={`พิมพ์ ${targetName || targetId} เพื่อยืนยัน`}
+            placeholder={`พิมพ์ ${targetName} เพื่อยืนยัน`}
             disabled={isDeleting}
             autoFocus
             style={{
@@ -219,7 +214,7 @@ export default function StationDeleteModal({
               borderRadius: 8,
               border: isMatch
                 ? '1px solid #EF4444'
-                : '1px solid var(--card-border)',
+                : '1px solid var(--border)',
               boxShadow: isMatch ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
               transition: 'all 0.15s ease',
             }}

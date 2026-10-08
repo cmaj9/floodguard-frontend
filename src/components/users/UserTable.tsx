@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import type { User, UserRole } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { SearchIcon, MapPinIcon, Edit3Icon, Trash2Icon, AlertTriangleIcon, MessageSquareIcon } from '../ui/Icons';
+import { SearchIcon, MapPinIcon, Edit3Icon, Trash2Icon, MessageSquareIcon } from '../ui/Icons';
 
 interface UserTableProps {
   users: User[];
@@ -25,7 +25,7 @@ const roleClass: Record<UserRole, string> = {
 export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
   const { user: currentUser } = useAuth();
   const [search, setSearch] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const filtered = users.filter((u) => {
     const s = search.toLowerCase();
@@ -37,16 +37,6 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       lineId.toLowerCase().includes(s)
     );
   });
-
-  const handleDelete = (id: string) => {
-    if (deleteConfirm === id) {
-      onDelete(id);
-      setDeleteConfirm(null);
-    } else {
-      setDeleteConfirm(id);
-      setTimeout(() => setDeleteConfirm(null), 4000);
-    }
-  };
 
   return (
     <div>
@@ -209,20 +199,18 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                           <span>แก้ไข</span>
                         </button>
                         <button
-                          className={`btn btn-sm ${deleteConfirm === u.id ? 'btn-danger' : 'btn-secondary'}`}
-                          onClick={() => handleDelete(u.id)}
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => setUserToDelete(u)}
                           disabled={u.id === currentUser?.id}
-                          title={deleteConfirm === u.id ? 'คลิกอีกครั้งเพื่อยืนยันลบออกจาก DB' : 'ลบ'}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          title={u.id === currentUser?.id ? 'ไม่สามารถลบบัญชีของตนเองได้' : 'ลบผู้ใช้'}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            color: u.id === currentUser?.id ? 'var(--text-muted)' : 'var(--color-danger)',
+                          }}
                         >
-                          {deleteConfirm === u.id ? (
-                            <>
-                              <AlertTriangleIcon size={13} />
-                              <span>ยืนยันลบ</span>
-                            </>
-                          ) : (
-                            <Trash2Icon size={13} />
-                          )}
+                          <Trash2Icon size={13} />
                         </button>
                       </div>
                     </td>
@@ -237,6 +225,142 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
         แสดง {filtered.length} จาก {users.length} รายการ
       </div>
+
+      {/* Pop-up ยืนยันการลบผู้ใช้ */}
+      {userToDelete && (
+        <div
+          className="modal-overlay"
+          onClick={() => setUserToDelete(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0B1120',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 16,
+              padding: '24px 28px',
+              maxWidth: 400,
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#EF4444',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2Icon size={18} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+                ยืนยันการลบผู้ใช้
+              </h3>
+            </div>
+
+            {/* Hero Card: Prominent Role Badge + Large 20px User Name */}
+            <div
+              style={{
+                padding: '16px 18px',
+                borderRadius: 12,
+                background: 'rgba(239, 68, 68, 0.06)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span
+                  className={`badge ${roleClass[userToDelete.role]}`}
+                  style={{ fontSize: 11, padding: '2px 8px' }}
+                >
+                  {roleLabel[userToDelete.role]}
+                </span>
+                {userToDelete.email && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {userToDelete.email}
+                  </span>
+                )}
+              </div>
+              <div
+                style={{
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  lineHeight: 1.3,
+                  wordBreak: 'break-word',
+                }}
+              >
+                {userToDelete.name}
+              </div>
+            </div>
+
+            {/* Button Layout: Cancel Left, Danger Confirm Right */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setUserToDelete(null)}
+                style={{
+                  padding: '9px 20px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  onDelete(userToDelete.id);
+                  setUserToDelete(null);
+                }}
+                style={{
+                  padding: '9px 20px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  backgroundColor: '#EF4444',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Trash2Icon size={15} />
+                <span>ยืนยันลบ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

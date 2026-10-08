@@ -278,3 +278,99 @@ export function applyWaterLevelFilter(
 
   return finalFiltered;
 }
+
+export interface NodeOutage {
+  id: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  formattedDuration: string;
+  startBattery?: { percent?: number; voltage?: number };
+  endBattery?: { percent?: number; voltage?: number };
+  reason: 'battery_depleted' | 'signal_lost' | 'unknown';
+  reasonText: string;
+}
+
+/**
+ * ตรวจจับช่วงเวลาที่โหนดขาดการเชื่อมต่อ (Outage Detection) เกินกว่าเกณฑ์ Offline Gap
+ */
+export function detectOutages(
+  readings: WaterLevelReading[],
+  timeRange: TimeRange
+): NodeOutage[] {
+  if (!readings || readings.length <= 1) return [];
+
+  // กำหนดเกณฑ์เวลาออฟไลน์ตาม TimeRange (สอดคล้องกับ resampleAndBreakGaps)
+  let gapThresholdMs = 2 * 60 * 60 * 1000;
+  if (timeRange === 'hourly') {
+    gapThresholdMs = 30 * 60 * 1000; // 30 นาที
+  } else if (timeRange === 'daily') {
+    gapThresholdMs = 2 * 60 * 60 * 1000; // 2 ชั่วโมง
+  } else if (timeRange === 'weekly') {
+    gapThresholdMs = 6 * 60 * 60 * 1000; // 6 ชั่วโมง
+  }
+
+  // กรองจุดหลอกที่เป็น null ออกและเรียงลำดับเวลา
+  const realReadings = readings
+    .filter((r) => r.level !== null && typeof r.level === 'number' && !isNaN(r.level))
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  const outages: NodeOutage[] = [];
+
+  for (let i = 1; i < realReadings.length; i++) {
+    const prev = realReadings[i - 1];
+    const curr = realReadings[i];
+    const prevT = new Date(prev.timestamp).getTime();
+    const currT = new Date(curr.timestamp).getTime();
+    const deltaMs = currT - prevT;
+
+    if (deltaMs > gapThresholdMs) {
+      const durationMinutes = Math.round(deltaMs / (60 * 1000));
+      const hours = Math.floor(durationMinutes / 60);
+      const mins = durationMinutes % 60;
+      const formattedDuration =
+        hours > 0 ? `${hours} ชม. ${mins > 0 ? `${mins} นาที` : ''}` : `${mins} นาที`;
+
+      const prevBattPct = prev.batteryPercent;
+      const prevBattV = prev.batteryVoltage;
+      const isBattLow =
+        (prevBattPct != null && prevBattPct <= 20) ||
+        (prevBattV != null && prevBattV <= 11.5);
+
+      let reason: 'battery_depleted' | 'signal_lost' | 'unknown' = 'unknown';
+      let reasonText = '';
+
+      if (isBattLow) {
+        reason = 'battery_depleted';
+        reasonText = `แบตเตอรี่หมดประจุ (${prevBattPct ?? 0}%${prevBattV ? ` · ${prevBattV.toFixed(2)}V` : ''})`;
+      } else {
+        reason = 'signal_lost';
+        reasonText = 'ขาดการเชื่อมต่อสัญญาณวิทยุ';
+      }
+
+      outages.push({
+        id: `outage-${prevT}-${currT}`,
+        startTime: prev.timestamp,
+        endTime: curr.timestamp,
+        durationMinutes,
+        formattedDuration,
+        startBattery: {
+          percent: prev.batteryPercent != null ? Number(prev.batteryPercent) : undefined,
+          voltage: prev.batteryVoltage != null ? Number(prev.batteryVoltage) : undefined,
+        },
+        endBattery: {
+          percent: curr.batteryPercent != null ? Number(curr.batteryPercent) : undefined,
+          voltage: curr.batteryVoltage != null ? Number(curr.batteryVoltage) : undefined,
+        },
+        reason,
+        reasonText,
+      });
+    }
+  }
+
+  // เรียงลำดับจากเหตุการณ์ล่าสุดไปหาอดีต
+  return outages.sort(
+    (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+  );
+}
+

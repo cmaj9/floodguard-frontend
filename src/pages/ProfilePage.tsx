@@ -2,7 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { UserRole } from '../types';
-import { MailIcon, PhoneIcon, MapPinIcon, KeyIcon, SaveIcon, CheckIcon, LogOutIcon } from '../components/ui/Icons';
+import { updateUser, changePasswordApi } from '../services/apiService';
+import {
+  MailIcon,
+  PhoneIcon,
+  MapPinIcon,
+  KeyIcon,
+  SaveIcon,
+  CheckIcon,
+  LogOutIcon,
+  EyeIcon,
+  EyeOffIcon,
+  AlertTriangleIcon,
+  CheckCircleIcon,
+} from '../components/ui/Icons';
 
 const roleLabel: Record<UserRole, string> = {
   citizen: 'ประชาชนทั่วไป',
@@ -13,12 +26,31 @@ const roleLabel: Record<UserRole, string> = {
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, updateProfile, logout } = useAuth();
+
+  // Profile info state
   const [form, setForm] = useState({
     name: user?.name ?? '',
     phone: user?.phone ?? '',
     district: user?.district ?? '',
   });
-  const [saved, setSaved] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  // Password change state
+  const [passForm, setPassForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passErrors, setPassErrors] = useState<Record<string, string>>({});
+  const [passSaving, setPassSaving] = useState(false);
+  const [passSuccess, setPassSuccess] = useState('');
+  const [passGeneralError, setPassGeneralError] = useState('');
+
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   if (!user) return null;
@@ -28,21 +60,101 @@ export default function ProfilePage() {
     navigate('/login');
   };
 
-  const set = (field: string, value: string) => {
+  const setProfileField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    setSaved(false);
+    setProfileSaved(false);
+    setProfileError('');
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({ name: form.name, phone: form.phone, district: form.district });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (!form.name.trim()) {
+      setProfileError('กรุณากรอกชื่อ-นามสกุล');
+      return;
+    }
+    try {
+      setProfileSaving(true);
+      setProfileError('');
+      // Save directly to PostgreSQL database
+      await updateUser(user.id, {
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        district: form.district.trim(),
+      });
+      // Update local AuthContext state
+      updateProfile({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        district: form.district.trim(),
+      });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 3000);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      setProfileError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const setPassField = (field: string, value: string) => {
+    setPassForm((prev) => ({ ...prev, [field]: value }));
+    setPassErrors((prev) => ({ ...prev, [field]: '' }));
+    setPassSuccess('');
+    setPassGeneralError('');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+
+    if (!passForm.currentPassword.trim()) {
+      errs.currentPassword = 'กรุณากรอกรหัสผ่านปัจจุบัน';
+    }
+    if (!passForm.newPassword.trim()) {
+      errs.newPassword = 'กรุณากรอกรหัสผ่านใหม่';
+    } else if (passForm.newPassword.trim().length < 6) {
+      errs.newPassword = `รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร (ปัจจุบันมี ${passForm.newPassword.trim().length} ตัว)`;
+    }
+    if (!passForm.confirmPassword.trim()) {
+      errs.confirmPassword = 'กรุณายืนยันรหัสผ่านใหม่';
+    } else if (passForm.newPassword.trim() !== passForm.confirmPassword.trim()) {
+      errs.confirmPassword = 'รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน';
+    }
+
+    if (Object.keys(errs).length > 0) {
+      setPassErrors(errs);
+      return;
+    }
+
+    try {
+      setPassSaving(true);
+      setPassGeneralError('');
+      setPassSuccess('');
+
+      const res = await changePasswordApi({
+        userId: user.id,
+        currentPassword: passForm.currentPassword.trim(),
+        newPassword: passForm.newPassword.trim(),
+      });
+
+      setPassSuccess(res.message || 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว');
+      setPassForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setTimeout(() => setPassSuccess(''), 5000);
+    } catch (err) {
+      console.error('Failed to change password:', err);
+      setPassGeneralError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
+    } finally {
+      setPassSaving(false);
+    }
   };
 
   return (
     <div className="page-container">
-
       <div className="profile-layout-grid">
         {/* Profile summary card */}
         <div className="card" style={{ textAlign: 'center' }}>
@@ -124,7 +236,7 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          {/* Optional password setup prompt if not set */}
+          {/* Optional password setup prompt if citizen has not set password */}
           {user.role === 'citizen' && !user.isCredentialsSet && (
             <div
               style={{
@@ -153,98 +265,319 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Edit form */}
-        <div className="card">
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>แก้ไขข้อมูลส่วนตัว</h3>
+        {/* Right side forms: Personal Profile + Password Change */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Form 1: Edit Profile Card */}
+          <div className="card">
+            <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 18 }}>แก้ไขข้อมูลส่วนตัว</h3>
 
-          <form onSubmit={handleSave}>
-            <div className="form-group">
-              <label className="label" htmlFor="profile-name">ชื่อ-นามสกุล</label>
-              <input
-                id="profile-name"
-                className="input"
-                value={form.name}
-                onChange={(e) => set('name', e.target.value)}
-                placeholder="ชื่อ-นามสกุล"
-              />
-            </div>
+            {profileError && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: 'var(--color-danger)',
+                  fontSize: 13,
+                  marginBottom: 16,
+                }}
+              >
+                <AlertTriangleIcon size={16} />
+                <span>{profileError}</span>
+              </div>
+            )}
 
-            <div className="form-group">
-              <label className="label" htmlFor="profile-email">อีเมล (ไม่สามารถแก้ไขได้)</label>
-              <input
-                id="profile-email"
-                className="input"
-                value={user.email}
-                disabled
-                aria-disabled="true"
-                style={{ opacity: 0.5, cursor: 'not-allowed' }}
-              />
-            </div>
-
-            <div className="form-grid-2col" style={{ display: 'grid', gap: '0 16px' }}>
+            <form onSubmit={handleSaveProfile}>
               <div className="form-group">
-                <label className="label" htmlFor="profile-phone">เบอร์โทรศัพท์</label>
+                <label className="label" htmlFor="profile-name">ชื่อ-นามสกุล *</label>
                 <input
-                  id="profile-phone"
+                  id="profile-name"
                   className="input"
-                  value={form.phone}
-                  onChange={(e) => set('phone', e.target.value)}
-                  placeholder="08XXXXXXXX"
+                  value={form.name}
+                  onChange={(e) => setProfileField('name', e.target.value)}
+                  placeholder="ชื่อ-นามสกุล"
                 />
               </div>
+
               <div className="form-group">
-                <label className="label" htmlFor="profile-district">อำเภอ/เขต</label>
+                <label className="label" htmlFor="profile-email">อีเมล (ไม่สามารถแก้ไขได้)</label>
                 <input
-                  id="profile-district"
+                  id="profile-email"
                   className="input"
-                  value={form.district}
-                  onChange={(e) => set('district', e.target.value)}
-                  placeholder="เมือง..."
+                  value={user.email}
+                  disabled
+                  aria-disabled="true"
+                  style={{ opacity: 0.5, cursor: 'not-allowed' }}
                 />
               </div>
-            </div>
 
-            <div className="divider" />
+              <div className="form-grid-2col" style={{ display: 'grid', gap: '0 16px' }}>
+                <div className="form-group">
+                  <label className="label" htmlFor="profile-phone">เบอร์โทรศัพท์</label>
+                  <input
+                    id="profile-phone"
+                    className="input"
+                    value={form.phone}
+                    onChange={(e) => setProfileField('phone', e.target.value)}
+                    placeholder="08XXXXXXXX"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="label" htmlFor="profile-district">อำเภอ/เขต</label>
+                  <input
+                    id="profile-district"
+                    className="input"
+                    value={form.district}
+                    onChange={(e) => setProfileField('district', e.target.value)}
+                    placeholder="เมือง..."
+                  />
+                </div>
+              </div>
 
-            {/* Password section */}
-            <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <KeyIcon size={15} style={{ color: 'var(--cyan-glow)' }} />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setForm({ name: user.name, phone: user.phone || '', district: user.district || '' })}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  id="save-profile"
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={profileSaving}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  {profileSaved ? (
+                    <>
+                      <CheckIcon size={15} />
+                      <span>บันทึกแล้ว!</span>
+                    </>
+                  ) : (
+                    <>
+                      <SaveIcon size={15} />
+                      <span>{profileSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูลส่วนตัว'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Form 2: Change Password Card */}
+          <div className="card">
+            <h4
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                marginBottom: 6,
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <KeyIcon size={18} style={{ color: 'var(--cyan-glow)' }} />
               <span>เปลี่ยนรหัสผ่าน</span>
             </h4>
-            <div className="form-group">
-              <label className="label" htmlFor="profile-current-password">รหัสผ่านปัจจุบัน</label>
-              <input id="profile-current-password" className="input" type="password" placeholder="••••••••" />
-            </div>
-            <div className="form-grid-2col" style={{ display: 'grid', gap: '0 16px' }}>
-              <div className="form-group">
-                <label className="label" htmlFor="profile-new-password">รหัสผ่านใหม่</label>
-                <input id="profile-new-password" className="input" type="password" placeholder="••••••••" />
-              </div>
-              <div className="form-group">
-                <label className="label" htmlFor="profile-confirm-password">ยืนยันรหัสผ่านใหม่</label>
-                <input id="profile-confirm-password" className="input" type="password" placeholder="••••••••" />
-              </div>
-            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 18 }}>
+              กรอกรหัสผ่านปัจจุบันเพื่อยืนยันตัวตน จากนั้นกำหนดรหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)
+            </p>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <button type="button" className="btn btn-secondary" onClick={() => setForm({ name: user.name, phone: user.phone, district: user.district })}>
-                ยกเลิก
-              </button>
-              <button id="save-profile" type="submit" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                {saved ? (
-                  <>
-                    <CheckIcon size={15} />
-                    <span>บันทึกแล้ว!</span>
-                  </>
-                ) : (
-                  <>
-                    <SaveIcon size={15} />
-                    <span>บันทึกข้อมูล</span>
-                  </>
+            {passSuccess && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  color: 'var(--color-success)',
+                  fontSize: 13,
+                  marginBottom: 16,
+                }}
+              >
+                <CheckCircleIcon size={16} />
+                <span>{passSuccess}</span>
+              </div>
+            )}
+
+            {passGeneralError && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: 'var(--color-danger)',
+                  fontSize: 13,
+                  marginBottom: 16,
+                }}
+              >
+                <AlertTriangleIcon size={16} />
+                <span>{passGeneralError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword}>
+              {/* Current Password */}
+              <div className="form-group">
+                <label className="label" htmlFor="profile-current-password">รหัสผ่านปัจจุบัน *</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="profile-current-password"
+                    className={`input ${passErrors.currentPassword ? 'input-error' : ''}`}
+                    style={{ paddingRight: 40 }}
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={passForm.currentPassword}
+                    onChange={(e) => setPassField('currentPassword', e.target.value)}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: 4,
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    aria-label={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                  >
+                    {showCurrentPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                  </button>
+                </div>
+                {passErrors.currentPassword && (
+                  <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                    <AlertTriangleIcon size={13} />
+                    <span>{passErrors.currentPassword}</span>
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
+              </div>
+
+              {/* New Password & Confirm Password */}
+              <div className="form-grid-2col" style={{ display: 'grid', gap: '0 16px' }}>
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <label className="label" htmlFor="profile-new-password" style={{ marginBottom: 0 }}>
+                      รหัสผ่านใหม่ *
+                    </label>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>อย่างน้อย 6 ตัวอักษร</span>
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="profile-new-password"
+                      className={`input ${passErrors.newPassword ? 'input-error' : ''}`}
+                      style={{ paddingRight: 40 }}
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passForm.newPassword}
+                      onChange={(e) => setPassField('newPassword', e.target.value)}
+                      placeholder="กำหนดรหัสผ่านใหม่"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword((prev) => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                      aria-label={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    >
+                      {showNewPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                    </button>
+                  </div>
+                  {passErrors.newPassword && (
+                    <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <AlertTriangleIcon size={13} />
+                      <span>{passErrors.newPassword}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <label className="label" htmlFor="profile-confirm-password">ยืนยันรหัสผ่านใหม่ *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      id="profile-confirm-password"
+                      className={`input ${passErrors.confirmPassword ? 'input-error' : ''}`}
+                      style={{ paddingRight: 40 }}
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passForm.confirmPassword}
+                      onChange={(e) => setPassField('confirmPassword', e.target.value)}
+                      placeholder="ยืนยันรหัสผ่านใหม่อีกครั้ง"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        padding: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                      aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    >
+                      {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                    </button>
+                  </div>
+                  {passErrors.confirmPassword && (
+                    <div className="error-msg" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <AlertTriangleIcon size={13} />
+                      <span>{passErrors.confirmPassword}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={passSaving}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <KeyIcon size={15} />
+                  <span>{passSaving ? 'กำลังเปลี่ยนรหัสผ่าน...' : 'เปลี่ยนรหัสผ่าน'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
 

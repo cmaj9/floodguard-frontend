@@ -19,8 +19,9 @@ import {
 } from '../components/ui/Icons';
 import SegmentedControl from '../components/ui/SegmentedControl';
 import type { SegmentedOption } from '../components/ui/SegmentedControl';
+import { format } from 'date-fns';
 import { exportWaterLevelCSV } from '../utils/exportCSV';
-import { applyWaterLevelFilter } from '../utils/waterLevelFilter';
+import { applyWaterLevelFilter, detectOutages } from '../utils/waterLevelFilter';
 
 const timeRangeOptions: SegmentedOption<TimeRange>[] = [
   { value: 'hourly', label: 'รายชั่วโมง', icon: <ClockIcon size={14} /> },
@@ -210,6 +211,10 @@ export default function ChartPage() {
   const readings = useMemo(() => {
     return filterAndMapReadings(rawReadings, selectedStationId, timeRange, selectedStation);
   }, [rawReadings, selectedStationId, timeRange, selectedStation]);
+
+  const detectedOutages = useMemo(() => {
+    return detectOutages(readings, timeRange);
+  }, [readings, timeRange]);
 
   const handleExportCSV = () => {
     if (!selectedStation || readings.length === 0 || readingsLoading) return;
@@ -697,6 +702,137 @@ export default function ChartPage() {
                 </span>
               </div>
             </div>
+
+            {/* ════════ OUTAGE TIMELINE CARD (IF GAPS DETECTED) ════════ */}
+            {detectedOutages.length > 0 && (
+              <div
+                style={{
+                  marginTop: '1.25rem',
+                  padding: '1rem 1.25rem',
+                  borderRadius: '0.75rem',
+                  background: 'rgba(30, 41, 59, 0.65)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#F59E0B',
+                      }}
+                    >
+                      <AlertTriangleIcon size={14} />
+                    </div>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#F1F5F9' }}>
+                      ประวัติช่วงเวลาโหนดออฟไลน์ ({detectedOutages.length} ครั้งในช่วงเวลานี้)
+                    </span>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '9999px',
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      color: '#FBBF24',
+                      border: '1px solid rgba(245, 158, 11, 0.3)',
+                    }}
+                  >
+                    ตัดเส้นกราฟตามเวลาจริง
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {detectedOutages.map((outage) => {
+                    const startD = new Date(outage.startTime);
+                    const endD = new Date(outage.endTime);
+                    const isBatt = outage.reason === 'battery_depleted';
+
+                    return (
+                      <div
+                        key={outage.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '0.75rem',
+                          padding: '0.625rem 0.875rem',
+                          borderRadius: '0.5rem',
+                          background: 'rgba(15, 23, 42, 0.65)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          fontSize: '0.8125rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: isBatt ? '#EF4444' : '#F59E0B',
+                            }}
+                          />
+                          <span style={{ color: '#E2E8F0', fontWeight: 600, fontFamily: 'monospace' }}>
+                            {format(startD, 'dd/MM HH:mm')} - {format(endD, 'HH:mm น.')}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            (ออฟไลน์ {outage.formattedDuration})
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {isBatt ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#F87171' }}>
+                              <BatteryChargingIcon size={14} />
+                              <span>{outage.reasonText}</span>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#94A3B8' }}>
+                              <RadioIcon size={14} />
+                              <span>{outage.reasonText}</span>
+                            </div>
+                          )}
+
+                          {outage.endBattery?.percent != null && outage.endBattery.percent > 20 && (
+                            <span
+                              style={{
+                                fontSize: '0.75rem',
+                                color: '#10B981',
+                                background: 'rgba(16, 185, 129, 0.12)',
+                                padding: '0.15rem 0.45rem',
+                                borderRadius: '0.25rem',
+                                border: '1px solid rgba(16, 185, 129, 0.25)',
+                              }}
+                            >
+                              ชาร์จฟื้นตัว {outage.endBattery.percent}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS ════════ */}

@@ -459,5 +459,19 @@ export async function setupCredentialsApi(data: {
   return res.data.data;
 }
 
+/**
+ * POST /api/users/change-password
+ * Change password for authenticated user with current password verification
+ */
+export async function changePasswordApi(data: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<{ success: boolean; message: string }> {
+  const res = await api.post<ApiResponse<{ success: boolean; message: string }>>('/api/users/change-password', data);
+  if (!res.data.success) throw new Error(res.data.error ?? 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+  return res.data.data;
+}
+
 export default api;
 
