@@ -20,6 +20,7 @@ import {
 import SegmentedControl from '../components/ui/SegmentedControl';
 import type { SegmentedOption } from '../components/ui/SegmentedControl';
 import { exportWaterLevelCSV } from '../utils/exportCSV';
+import { applyWaterLevelFilter } from '../utils/waterLevelFilter';
 
 const timeRangeOptions: SegmentedOption<TimeRange>[] = [
   { value: 'hourly', label: 'รายชั่วโมง', icon: <ClockIcon size={14} /> },
@@ -108,6 +109,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 function filterAndMapReadings(
   readings: Reading[],
   stationId: string,
+  timeRange: TimeRange,
   station?: Station
 ): WaterLevelReading[] {
   if (!readings || !readings.length) return [];
@@ -178,7 +180,8 @@ function filterAndMapReadings(
   // เรียงลำดับตามเวลาจากอดีตไปปัจจุบัน
   result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-  return result;
+  // ผ่านระบบ 3-Layer Intelligent Hydrological Filter (Deduplication, Adaptive Hampel & Persistence, Resampling & Gap Breaking)
+  return applyWaterLevelFilter(result, timeRange, station);
 }
 
 export default function ChartPage() {
@@ -205,8 +208,8 @@ export default function ChartPage() {
   }, [stations, selectedStationId]);
 
   const readings = useMemo(() => {
-    return filterAndMapReadings(rawReadings, selectedStationId, selectedStation);
-  }, [rawReadings, selectedStationId, selectedStation]);
+    return filterAndMapReadings(rawReadings, selectedStationId, timeRange, selectedStation);
+  }, [rawReadings, selectedStationId, timeRange, selectedStation]);
 
   const handleExportCSV = () => {
     if (!selectedStation || readings.length === 0 || readingsLoading) return;

@@ -23,6 +23,7 @@ interface WaterLevelChartProps {
 function CustomTooltip({ active, payload, label, station }: any) {
   if (!active || !payload?.length) return null;
   const pData = payload[0]?.payload;
+  if (!pData || pData.level === null || payload[0]?.value === null) return null;
   const val: number = payload[0]?.value ?? 0;
   const refName = station?.referencePointName || 'จุดอ้างอิง';
 
@@ -329,6 +330,7 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
           fill="url(#levelGrad)"
           stroke="none"
           isAnimationActive={true}
+          connectNulls={false}
         />
 
         {/* Main line */}
@@ -337,6 +339,7 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
           dataKey="level"
           stroke="url(#lineGrad)"
           strokeWidth={2.5}
+          connectNulls={false}
           dot={data.length <= 12 ? { r: 3.5, fill: '#38BDF8', stroke: '#fff', strokeWidth: 1.5 } : false}
           activeDot={{ r: 5, fill: '#38BDF8', stroke: '#fff', strokeWidth: 2 }}
           isAnimationActive={true}
