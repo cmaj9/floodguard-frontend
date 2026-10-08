@@ -105,13 +105,13 @@ export default function Sidebar() {
         {/* Brand */}
         <div
           className="sidebar-logo"
-          style={{ cursor: "pointer", padding: "16px 20px" }}
           onClick={() => navigate("/dashboard")}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === "Enter" && navigate("/dashboard")}
+          title="ไปที่หน้าแดชบอร์ดหลัก"
         >
-          <Logo size="md" />
+          <Logo size="md" showSubtitle={false} />
         </div>
 
         {/* Navigation */}

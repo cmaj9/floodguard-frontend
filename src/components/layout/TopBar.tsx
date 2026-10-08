@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import NotificationPanel from "../ui/NotificationPanel";
 import type { AppNotification } from "../../types";
 import { BellIcon, RefreshCwIcon } from "../ui/Icons";
@@ -11,7 +11,30 @@ interface TopBarProps {
   onMarkAllRead: () => void;
 }
 
+const routeTitles: Record<string, string> = {
+  "/dashboard": "แดชบอร์ด",
+  "/chart": "กราฟระดับน้ำ",
+  "/history": "ประวัติข้อมูล",
+  "/stations": "จัดการสถานี",
+  "/users": "จัดการผู้ใช้",
+  "/profile": "ข้อมูลโปรไฟล์",
+  "/management": "ศูนย์การจัดการ",
+  "/login": "เข้าสู่ระบบ",
+};
+
+const getPageTitle = (pathname?: string): string => {
+  if (!pathname || pathname === "/") return "แดชบอร์ด";
+  if (routeTitles[pathname]) return routeTitles[pathname];
+  const matched = Object.keys(routeTitles).find(
+    (key) => key !== "/" && pathname.startsWith(key)
+  );
+  if (matched) return routeTitles[matched];
+  if (pathname.startsWith("/nodes/")) return "ข้อมูลสถานี";
+  return "แดชบอร์ด";
+};
+
 export default function TopBar({
+  pathname,
   notifications,
   onMarkRead,
   onMarkAllRead,
@@ -28,42 +51,24 @@ export default function TopBar({
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const tick = () => setNow(new Date());
-    // Update every 30 seconds — accurate enough for HH:MM display
-    const id = setInterval(tick, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const timeStr = now.toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const dateStr = now.toLocaleDateString("th-TH", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const pageTitle = getPageTitle(pathname);
 
   return (
     <header className="topbar">
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div className="topbar-logo-area">
+      {/* Left: Desktop Dynamic Page Title (Mindtrip style) / Mobile Brand */}
+      <div className="topbar-left-zone">
+        <h1 className="topbar-page-title">{pageTitle}</h1>
+        <div className="topbar-mobile-brand">
           <Logo size="sm" showSubtitle={false} />
-          <div className="topbar-datetime" style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1, fontWeight: 500 }}>
-            <span className="topbar-date-full">{dateStr} · </span>
-            <span className="topbar-time-live">{timeStr} น.</span>
-          </div>
+          <span className="topbar-mobile-separator" aria-hidden="true">
+            /
+          </span>
+          <span className="topbar-mobile-title">{pageTitle}</span>
         </div>
       </div>
 
-      <div
-        className="topbar-actions"
-        style={{ display: "flex", alignItems: "center", gap: 8 }}
-      >
+      {/* Right: Minimal Ghost Action Buttons */}
+      <div className="topbar-actions">
         {/* Global Refresh Button */}
         <button
           type="button"
@@ -71,9 +76,9 @@ export default function TopBar({
           disabled={refreshing}
           className="topbar-action-btn"
           title="รีเฟรชข้อมูลทุกระบบ"
-          aria-label="รีเฟรชข้อมูล"
+          aria-label="รีเฟรชข้อมูลทุกระบบ"
         >
-          <RefreshCwIcon size={14} className={refreshing ? "spin" : ""} />
+          <RefreshCwIcon size={15} className={refreshing ? "spin" : ""} />
         </button>
 
         {/* Notification button */}
@@ -83,10 +88,14 @@ export default function TopBar({
             className="topbar-action-btn"
             onClick={() => setShowNotif((v) => !v)}
             aria-label="การแจ้งเตือน"
+            title="การแจ้งเตือน"
           >
-            <BellIcon size={14} />
+            <BellIcon size={15} />
             {unreadCount > 0 && (
-              <span className="notif-badge">
+              <span
+                className="notif-badge"
+                aria-label={`มีการแจ้งเตือนที่ยังไม่ได้อ่าน ${unreadCount} รายการ`}
+              >
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
@@ -109,3 +118,4 @@ export default function TopBar({
     </header>
   );
 }
+
