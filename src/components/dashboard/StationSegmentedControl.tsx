@@ -74,6 +74,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
         role="tablist"
         aria-label="สถานีตรวจวัดระดับน้ำ"
         className="station-cards-grid"
+        style={stations.length === 1 ? { gridTemplateColumns: 'minmax(320px, 480px)' } : undefined}
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;

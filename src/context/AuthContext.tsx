@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { AuthUser } from '../types';
 import { loginApi, registerCitizenApi, registerEmailApi, setupCredentialsApi } from '../services/apiService';
 import { getLiffProfile, hasLiffAuthParams, isInLineClient, logoutLiff } from '../services/liffService';
+import { setPendingToast } from './ToastContext';
 
 interface RegisterData {
   name: string;
@@ -120,6 +121,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             setUser(citizenUser);
             localStorage.setItem('wl_auth_user', JSON.stringify(citizenUser));
+            if (isLiffCallback) {
+              setPendingToast('เข้าสู่ระบบสำเร็จผ่าน LINE เรียบร้อยแล้ว', 'line');
+            }
             setIsLoading(false);
             return;
           } catch (apiErr) {
@@ -161,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(authUser);
       localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
       setIsLoading(false);
+      setPendingToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ระบบ FloodGuard', 'login');
       return { success: true };
     } catch (err: any) {
       console.warn('[AuthContext] Backend login attempt failed:', err);
@@ -216,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     localStorage.removeItem('wl_auth_user');
     logoutLiff();
+    setPendingToast('ออกจากระบบเรียบร้อยแล้ว', 'logout');
   }, []);
 
   const updateProfile = useCallback((data: Partial<AuthUser>) => {

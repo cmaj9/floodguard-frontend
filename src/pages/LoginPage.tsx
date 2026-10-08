@@ -24,10 +24,10 @@ export default function LoginPage() {
 
   // Auto-redirect if already authenticated (including LINE Citizen)
   useEffect(() => {
-    if (!isLoading && user && !isGuest) {
+    if (!isLoading && user && !isGuest && !loading) {
       navigate("/dashboard", { replace: true });
     }
-  }, [user, isGuest, isLoading, navigate]);
+  }, [user, isGuest, isLoading, loading, navigate]);
 
   const handleCitizenAccess = () => {
     loginAsCitizen();
@@ -60,7 +60,10 @@ export default function LoginPage() {
     const res = await login(email.trim(), password);
     setLoading(false);
     if (res.success) {
-      navigate("/dashboard", { replace: true });
+      navigate("/dashboard", {
+        replace: true,
+        state: { loginSuccess: true, loginType: "email" },
+      });
     } else {
       setError(res.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
     }

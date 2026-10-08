@@ -31,7 +31,7 @@ const TIMEOUT_MS = 8000;
 export default function SubscribePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { updateProfile } = useAuth();
+  const { updateProfile, user } = useAuth();
 
   const [initialUid] = useState(searchParams.get('uid') || '');
   const [lineUserId, setLineUserId] = useState<string>(initialUid);
@@ -225,6 +225,11 @@ export default function SubscribePage() {
         display_name: displayName.trim() || undefined,
         station_ids: selectedStationIds,
       });
+
+      // Update AuthContext user state if currently logged in
+      if (updateProfile && user) {
+        updateProfile({ stationIds: selectedStationIds, station_ids: selectedStationIds } as any);
+      }
 
       // Save to localStorage so Dashboard remembers across visits
       localStorage.setItem('subscribed_station_ids', JSON.stringify(selectedStationIds));

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { ToastProvider } from './context/ToastContext';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import LoginPage from './pages/LoginPage';
@@ -244,9 +245,11 @@ export default function App() {
         <LiffRedirectHandler />
         <AuthProvider>
           <NotificationProvider>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
+            <ToastProvider>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </ToastProvider>
           </NotificationProvider>
         </AuthProvider>
       </BrowserRouter>

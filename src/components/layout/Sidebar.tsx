@@ -78,7 +78,7 @@ const roleColor: Record<UserRole, string> = {
 };
 
 export default function Sidebar() {
-  const { user, isGuest, logout, loginAsCitizen } = useAuth();
+  const { user, isGuest, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -95,9 +95,8 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     logout();
-    loginAsCitizen();
     setShowLogoutConfirm(false);
-    navigate("/dashboard", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (

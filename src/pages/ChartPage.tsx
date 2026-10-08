@@ -232,25 +232,33 @@ export default function ChartPage() {
         const data = await fetchStations();
         const mapped = data.map(mapStationWithReadingToStation);
         
-        // Registered citizens see only their subscribed stations; guests & staff see all
+        // Registered citizens see their subscribed stations; staff see assigned stations; fallback to all
         const isRegisteredCitizen =
           Boolean(user) &&
           user?.role === 'citizen' &&
           user?.id !== 'citizen_guest' &&
           !isGuest;
+        const isStaff = !isGuest && user?.role === 'staff';
 
-        const userStationIds = user?.stationIds || (user as any)?.station_ids || [];
+        const rawUserIds = user?.stationIds || (user as any)?.station_ids || [];
+        const userStationIds = (Array.isArray(rawUserIds) ? rawUserIds : []).map((id: string) =>
+          String(id).trim().toUpperCase()
+        );
+        const hasUserStations = userStationIds.length > 0;
+
         const filtered =
-          isRegisteredCitizen
-            ? mapped.filter((s) => userStationIds.includes(s.id))
+          (isRegisteredCitizen || isStaff) && hasUserStations
+            ? mapped.filter((s) => userStationIds.includes(s.id.toUpperCase()))
             : mapped;
-        setStations(filtered);
+
+        const finalStations = filtered.length > 0 ? filtered : mapped;
+        setStations(finalStations);
 
         // Target station from URL / deep-link
         if (targetId && mapped.some((s) => s.id === targetId)) {
           setSelectedStationId(targetId);
-        } else if (filtered.length > 0 && !selectedStationId) {
-          setSelectedStationId(filtered[0].id);
+        } else if (finalStations.length > 0 && (!selectedStationId || !finalStations.some((s) => s.id === selectedStationId))) {
+          setSelectedStationId(finalStations[0].id);
         }
       } catch (err: any) {
         setStationsError(err.message || 'ไม่สามารถดึงข้อมูลสถานีได้');

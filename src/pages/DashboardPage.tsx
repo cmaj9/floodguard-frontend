@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import StationSegmentedControl from '../components/dashboard/StationSegmentedControl';
 import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
 import StationMap from '../components/map/StationMap';
@@ -94,6 +95,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 export default function DashboardPage() {
   const { user, isGuest } = useAuth();
   const location = useLocation();
+  const { showToast } = useToast();
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
@@ -101,98 +103,76 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Subscribed stations state (from navigation state or localStorage)
-  const [subscribedStationIds] = useState<string[]>(() => {
-    if (location.state?.subscribedStationIds && Array.isArray(location.state.subscribedStationIds)) {
-      return location.state.subscribedStationIds;
+  // ── 1. Role & User Assigned Stations Derivation ──
+  const userRole = user?.role || (isGuest ? 'guest' : 'citizen');
+  const isRegisteredCitizen = !isGuest && user?.id !== 'citizen_guest' && userRole === 'citizen';
+  const isStaff = !isGuest && userRole === 'staff';
+  const isAdmin = !isGuest && userRole === 'admin';
+
+  // Extract user station IDs safely from AuthContext, navigation state, or localStorage
+  const userStationIds: string[] = useMemo<string[]>(() => {
+    // Priority 1: Direct from user profile in AuthContext
+    const rawIds = user?.stationIds ?? (user as any)?.station_ids;
+    if (Array.isArray(rawIds) && rawIds.length > 0) {
+      return rawIds.map((id: string) => String(id).trim()).filter(Boolean);
     }
+    if (typeof rawIds === 'string' && rawIds.trim()) {
+      return rawIds.split(',').map((id: string) => id.trim()).filter(Boolean);
+    }
+    // Priority 2: From navigation state (e.g. redirected from subscription/registration)
+    if (location.state?.subscribedStationIds && Array.isArray(location.state.subscribedStationIds) && location.state.subscribedStationIds.length > 0) {
+      return location.state.subscribedStationIds.map((id: string) => String(id).trim()).filter(Boolean);
+    }
+    // Priority 3: Fallback to localStorage
     try {
       const saved = localStorage.getItem('subscribed_station_ids');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((id: string) => String(id).trim()).filter(Boolean);
+        }
+      }
     } catch {}
     return [];
-  });
+  }, [user, location.state]);
+
+
 
   const [showSubscribedBanner, setShowSubscribedBanner] = useState<boolean>(
     Boolean(location.state?.justSubscribed)
   );
-  const [isFilteringSubscribed, setIsFilteringSubscribed] = useState<boolean>(
-    Boolean(location.state?.justSubscribed)
-  );
 
-  // ── Slide-in Toast Notification for Registration / LINE Login ──
-  const [toastNotification, setToastNotification] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    type: 'email' | 'line';
-  } | null>(() => {
+  // ── Sync incoming navigation toast state with global ToastProvider ──
+  useEffect(() => {
     if (location.state?.registerSuccess) {
       const regType = (location.state.registerType as 'email' | 'line') || 'email';
-      const name = location.state.registeredName || user?.name || '';
-      return {
-        show: true,
-        type: regType,
-        title: regType === 'line' ? 'ลงทะเบียนสำเร็จผ่าน LINE' : 'ลงทะเบียนสำเร็จผ่านอีเมล',
-        message: name
-          ? `ยินดีต้อนรับคุณ ${name} สู่ระบบเตือนภัยน้ำ FloodGuard`
-          : 'ยินดีต้อนรับสู่ระบบเตือนภัยน้ำ FloodGuard บันทึกข้อมูลและสถานีเรียบร้อยแล้ว',
-      };
-    }
-    if (location.state?.alreadyLoggedIn) {
-      const name = location.state.registeredName || user?.name || '';
-      return {
-        show: true,
-        type: 'line',
-        title: 'เข้าสู่ระบบสำเร็จผ่าน LINE',
-        message: name ? `ยินดีต้อนรับกลับ คุณ ${name}` : 'ยินดีต้อนรับกลับสู่ระบบ FloodGuard',
-      };
-    }
-    return null;
-  });
-
-  const [isClosingToast, setIsClosingToast] = useState(false);
-
-  useEffect(() => {
-    if (!toastNotification?.show) return;
-    const timer = setTimeout(() => {
-      setIsClosingToast(true);
-      setTimeout(() => {
-        setToastNotification(null);
-        setIsClosingToast(false);
-      }, 350);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [toastNotification]);
-
-  const touchStartY = useRef<number | null>(null);
-
-  const handleDismissToast = useCallback(() => {
-    setIsClosingToast(true);
-    setTimeout(() => {
-      setToastNotification(null);
-      setIsClosingToast(false);
-    }, 350);
-  }, []);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY.current !== null) {
-      const currentY = e.touches[0].clientY;
-      // If user swipes up by > 20px, dismiss toast
-      if (touchStartY.current - currentY > 20) {
-        handleDismissToast();
-        touchStartY.current = null;
+      showToast(
+        regType === 'line'
+          ? 'ลงทะเบียนผ่าน LINE สำเร็จ เข้าสู่ระบบเรียบร้อยแล้ว'
+          : 'ลงทะเบียนสำเร็จ เข้าสู่ระบบเรียบร้อยแล้ว',
+        regType === 'line' ? 'line' : 'login'
+      );
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      }
+    } else if (location.state?.loginSuccess) {
+      const logType = (location.state.loginType as 'email' | 'line') || 'email';
+      showToast(
+        logType === 'line'
+          ? 'เข้าสู่ระบบสำเร็จผ่าน LINE เรียบร้อยแล้ว'
+          : 'เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ระบบ FloodGuard',
+        logType === 'line' ? 'line' : 'login'
+      );
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      }
+    } else if (location.state?.alreadyLoggedIn) {
+      showToast('เข้าสู่ระบบสำเร็จผ่าน LINE เรียบร้อยแล้ว', 'line');
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
       }
     }
-  };
-
-  const handleTouchEnd = () => {
-    touchStartY.current = null;
-  };
+  }, [location.state, showToast]);
 
   // ── Load Real Data from API ───────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -205,9 +185,14 @@ export default function DashboardPage() {
         const mapped = stationData.map(mapStationWithReadingToStation);
         setStations(mapped);
 
-        // Auto-select initial station: prefer first subscribed station if redirected
+        // Auto-select initial station: prefer first assigned/subscribed station if available
         setSelectedStationId((prev) => {
           if (prev && mapped.some((s) => s.id === prev)) return prev;
+          if (userStationIds.length > 0) {
+            const upperUser = userStationIds.map((id: string) => id.toUpperCase());
+            const matched = mapped.find((s) => upperUser.includes(s.id.toUpperCase()));
+            if (matched) return matched.id;
+          }
           if (location.state?.subscribedStationIds?.[0]) return location.state.subscribedStationIds[0];
           return mapped[0]?.id || null;
         });
@@ -303,30 +288,44 @@ export default function DashboardPage() {
     };
   }, [loadData]);
 
-  const isRegisteredCitizen =
-    Boolean(user) &&
-    user?.role === 'citizen' &&
-    user?.id !== 'citizen_guest' &&
-    !isGuest;
-
-  // ── Subscribed Station Names ──
+  // ── Subscribed / Assigned Station Names ──
   const subscribedNames = useMemo(() => {
     if (location.state?.subscribedStationNames && Array.isArray(location.state.subscribedStationNames)) {
       return location.state.subscribedStationNames;
     }
+    const upperUser = userStationIds.map((id: string) => id.toUpperCase());
     return stations
-      .filter((s) => subscribedStationIds.includes(s.id))
+      .filter((s) => upperUser.includes(s.id.toUpperCase()))
       .map((s) => s.name || s.id);
-  }, [location.state, stations, subscribedStationIds]);
+  }, [location.state, stations, userStationIds]);
 
-  // ── Displayed Stations (Filtered to user selection if active) ──
+  // ── Displayed Stations (Strict Role-Based) ──
+  // Admin & Guests: See all stations
+  // Citizen & Staff: See strictly only their registered / assigned stations
   const displayedStations = useMemo(() => {
-    if (isFilteringSubscribed && subscribedStationIds.length > 0) {
-      const filtered = stations.filter((s) => subscribedStationIds.includes(s.id));
-      if (filtered.length > 0) return filtered;
+    if (isAdmin || isGuest) {
+      return stations;
+    }
+    if (isRegisteredCitizen || isStaff) {
+      if (userStationIds.length > 0) {
+        const upperIds = userStationIds.map((id: string) => id.toUpperCase());
+        const filtered = stations.filter((s) => upperIds.includes(s.id.toUpperCase()));
+        return filtered;
+      }
+      return [];
     }
     return stations;
-  }, [stations, isFilteringSubscribed, subscribedStationIds]);
+  }, [stations, isAdmin, isGuest, isRegisteredCitizen, isStaff, userStationIds]);
+
+  // Ensure selected station remains valid within displayed stations
+  useEffect(() => {
+    if (displayedStations.length > 0) {
+      const isValid = displayedStations.some((s) => s.id === selectedStationId);
+      if (!isValid) {
+        setSelectedStationId(displayedStations[0].id);
+      }
+    }
+  }, [displayedStations, selectedStationId]);
 
   const criticalStations = useMemo(
     () => displayedStations.filter((s) => s.status === 'critical'),
@@ -347,149 +346,7 @@ export default function DashboardPage() {
         margin: '0 auto',
       }}
     >
-      {/* ── Slide-in Top Registration Notification Toast ── */}
-      {toastNotification?.show && (
-        <div
-          role="status"
-          aria-live="polite"
-          onClick={handleDismissToast}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          title="แตะหรือเลื่อนขึ้นเพื่อปิด"
-          style={{
-            position: 'fixed',
-            top: 20,
-            left: '50%',
-            transform: isClosingToast
-              ? 'translate(-50%, -150%)'
-              : 'translate(-50%, 0)',
-            opacity: isClosingToast ? 0 : 1,
-            zIndex: 99999,
-            width: 'calc(100% - 32px)',
-            maxWidth: 480,
-            background: 'rgba(15, 23, 42, 0.95)',
-            backdropFilter: 'blur(16px)',
-            border:
-              toastNotification.type === 'line'
-                ? '1px solid rgba(6, 199, 85, 0.45)'
-                : '1px solid rgba(56, 189, 248, 0.45)',
-            boxShadow:
-              toastNotification.type === 'line'
-                ? '0 16px 36px rgba(6, 199, 85, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)'
-                : '0 16px 36px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)',
-            borderRadius: 14,
-            padding: '12px 16px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            cursor: 'pointer',
-            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease',
-            animation: 'slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-            touchAction: 'pan-y',
-          }}
-        >
-          {/* Subtle swipe-up drag pill indicator */}
-          <div
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              background: 'rgba(255, 255, 255, 0.22)',
-              margin: '0 auto -2px',
-            }}
-          />
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background:
-                    toastNotification.type === 'line'
-                      ? 'rgba(6, 199, 85, 0.15)'
-                      : 'rgba(56, 189, 248, 0.15)',
-                  border:
-                    toastNotification.type === 'line'
-                      ? '1px solid rgba(6, 199, 85, 0.3)'
-                      : '1px solid rgba(56, 189, 248, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: toastNotification.type === 'line' ? '#22C55E' : '#38BDF8',
-                  flexShrink: 0,
-                }}
-              >
-                <CheckCircleIcon size={20} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <span>{toastNotification.title}</span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '1px 6px',
-                      borderRadius: 4,
-                      background:
-                        toastNotification.type === 'line'
-                          ? 'rgba(6, 199, 85, 0.2)'
-                          : 'rgba(56, 189, 248, 0.2)',
-                      color: toastNotification.type === 'line' ? '#4ADE80' : '#7DD3FC',
-                    }}
-                  >
-                    {toastNotification.type === 'line' ? 'LINE' : 'Email'}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-secondary)',
-                    marginTop: 2,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {toastNotification.message}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDismissToast();
-              }}
-              aria-label="ปิดแจ้งเตือน"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: 11,
-                padding: '4px 8px',
-                borderRadius: 6,
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              ปิด (เลื่อนขึ้น)
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Subscribed Confirmation Banner ── */}
       {showSubscribedBanner && (
@@ -543,47 +400,8 @@ export default function DashboardPage() {
                   {subscribedNames.length > 0 ? subscribedNames.join(', ') : 'ทุกสถานี'}
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span>
-                  {isFilteringSubscribed
-                    ? `ระบบกำลังแสดงเฉพาะสถานีที่คุณเลือก (${displayedStations.length} สถานี)`
-                    : `กำลังแสดงสถานีทั้งหมด (${stations.length} สถานี)`}
-                </span>
-                {stations.length > displayedStations.length && isFilteringSubscribed ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsFilteringSubscribed(false)}
-                    style={{
-                      background: 'rgba(56, 189, 248, 0.15)',
-                      border: '1px solid rgba(56, 189, 248, 0.35)',
-                      color: '#38BDF8',
-                      fontWeight: 600,
-                      borderRadius: '6px',
-                      padding: '2px 10px',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                    }}
-                  >
-                    แสดงทุกสถานี ({stations.length})
-                  </button>
-                ) : !isFilteringSubscribed && subscribedStationIds.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsFilteringSubscribed(true)}
-                    style={{
-                      background: 'rgba(16, 185, 129, 0.15)',
-                      border: '1px solid rgba(16, 185, 129, 0.35)',
-                      color: '#10B981',
-                      fontWeight: 600,
-                      borderRadius: '6px',
-                      padding: '2px 10px',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                    }}
-                  >
-                    แสดงเฉพาะสถานีที่เลือก ({subscribedStationIds.length})
-                  </button>
-                ) : null}
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                กำลังแสดงเฉพาะสถานีที่คุณลงทะเบียนติดตาม ({displayedStations.length} สถานี)
               </div>
             </div>
           </div>
@@ -604,39 +422,6 @@ export default function DashboardPage() {
             title="ปิดแถบแจ้งเตือน"
           >
             <XCircleIcon size={18} />
-          </button>
-        </div>
-      )}
-      {/* ── Registered Citizen Notice if 0 subscribed stations ── */}
-      {!isLoading && !loadError && isRegisteredCitizen && stations.length === 0 && (
-        <div
-          className="bento-card animate-fade-in"
-          style={{
-            padding: '24px 20px',
-            marginBottom: '1.25rem',
-            textAlign: 'center',
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: '16px',
-          }}
-        >
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 6 }}>
-            ยังไม่มีสถานีที่คุณลงทะเบียนติดตามไว้
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-            คุณสามารถเลือกสถานีที่ต้องการรับการแจ้งเตือนได้ในหน้าโปรไฟล์ หรือคลิกเพื่อดูสถานีทั้งหมด
-          </p>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={async () => {
-              const data = await fetchStations().catch(() => []);
-              const mapped = data.map(mapStationWithReadingToStation);
-              setStations(mapped);
-              if (mapped[0]) setSelectedStationId(mapped[0].id);
-            }}
-          >
-            แสดงสถานีทั้งหมดในระบบ
           </button>
         </div>
       )}
@@ -726,6 +511,27 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Empty State when Citizen/Staff has no registered stations */}
+      {displayedStations.length === 0 && !isLoading && (
+        <div
+          className="bento-card animate-fade-in"
+          style={{
+            padding: '2.5rem 1.5rem',
+            textAlign: 'center',
+            marginBottom: '1rem',
+            background: 'rgba(15, 23, 42, 0.6)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '16px',
+          }}
+        >
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+            {isRegisteredCitizen
+              ? 'คุณยังไม่มีสถานีที่ลงทะเบียนติดตาม'
+              : 'ยังไม่มีสถานีที่ได้รับมอบหมาย'}
+          </div>
+        </div>
+      )}
+
       {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER ── */}
       <StationSegmentedControl
         stations={displayedStations}
@@ -807,18 +613,6 @@ export default function DashboardPage() {
         />
       </div>
 
-      <style>{`
-        @keyframes slideDownToast {
-          0% {
-            transform: translate(-50%, -130%);
-            opacity: 0;
-          }
-          100% {
-            transform: translate(-50%, 0);
-            opacity: 1;
-          }
-        }
-      `}</style>
     </div>
   );
 }

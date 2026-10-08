@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import type { UserRole } from '../types';
 import { updateUser, changePasswordApi, setupCredentialsApi, linkLineApi } from '../services/apiService';
 import { getLiffProfile, loginWithLiff } from '../services/liffService';
@@ -17,6 +18,7 @@ import {
   AlertTriangleIcon,
   CheckCircleIcon,
   RefreshCwIcon,
+  LinkIcon,
 } from '../components/ui/Icons';
 
 const roleLabel: Record<UserRole, string> = {
@@ -29,6 +31,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, updateProfile, logout } = useAuth();
+  const { showToast } = useToast();
 
   // Profile info state
   const [form, setForm] = useState({
@@ -56,50 +59,7 @@ export default function ProfilePage() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // ── Slide-in Top Toast Notification State ──
-  const [toastNotification, setToastNotification] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    type: 'email' | 'line';
-  } | null>(null);
 
-  const [isClosingToast, setIsClosingToast] = useState(false);
-  const touchStartY = useRef<number | null>(null);
-
-  const handleDismissToast = useCallback(() => {
-    setIsClosingToast(true);
-    setTimeout(() => {
-      setToastNotification(null);
-      setIsClosingToast(false);
-    }, 350);
-  }, []);
-
-  useEffect(() => {
-    if (!toastNotification?.show) return;
-    const timer = setTimeout(() => {
-      handleDismissToast();
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, [toastNotification, handleDismissToast]);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY.current !== null) {
-      const currentY = e.touches[0].clientY;
-      if (touchStartY.current - currentY > 20) {
-        handleDismissToast();
-        touchStartY.current = null;
-      }
-    }
-  };
-
-  const handleTouchEnd = () => {
-    touchStartY.current = null;
-  };
 
   // ── Case 1: Email Setup Modal State (for LINE user who hasn't set email) ──
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -157,13 +117,7 @@ export default function ProfilePage() {
       localStorage.setItem('wl_auth_user', JSON.stringify(updated));
       updateProfile(updated);
       setShowEmailModal(false);
-
-      setToastNotification({
-        show: true,
-        type: 'email',
-        title: 'ตั้งค่าอีเมลสำเร็จ',
-        message: `บันทึกอีเมล ${cleanMail} สำหรับเข้าสู่ระบบเรียบร้อยแล้ว`,
-      });
+      showToast(`ตั้งค่าอีเมล ${cleanMail} และรหัสผ่านเรียบร้อยแล้ว`, 'profile');
     } catch (err: any) {
       console.warn('Setup email error:', err);
       setEmailModalError(err?.message || 'บันทึกการตั้งค่าอีเมลไม่สำเร็จ');
@@ -192,12 +146,7 @@ export default function ProfilePage() {
             });
             localStorage.setItem('wl_auth_user', JSON.stringify(updated));
             updateProfile(updated);
-            setToastNotification({
-              show: true,
-              type: 'line',
-              title: 'เชื่อมต่อบัญชี LINE สำเร็จ',
-              message: `ผูกบัญชี LINE กับระบบ FloodGuard เรียบร้อยแล้ว`,
-            });
+            showToast('เชื่อมต่อบัญชี LINE สำเร็จแล้ว ระบบจะส่งการแจ้งเตือนเตือนภัยน้ำผ่าน LINE', 'line');
           }
         } catch (err: any) {
           console.warn('Auto link LINE error:', err);
@@ -234,12 +183,7 @@ export default function ProfilePage() {
         });
         localStorage.setItem('wl_auth_user', JSON.stringify(updated));
         updateProfile(updated);
-        setToastNotification({
-          show: true,
-          type: 'line',
-          title: 'เชื่อมต่อบัญชี LINE สำเร็จ',
-          message: `ผูกบัญชี LINE เรียบร้อยแล้ว ระบบจะส่งการแจ้งเตือนเตือนภัยน้ำผ่าน LINE`,
-        });
+        showToast('ผูกบัญชี LINE เรียบร้อยแล้ว ระบบจะส่งการแจ้งเตือนเตือนภัยน้ำผ่าน LINE', 'line');
         setIsLinkingLine(false);
       } else {
         // Redirect to LINE Login with link_line flag
@@ -261,7 +205,6 @@ export default function ProfilePage() {
         user.email?.endsWith('@waterwatch.local') ||
         user.email?.endsWith('@floodguard.local'))
   );
-  const isEmailUserWithoutLine = Boolean(!user.lineUserId);
 
   const handleLogout = () => {
     logout();
@@ -297,6 +240,7 @@ export default function ProfilePage() {
       });
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 3000);
+      showToast('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว', 'profile');
     } catch (err) {
       console.error('Failed to update profile:', err);
       setProfileError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
@@ -353,6 +297,7 @@ export default function ProfilePage() {
         confirmPassword: '',
       });
       setTimeout(() => setPassSuccess(''), 5000);
+      showToast('เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว', 'profile');
     } catch (err) {
       console.error('Failed to change password:', err);
       setPassGeneralError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
@@ -363,150 +308,6 @@ export default function ProfilePage() {
 
   return (
     <div className="page-container" style={{ position: 'relative' }}>
-      {/* ── Slide-in Top Notification Toast ── */}
-      {toastNotification?.show && (
-        <div
-          role="status"
-          aria-live="polite"
-          onClick={handleDismissToast}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          title="แตะหรือเลื่อนขึ้นเพื่อปิด"
-          style={{
-            position: 'fixed',
-            top: 20,
-            left: '50%',
-            transform: isClosingToast
-              ? 'translate(-50%, -150%)'
-              : 'translate(-50%, 0)',
-            opacity: isClosingToast ? 0 : 1,
-            zIndex: 99999,
-            width: 'calc(100% - 32px)',
-            maxWidth: 480,
-            background: 'rgba(15, 23, 42, 0.95)',
-            backdropFilter: 'blur(16px)',
-            border:
-              toastNotification.type === 'line'
-                ? '1px solid rgba(6, 199, 85, 0.45)'
-                : '1px solid rgba(56, 189, 248, 0.45)',
-            boxShadow:
-              toastNotification.type === 'line'
-                ? '0 16px 36px rgba(6, 199, 85, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)'
-                : '0 16px 36px rgba(56, 189, 248, 0.25), 0 4px 12px rgba(0, 0, 0, 0.5)',
-            borderRadius: 14,
-            padding: '12px 16px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            cursor: 'pointer',
-            transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease',
-            animation: 'slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-            touchAction: 'pan-y',
-          }}
-        >
-          {/* Subtle swipe pill handle */}
-          <div
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: 2,
-              background: 'rgba(255, 255, 255, 0.22)',
-              margin: '0 auto -2px',
-            }}
-          />
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background:
-                    toastNotification.type === 'line'
-                      ? 'rgba(6, 199, 85, 0.15)'
-                      : 'rgba(56, 189, 248, 0.15)',
-                  border:
-                    toastNotification.type === 'line'
-                      ? '1px solid rgba(6, 199, 85, 0.3)'
-                      : '1px solid rgba(56, 189, 248, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: toastNotification.type === 'line' ? '#22C55E' : '#38BDF8',
-                  flexShrink: 0,
-                }}
-              >
-                <CheckCircleIcon size={20} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <span>{toastNotification.title}</span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '1px 6px',
-                      borderRadius: 4,
-                      background:
-                        toastNotification.type === 'line'
-                          ? 'rgba(6, 199, 85, 0.2)'
-                          : 'rgba(56, 189, 248, 0.2)',
-                      color: toastNotification.type === 'line' ? '#4ADE80' : '#7DD3FC',
-                    }}
-                  >
-                    {toastNotification.type === 'line' ? 'LINE' : 'Email'}
-                  </span>
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: 'var(--text-secondary)',
-                    marginTop: 2,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {toastNotification.message}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDismissToast();
-              }}
-              aria-label="ปิดแจ้งเตือน"
-              style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                color: 'var(--text-muted)',
-                fontSize: 11,
-                padding: '4px 8px',
-                borderRadius: 6,
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              ปิด (เลื่อนขึ้น)
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="profile-layout-grid">
         {/* ── Left Side: Profile Summary Card ── */}
         <div className="card" style={{ textAlign: 'center' }}>
@@ -539,7 +340,8 @@ export default function ProfilePage() {
           <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{user.name}</h3>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>{user.email}</p>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          {/* Row 1: Role Badge (Centered) */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
             <span
               className={`badge ${
                 user.role === 'admin'
@@ -548,12 +350,25 @@ export default function ProfilePage() {
                   ? 'badge-role-staff'
                   : 'badge-role-citizen'
               }`}
-              style={{ fontSize: 12, padding: '4px 12px' }}
+              style={{ fontSize: 12, padding: '4px 14px' }}
             >
               {roleLabel[user.role]}
             </span>
+          </div>
 
-            {user.lineUserId && (
+          {/* Row 2: Status & Action Badges (LINE & Mail in the same row) */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginBottom: 16,
+            }}
+          >
+            {/* LINE Channel */}
+            {user.lineUserId ? (
               <span
                 className="badge"
                 style={{
@@ -561,11 +376,57 @@ export default function ProfilePage() {
                   padding: '4px 12px',
                   backgroundColor: 'rgba(6, 199, 85, 0.15)',
                   color: '#06C755',
-                  borderColor: 'rgba(6, 199, 85, 0.3)',
+                  border: 'none',
                 }}
               >
                 ● เชื่อมต่อ LINE แล้ว
               </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnectLineClick}
+                disabled={isLinkingLine}
+                className="btn-outline-action-line"
+                title="กดเพื่อเชื่อมต่อบัญชี LINE"
+              >
+                {isLinkingLine ? (
+                  <>
+                    <RefreshCwIcon size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                    <span>กำลังเชื่อมต่อ...</span>
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon size={13} />
+                    <span>เชื่อมต่อ LINE</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Mail Channel */}
+            {!isLineUserWithoutEmail ? (
+              <span
+                className="badge"
+                style={{
+                  fontSize: 12,
+                  padding: '4px 12px',
+                  backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38BDF8',
+                  border: 'none',
+                }}
+              >
+                ● ตั้งค่า Mail แล้ว
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenEmailModal}
+                className="btn-outline-action-mail"
+                title="กดเพื่อตั้งค่าอีเมลและรหัสผ่านสำหรับเข้าสู่ระบบ"
+              >
+                <LinkIcon size={13} />
+                <span>ตั้งค่า Mail</span>
+              </button>
             )}
           </div>
 
@@ -588,169 +449,40 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          {/* ── Security & Connection Actions Inside Profile Box ── */}
-          <div
-            style={{
-              marginTop: 18,
-              paddingTop: 16,
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#94A3B8' }}>
-              ความปลอดภัยและการเชื่อมต่อ
-            </div>
-
-            {/* CASE 1: LINE User who hasn't set up Email/Password */}
-            {isLineUserWithoutEmail && (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 12,
-                  background: 'rgba(2, 132, 199, 0.08)',
-                  border: '1px solid rgba(2, 132, 199, 0.3)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#38BDF8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <MailIcon size={14} />
-                    <span>อีเมลเข้าสู่ระบบ</span>
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 6px', borderRadius: 4 }}>
-                    ยังไม่ตั้งค่า
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleOpenEmailModal}
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    justifyContent: 'center',
-                    background: '#0284C7',
-                    border: 'none',
-                    borderRadius: 8,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <KeyIcon size={14} />
-                  <span>ตั้งค่าอีเมลและรหัสผ่าน</span>
-                </button>
-              </div>
-            )}
-
-            {/* CASE 2: Email User who hasn't connected LINE */}
-            {isEmailUserWithoutLine && (
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 12,
-                  background: 'rgba(6, 199, 85, 0.08)',
-                  border: '1px solid rgba(6, 199, 85, 0.3)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 8,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#4ADE80', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontWeight: 800, fontSize: 11, background: '#06C755', color: '#FFF', padding: '1px 5px', borderRadius: 4 }}>LINE</span>
-                    <span>การแจ้งเตือน LINE</span>
-                  </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', background: 'rgba(255, 255, 255, 0.08)', padding: '2px 6px', borderRadius: 4 }}>
-                    ยังไม่เชื่อมต่อ
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleConnectLineClick}
-                  disabled={isLinkingLine}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    justifyContent: 'center',
-                    background: '#06C755',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: 8,
-                    cursor: isLinkingLine ? 'wait' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {isLinkingLine ? (
-                    <>
-                      <RefreshCwIcon size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
-                      <span>กำลังเชื่อมต่อ LINE...</span>
-                    </>
-                  ) : (
-                    <span>เชื่อมต่อบัญชี LINE</span>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* CASE 3: Status Pills (When Both or One is Connected) */}
-            {(!isLineUserWithoutEmail || !isEmailUserWithoutLine) && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {!isEmailUserWithoutLine && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: 'rgba(6, 199, 85, 0.08)',
-                      border: '1px solid rgba(6, 199, 85, 0.2)',
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontWeight: 800, fontSize: 10, background: '#06C755', color: '#FFF', padding: '1px 4px', borderRadius: 3 }}>LINE</span>
-                      <span>เชื่อมต่อแล้ว</span>
-                    </span>
-                    <span style={{ color: '#4ADE80', fontSize: 11, fontWeight: 600 }}>เปิดรับแจ้งเตือน</span>
-                  </div>
-                )}
-                {!isLineUserWithoutEmail && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 10px',
-                      borderRadius: 8,
-                      background: 'rgba(2, 132, 199, 0.08)',
-                      border: '1px solid rgba(2, 132, 199, 0.2)',
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <MailIcon size={13} style={{ color: '#38BDF8' }} />
-                      <span>อีเมลเข้าสู่ระบบ</span>
-                    </span>
-                    <span style={{ color: '#38BDF8', fontSize: 11, fontWeight: 600 }}>พร้อมใช้งาน</span>
-                  </div>
-                )}
-              </div>
-            )}
+          {/* Mobile-only Logout in Profile Summary Card (Hidden on Desktop because Desktop has Sidebar Slide Menu) */}
+          <div className="profile-logout-mobile-only">
+            <div className="divider" style={{ margin: '16px 0' }} />
+            <button
+              type="button"
+              onClick={() => setShowLogoutModal(true)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: '10px 16px',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: 13,
+                backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                color: '#EF4444',
+                border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.16)';
+                e.currentTarget.style.borderColor = '#EF4444';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.08)';
+                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+              }}
+            >
+              <LogOutIcon size={16} />
+              <span>ออกจากระบบ</span>
+            </button>
           </div>
         </div>
 
@@ -1065,6 +797,8 @@ export default function ProfilePage() {
               </div>
             </form>
           </div>
+
+
         </div>
       </div>
 
@@ -1346,16 +1080,6 @@ export default function ProfilePage() {
       )}
 
       <style>{`
-        @keyframes slideDownToast {
-          0% {
-            transform: translate(-50%, -130%);
-            opacity: 0;
-          }
-          100% {
-            transform: translate(-50%, 0);
-            opacity: 1;
-          }
-        }
         @keyframes spin {
           to { transform: rotate(360deg); }
         }

@@ -14,7 +14,7 @@ import {
 } from '../components/ui/Icons';
 
 export default function ManagementHubPage() {
-  const { user, isGuest, logout, loginAsCitizen } = useAuth();
+  const { user, isGuest, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
@@ -40,9 +40,8 @@ export default function ManagementHubPage() {
 
   const handleLogout = () => {
     logout();
-    loginAsCitizen();
     setShowLogoutConfirm(false);
-    navigate('/dashboard', { replace: true });
+    navigate('/login', { replace: true });
   };
 
   return (

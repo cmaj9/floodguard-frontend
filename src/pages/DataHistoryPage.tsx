@@ -296,6 +296,13 @@ export default function DataHistoryPage() {
 
   // Station dropdown options (Pattern 4)
   const stationDropdownOptions: DropdownOption[] = useMemo(() => {
+    const rawIds = user?.stationIds || (user as any)?.station_ids || [];
+    const userStationIds = (Array.isArray(rawIds) ? rawIds : []).map((id: string) =>
+      String(id).trim().toUpperCase()
+    );
+    const isCitizen = !isGuest && user?.role === 'citizen' && user?.id !== 'citizen_guest';
+    const isStaff = !isGuest && user?.role === 'staff';
+
     const opts: DropdownOption[] = [
       {
         value: "",
@@ -305,10 +312,15 @@ export default function DataHistoryPage() {
       },
     ];
     stations.forEach((s) => {
+      const isUserStation = userStationIds.includes(s.station_id.toUpperCase());
+      const sublabel = isUserStation
+        ? `${s.location_name ? s.location_name + ' · ' : ''}${isCitizen ? 'สถานีที่ติดตาม' : isStaff ? 'สถานีที่รับผิดชอบ' : ''}`
+        : (s.location_name || undefined);
+
       opts.push({
         value: s.station_id,
         label: `${s.station_id} · ${s.station_name}`,
-        sublabel: s.location_name || undefined,
+        sublabel,
         statusDotColor:
           s.water_status === "critical"
             ? "#EF4444"
@@ -319,7 +331,7 @@ export default function DataHistoryPage() {
       });
     });
     return opts;
-  }, [stations, total]);
+  }, [stations, total, user, isGuest]);
 
   // Time preset segmented options (Pattern 1)
   const timePresetOptions: SegmentedOption<TimePreset>[] = [
