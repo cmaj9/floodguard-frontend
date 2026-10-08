@@ -77,8 +77,16 @@ export async function getLiffProfile(): Promise<LiffUserProfile | null> {
  * Close LIFF window if open in LINE client
  */
 export function closeLiffWindow(): void {
-  if (liff.isInClient()) {
-    liff.closeWindow();
+  try {
+    if (liff.isInClient()) {
+      liff.closeWindow();
+    } else {
+      window.close();
+    }
+  } catch {
+    try {
+      window.close();
+    } catch {}
   }
 }
 

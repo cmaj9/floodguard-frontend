@@ -22,7 +22,6 @@ import {
   UserIcon,
   ShieldIcon,
   ArrowRightIcon,
-  XIcon,
 } from '../components/ui/Icons';
 
 export default function SubscribePage() {
@@ -153,6 +152,9 @@ export default function SubscribePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (userRole === 'admin' || userRole === 'staff') {
+      return;
+    }
     if (!lineUserId.trim()) {
       setErrorMessage('กรุณาระบุ LINE User ID เพื่อผูกกับระบบการแจ้งเตือน');
       return;
@@ -202,7 +204,18 @@ export default function SubscribePage() {
         width: '100%',
       }}
     >
-      <div style={{ maxWidth: 480, margin: '0 auto', width: '100%' }}>
+      <div
+        style={{
+          maxWidth: 480,
+          margin: '0 auto',
+          width: '100%',
+          filter: userRole === 'admin' || userRole === 'staff' ? 'blur(6px)' : undefined,
+          pointerEvents: userRole === 'admin' || userRole === 'staff' ? 'none' : 'auto',
+          userSelect: userRole === 'admin' || userRole === 'staff' ? 'none' : 'auto',
+          opacity: userRole === 'admin' || userRole === 'staff' ? 0.35 : 1,
+          transition: 'all 0.3s ease',
+        }}
+      >
         {/* Compact Header */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div
@@ -790,8 +803,8 @@ export default function SubscribePage() {
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(10px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -810,35 +823,11 @@ export default function SubscribePage() {
               borderRadius: 16,
               padding: 24,
               boxShadow:
-                '0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+                '0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.05)',
               position: 'relative',
               textAlign: 'center',
             }}
           >
-            {/* Close / Dismiss Button */}
-            <button
-              type="button"
-              onClick={() => setShowRoleModal(false)}
-              aria-label="ปิดการแจ้งเตือน"
-              style={{
-                position: 'absolute',
-                top: 14,
-                right: 14,
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.06)',
-                border: 'none',
-                color: 'var(--text-secondary)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-              }}
-            >
-              <XIcon size={16} />
-            </button>
-
             {/* Icon Header */}
             <div
               style={{
@@ -972,12 +961,11 @@ export default function SubscribePage() {
               </span>
             </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Only Go to Management / Stations & Close LINE Window */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
                 type="button"
                 onClick={() => {
-                  setShowRoleModal(false);
                   if (userRole === 'admin') {
                     navigate('/management');
                   } else {
@@ -1017,7 +1005,7 @@ export default function SubscribePage() {
 
               <button
                 type="button"
-                onClick={() => setShowRoleModal(false)}
+                onClick={() => closeLiffWindow()}
                 style={{
                   width: '100%',
                   padding: '10px 18px',
@@ -1029,9 +1017,13 @@ export default function SubscribePage() {
                   color: 'var(--text-secondary)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
                 }}
               >
-                ตั้งค่าการแจ้งเตือน LINE ต่อ
+                <span>ปิดหน้าต่าง LINE</span>
               </button>
             </div>
           </div>
