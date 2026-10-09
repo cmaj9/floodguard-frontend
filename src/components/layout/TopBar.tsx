@@ -74,23 +74,23 @@ export default function TopBar({
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="topbar-action-btn"
+          className={`topbar-action-btn ${refreshing ? "refreshing" : ""}`}
           title="รีเฟรชข้อมูลทุกระบบ"
           aria-label="รีเฟรชข้อมูลทุกระบบ"
         >
-          <RefreshCwIcon size={15} className={refreshing ? "spin" : ""} />
+          <RefreshCwIcon size={16} className={refreshing ? "spin" : ""} />
         </button>
 
         {/* Notification button */}
         <div style={{ position: "relative" }}>
           <button
             type="button"
-            className="topbar-action-btn"
+            className="topbar-action-btn notif-btn"
             onClick={() => setShowNotif((v) => !v)}
             aria-label="การแจ้งเตือน"
             title="การแจ้งเตือน"
           >
-            <BellIcon size={15} />
+            <BellIcon size={16} className="bell-icon" />
             {unreadCount > 0 && (
               <span
                 className="notif-badge"

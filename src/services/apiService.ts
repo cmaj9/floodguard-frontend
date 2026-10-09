@@ -118,6 +118,23 @@ export async function fetchReadingsHistory(
 }
 
 
+/**
+ * GET /api/readings/export/csv
+ * Download raw CSV directly from Backend Database
+ */
+export async function downloadReadingsCSV(params: {
+  stationId?: string;
+  timeRange?: string;
+  start?: string;
+  end?: string;
+}): Promise<Blob> {
+  const res = await api.get('/api/readings/export/csv', {
+    params,
+    responseType: 'blob',
+  });
+  return res.data;
+}
+
 // ── Stations ──────────────────────────────────────────────────────
 
 /**
@@ -385,6 +402,25 @@ export async function updateNotificationSettings(
 export async function resetStationNotificationSettings(stationId: string): Promise<void> {
   const res = await api.delete<ApiResponse<unknown>>(`/api/notifications/settings/${stationId}`);
   if (!res.data.success) throw new Error(res.data.error ?? 'รีเซ็ตการตั้งค่าสถานีไม่สำเร็จ');
+}
+
+export interface LineQuotaStatus {
+  configured: boolean;
+  type?: string;
+  total?: number;
+  used?: number;
+  remaining?: number | null;
+  isExceeded?: boolean;
+}
+
+/**
+ * GET /api/notifications/line-quota
+ * Fetch LINE Messaging API monthly quota usage and limit
+ */
+export async function fetchLineQuotaStatus(): Promise<LineQuotaStatus> {
+  const res = await api.get<ApiResponse<LineQuotaStatus>>('/api/notifications/line-quota');
+  if (!res.data.success) throw new Error(res.data.error ?? 'ดึงข้อมูลโควตา LINE ไม่สำเร็จ');
+  return res.data.data;
 }
 
 // ── LINE Subscriber Preferences ───────────────────────────────────

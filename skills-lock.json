@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "apple-design": {
+      "source": "dickwu/apple-design-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "f2467d2f40b4eba819a3d09536b4628b96104a11dd1160aa392e6e103ec98463"
+    },
     "frontend-design": {
       "source": "anthropics/skills",
       "sourceType": "github",

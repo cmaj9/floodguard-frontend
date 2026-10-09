@@ -18,6 +18,7 @@ interface CompactFilterDropdownProps {
   placeholder?: string;
   id?: string;
   width?: string | number;
+  variant?: 'default' | 'tactical';
 }
 
 export const CompactFilterDropdown = memo(function CompactFilterDropdown({
@@ -28,6 +29,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
   placeholder = 'เลือกรายการ...',
   id,
   width = 'auto',
+  variant = 'default',
 }: CompactFilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,16 +102,20 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '0.625rem',
-          padding: '0.55rem 1rem',
-          borderRadius: '0.75rem',
-          background: isOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(17, 24, 39, 0.75)',
-          border: `1px solid ${isOpen ? 'var(--primary-accent)' : 'rgba(255, 255, 255, 0.12)'}`,
+          padding: variant === 'tactical' ? '0.45rem 0.85rem' : '0.55rem 1rem',
+          borderRadius: variant === 'tactical' ? '8px' : '0.75rem',
+          background: variant === 'tactical'
+            ? (isOpen ? 'rgba(30, 41, 59, 0.95)' : 'rgba(15, 23, 42, 0.85)')
+            : (isOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(17, 24, 39, 0.75)'),
+          border: variant === 'tactical'
+            ? `1px solid ${isOpen ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`
+            : `1px solid ${isOpen ? 'var(--primary-accent)' : 'rgba(255, 255, 255, 0.12)'}`,
           color: 'var(--text-primary)',
-          fontSize: '0.875rem',
+          fontSize: '0.8125rem',
           cursor: 'pointer',
           transition: 'all 0.18s ease',
           outline: 'none',
-          boxShadow: isOpen ? '0 0 0 2px rgba(37, 99, 235, 0.3)' : 'none',
+          boxShadow: variant === 'tactical' ? 'none' : (isOpen ? '0 0 0 2px rgba(37, 99, 235, 0.3)' : 'none'),
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
         }}
@@ -143,7 +149,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
                 fontSize: '0.6875rem',
                 fontWeight: 700,
                 padding: '0.1rem 0.4rem',
-                borderRadius: '9999px',
+                borderRadius: variant === 'tactical' ? '4px' : '9999px',
                 background: 'rgba(255, 255, 255, 0.08)',
                 color: 'var(--text-secondary)',
               }}
@@ -158,7 +164,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
             display: 'inline-flex',
             transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease',
-            color: isOpen ? 'var(--cyan-glow)' : 'var(--text-secondary)',
+            color: isOpen ? '#38bdf8' : 'var(--text-secondary)',
             flexShrink: 0,
           }}
         >
@@ -178,8 +184,8 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
             minWidth: '280px',
             maxWidth: '380px',
             background: '#0D1526',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
-            borderRadius: '0.875rem',
+            border: variant === 'tactical' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(56, 189, 248, 0.35)',
+            borderRadius: variant === 'tactical' ? '8px' : '0.875rem',
             padding: '0.5rem',
             boxShadow: '0 24px 60px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.12)',
             animation: 'fadeIn 0.15s ease',

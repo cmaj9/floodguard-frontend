@@ -1,16 +1,123 @@
-# Project Instructions: Principal Design Standards
+# Project Instructions: Principal Design Standards & Architecture Rules
 
-All agents working within this workspace must adhere to the design thinking, UI/UX architecture, accessibility (A11y), and interaction standards outlined in [.agents/rules/principal_designer.md](file:///.agents/rules/principal_designer.md).
+All agents and engineers working within this workspace must strictly adhere to the clean design thinking, UI/UX architecture, interaction standards, accessibility (A11y), and engineering constraints outlined in this document.
 
-## Quick Checklist for Any UI Task:
+---
+
+## Quick Checklist for Any Task:
 - [ ] **Design Tokens**: Spacing (4/8px grid), semantic colors, and modular typography used instead of arbitrary hardcoded values.
 - [ ] **5 UI States**: Ideal, Empty, Loading (Skeleton/CLS prevention), Error (human-readable + actionable recovery), and Overflow (truncated strings, extreme values).
 - [ ] **Cognitive Load & Hierarchy**: Minimal visual friction, Miller's/Hick's/Fitts's Law respected, progressive disclosure applied.
 - [ ] **Accessibility (WCAG AA)**: Minimum 4.5:1 contrast, keyboard navigation (`:focus-visible`), aria semantics, and 44x44px minimum tap targets.
-- [ ] **Engineering Feasibility**: Semantic HTML, layout stability (no CLS), GPU-accelerated micro-interactions (100–300ms), and `prefers-reduced-motion` compliance.
-- [ ] **Semantic Versioning (3 Decimals)**: Adhere to [.agents/rules/git_versioning.md](file:///.agents/rules/git_versioning.md) by bumping `package.json` (`vX.Y.Z`), formatting commit messages (`vX.Y.Z - <type>: ...`), and tagging git releases.
+- [ ] **Engineering Feasibility**: Semantic HTML, layout stability (zero CLS), GPU-accelerated micro-interactions (100–300ms), and `prefers-reduced-motion` compliance.
+- [ ] **Semantic Versioning (3 Decimals)**: Adhere to `.agents/rules/git_versioning.md` by bumping `package.json` (`vX.Y.Z`), formatting commit messages (`vX.Y.Z - <type>: ...`), and tagging git releases.
 - [ ] **Strict User Confirmation for Git (Mandatory)**: ห้ามทำการ `git commit` หรือ `git push` ขึ้น Git เองโดยพลการเด็ดขาด! ต้องรอให้ผู้ใช้สั่ง commit ก่อนเท่านั้น จึงจะทำการ commit และ push ได้
 - [ ] **Visual-First & Minimal Text**: ห้ามเขียนข้อความซ้ำซ้อน ใช้สีบอกสถานะ ใช้กรอบและไอคอนแทนคำบรรยายยาวๆ (ห้ามใช้ไอคอนเรืองแสงเบลอ ให้ใช้สีแยกหมวดหมู่)
-- [ ] **Zero Horizontal Overflow**: ทุกหน้าต้องไม่ล้นจอ 100% ตารางบนมือถือต้องแปลงเป็น Hybrid Responsive Data Cards เสมอ
+- [ ] **Zero-Colon Policy**: ห้ามใช้เครื่องหมาย `:` ในข้อความและป้ายกำกับภาษาไทยบนหน้าจอ ให้ใช้การจัดวาง, จุดคั่น `·`, หรือป้ายสถานะแทน
+- [ ] **Zero Horizontal Overflow**: ทุกหน้าต้องไม่ล้นจอ 100% ข้ามทุกขนาดหน้าจอ (360px ถึง 4K) ตารางบนมือถือต้องแปลงเป็น Hybrid Responsive Data Cards เสมอ
 - [ ] **Strict 3-Tier RBAC**: ควบคุมสิทธิ์ของประชาชน, เจ้าหน้าที่ท้องถิ่น และผู้ดูแลระบบตามเมทริกซ์สิทธิ์อย่างเคร่งครัด (ประชาชนห้ามมีปุ่ม Export CSV)
 
+---
+
+## 1. Core Design System & Strict De-AIification
+
+- **Design Benchmark**:
+  - Grounded in **Apple HIG**, **Linear**, and **Vercel** standards.
+  - Aesthetic Direction: **Tactical Matte Cockpit & VisionOS Glass** (industrial precision, dark slate foundation `#090e17` / `#0b131b` / `#111827`, tactile matte surfaces, zero glowing neon halos).
+
+- **Strict De-AIification Mandates**:
+  - **Zero Unnecessary Text / No Microcopy Bloat**:
+    * Completely eliminate redundant explanations, repetitive labels, and self-evident instructional text (e.g., ban strings like "Click here to view", "This section shows telemetry metrics", "Below is the table of readings").
+    * Never duplicate data in text that is already communicated by badges, icons, or metrics.
+    * Maintain the **Zero-Colon Policy** across all visible labels.
+  - **Ban Generic AI Aesthetics**:
+    * Strictly prohibited: arbitrary neon/purple/cyan glowing halos, radioactive drop-shadows (`box-shadow: 0 0 20px #00ffff`), floating decorative gradient blobs, and multi-layered floating cards.
+    * Use clean solid dark surfaces (`#222`, `#111827`, `#0f172a`), refined matte borders, and restrained optical hierarchy.
+  - **Craftsmanship & Micro-Tokens**:
+    * **Hairline Borders**: Enforce 1px hairline borders (`border-white/10` or `rgba(255, 255, 255, 0.08)`) with zero blur bleed.
+    * **Grid Spacing**: Strict 4px/8px modular spacing grid (`gap-2`, `gap-3`, `gap-4`, `p-3`, `p-4`).
+    * **Tabular Numbers**: Mandatory `tabular-nums font-mono` for all telemetry readouts, water levels, sensor metrics, coordinates, and timestamps to eliminate layout shift and jitter.
+    * **Zero Horizontal Overflow**: 100% responsive stability across all viewports (360px mobile to 4K desktop). No elements or tables may bleed past the viewport edge. Tables on mobile must seamlessly transform into Hybrid Responsive Data Cards.
+
+---
+
+## 2. Architectural Specifications by Module
+
+### A. Telemetry Hub (`StationTelemetryHub.tsx`)
+- **Integrated Header Track**:
+  - Embed the station selector directly into the top inner edge of the Telemetry Hub (Integrated Header Track).
+  - Completely eliminate separate floating or disconnected station card clusters.
+- **Adaptive Segmented Pills with VisionOS Frosted Glass**:
+  - Container: `bg-black/40 backdrop-blur-md border border-white/10 rounded-full p-1` (or equivalent `.vision-glass-dock`).
+  - Indicator: Adaptive sliding glass pill using spring physics.
+- **Motion & Transitions**:
+  - Spring physics with shared layout: `layoutId="active-station-pill"`, `transition={{ type: "spring", stiffness: 450, damping: 35 }}`.
+- **Mobile Responsive Engine**:
+  - Horizontal scroll snap with a subtle edge fade mask.
+  - Fixed, predictable header height; never allow sub-controls or CTA buttons to wrap awkwardly onto single dangling lines on narrow viewports (<= 393px).
+  - Sub-view toggle bars on mobile must use normal relative document flow (`position: relative`), never uncontained `position: sticky` that collides with scrolling cards.
+
+### B. Water Level Chart (`ChartPage.tsx` & `WaterLevelChart.tsx`)
+- **Timeframe Selector**:
+  - Must strictly mirror the VisionOS Frosted Glass Pill style (`hourly`, `daily`, `weekly`).
+  - Container: `bg-black/40 backdrop-blur-md border border-white/10 rounded-full`.
+  - Spring-activated sliding selection indicator.
+- **Dual-Scope CSV Export**:
+  - Tactical Export Modal (`.export-modal-panel`) supporting scoped downloads:
+    1) Selected station telemetry in current timeframe.
+    2) All stations across the system in selected timeframe via `/api/readings/export/csv`.
+  - Zero bloated description paragraphs inside options; keep titles concise and counts tabular.
+
+### C. Audit Log & History (`DataHistoryPage.tsx`)
+- **Paradigm**: Tactical Audit Table + Inline Details:
+  - Desktop: Clean multi-column data table with compact hairline dividers.
+  - Mobile: Collapses into tactile responsive data cards with zero horizontal scroll bleed.
+- **Anomaly Deep-Dive via Inline Accordion**:
+  - Click-to-expand inline accordion sub-row directly underneath the matching record.
+  - **Strictly ban popup dialogs or disruptive full-screen modals for row inspection.**
+  - Dedicated 3-Module Hardware Telemetry Grid inside the accordion:
+    1. *Water Sensor & Blindspot*: SEN0599 / A01NYUB raw distance, sensor-to-reference calibration, and blind zone detection (<= 0.28m).
+    2. *Environment & Power*: Temperature, relative humidity, battery voltage, and battery percentage.
+    3. *LoRa & Physical Stability*: LoRa RSSI, SNR, and Dual-Axis Gyro tilt (ADXL345 / GY-25, pole stability > 15° threshold).
+- **Linear / GitHub Style Table Header Tabs**:
+  - Embed status filters (`ทั้งหมด`, `ปกติ`, `เฝ้าระวัง`, `วิกฤต`, `แจ้งเตือนผิดปกติ`) directly into the top border edge of the Table Card (`.table-header-tabstrip`).
+  - Mini-pill count badge (`tabular-nums font-mono`) with dimmed opacity for zero values.
+  - Crisp bottom border active indicator line (`border-b-2 border-sky-400`).
+- **Tactical Top Controls & Button Groups**:
+  - Connected Tactical Button Groups (`bg-zinc-900 border border-zinc-800` or `#222` with `#333` hover).
+  - TopBar Action Buttons: 38x38px icon-only `#222` blocks with `spin_357` refresh animation and subtle bell swing on hover.
+  - Strictly preserve RBAC-controlled CSV export (Admin & Staff only).
+- **KPI Summary**:
+  - 4-column independent horizontal metric strip (`บันทึกในระบบ`, `ระดับสูงสุด`, `ระดับต่ำสุด`, `ระดับเฉลี่ย`).
+  - No vertical dead space, no stacked bloated badges.
+
+### D. Tech Primitives & Engineering Standards
+- **Core Tech Stack**:
+  - `Vite` + `React 19` + `Tailwind CSS` + `Framer Motion`.
+- **Iconography**:
+  - Clean vector icons centralized with `svgl-react` in `src/components/ui/TechStackBadges.tsx` and unified SVG components in `src/components/ui/Icons.tsx`. Zero unicode emojis in UI.
+- **Loading & State Stability**:
+  - Mandatory matte placeholders via `src/components/ui/Skeleton.tsx` (`SkeletonCard`, `SkeletonTable`, `SkeletonMetric`).
+  - Zero Cumulative Layout Shift (CLS <= 0.05).
+- **Security & RBAC**:
+  - Strict 3-Tier RBAC: Citizen, Staff, Admin. Citizens are strictly prevented from seeing administrative controls or bulk CSV exports.
+- **Release & Git Governance**:
+  - **Semantic Versioning (3 Decimals)**: Increment `package.json` (`vX.Y.Z`) on feature additions or fixes.
+  - **Strict Git Rule (Mandatory)**: ห้ามทำการ `git commit` หรือ `git push` ขึ้น Git เองโดยพลการเด็ดขาด! ต้องรอให้ผู้ใช้สั่ง commit ก่อนเท่านั้น จึงจะทำการ commit และ push ได้.
+
+---
+
+## 3. Agent Directives
+
+### Navigation & State Mapping
+- Always consult `PROJECT_MAP.md` before locating files, tracing logic, or answering architectural questions. Never guess file paths.
+- Always check `UI_UX_GUIDELINES.md` for styling rules, colors, and strictly prohibited patterns.
+
+### Multi-Skill Design Pipeline
+When creating, refactoring, or reviewing frontend components, orchestrate the 3 active skills according to their roles:
+- **Architecture & Foundation**: Consult `.agents/skills/frontend-design/SKILL.md` for clean component hierarchy, layout responsiveness, and engineering structure.
+- **Aesthetic & Human Interface**: Consult `.agents/skills/apple-design/SKILL.md` for Apple HIG standards, visual hierarchy, refined micro-interactions, typography weight contrast, and depth.
+- **Craftsmanship & Component Patterns**: Consult `.agents/skills/ui-craft/SKILL.md` for advanced UI component crafting, modern Tailwind styling patterns, and accessibility primitives.
+
+### Ground-Truth Verification
+- Never invent libraries, components, or paths. Always inspect the actual target file content and `package.json` before writing code.

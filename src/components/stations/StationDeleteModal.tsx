@@ -20,7 +20,6 @@ export default function StationDeleteModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state when modal opens or station changes
   useEffect(() => {
     if (isOpen) {
       setConfirmText('');
@@ -33,8 +32,6 @@ export default function StationDeleteModal({
 
   const targetName = (station.name || '').trim();
   const targetId = (station.id || '').trim();
-
-  // Match exact station name for safety confirmation
   const isMatch = confirmText.trim() === targetName;
 
   const handleDelete = async () => {
@@ -57,12 +54,12 @@ export default function StationDeleteModal({
         if (!isDeleting) onClose();
       }}
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
+              width: 32,
+              height: 32,
+              borderRadius: 8,
               background: 'rgba(239, 68, 68, 0.15)',
               display: 'flex',
               alignItems: 'center',
@@ -71,132 +68,127 @@ export default function StationDeleteModal({
               flexShrink: 0,
             }}
           >
-            <Trash2Icon size={20} />
+            <Trash2Icon size={16} />
           </div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#F8FAFC' }}>
             ยืนยันการลบสถานีตรวจวัด
-          </div>
+          </span>
         </div>
       }
       maxWidth="420px"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', gap: 8 }}>
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             onClick={onClose}
             disabled={isDeleting}
-            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8 }}
+            style={{ padding: '6px 14px' }}
           >
             ยกเลิก
           </button>
           <button
             type="button"
-            className="btn"
             onClick={handleDelete}
             disabled={!isMatch || isDeleting}
             style={{
-              padding: '9px 20px',
-              fontSize: 13,
-              fontWeight: 600,
-              borderRadius: 8,
+              padding: '6px 16px',
+              fontSize: 12.5,
+              fontWeight: 700,
+              borderRadius: 6,
               background: isMatch ? '#EF4444' : 'rgba(239, 68, 68, 0.2)',
               color: isMatch ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)',
               border: 'none',
               cursor: isMatch && !isDeleting ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 6,
-              transition: 'all 0.18s ease',
+              gap: 5,
+              transition: 'all 0.15s ease',
             }}
           >
-            <Trash2Icon size={15} />
-            <span>{isDeleting ? 'กำลังลบ...' : 'ยืนยันลบ'}</span>
+            <Trash2Icon size={13} />
+            <span>{isDeleting ? 'กำลังลบ...' : 'ยืนยันลบสถานี'}</span>
           </button>
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Error Banner */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && (
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: 8,
-              padding: '10px 14px',
-              color: '#EF4444',
-              fontSize: 13,
-              fontWeight: 500,
+              padding: '8px 12px',
+              color: '#F87171',
+              fontSize: 12.5,
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
+              gap: 6,
             }}
           >
-            <AlertTriangleIcon size={16} />
+            <AlertTriangleIcon size={15} />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Hero Card: Prominent Station ID + Large 20px Station Name */}
+        {/* Station Target Card */}
         <div
           style={{
-            padding: '16px 18px',
-            borderRadius: 12,
+            padding: '12px 14px',
+            borderRadius: 10,
             background: 'rgba(239, 68, 68, 0.06)',
             border: '1px solid rgba(239, 68, 68, 0.25)',
             display: 'flex',
             flexDirection: 'column',
-            gap: 6,
+            gap: 4,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <span
+              className="tabular-nums font-mono"
               style={{
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 700,
-                fontFamily: 'monospace',
-                padding: '2px 8px',
-                borderRadius: 6,
+                padding: '2px 6px',
+                borderRadius: 4,
                 backgroundColor: 'rgba(239, 68, 68, 0.15)',
                 color: '#EF4444',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
-                letterSpacing: '0.05em',
               }}
             >
               {targetId}
             </span>
             {station.location && (
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <span style={{ fontSize: 11.5, color: '#94A3B8' }}>
                 {station.location}
               </span>
             )}
           </div>
           <div
             style={{
-              fontSize: 20,
+              fontSize: 16,
               fontWeight: 700,
               color: '#FFFFFF',
               lineHeight: 1.3,
-              wordBreak: 'break-word',
             }}
           >
             {targetName || targetId}
           </div>
         </div>
 
-        {/* Verification Input */}
+        {/* Safety Text Input */}
         <div>
           <label
             htmlFor="delete-confirm-input"
             style={{
-              fontSize: 13,
-              color: 'var(--text-secondary)',
+              fontSize: 12.5,
+              color: '#94A3B8',
               display: 'block',
-              marginBottom: 8,
+              marginBottom: 6,
             }}
           >
-            พิมพ์ชื่อสถานี <strong style={{ color: '#EF4444', userSelect: 'all' }}>"{targetName}"</strong> เพื่อยืนยัน:
+            พิมพ์ชื่อสถานี <strong style={{ color: '#EF4444' }}>"{targetName}"</strong> เพื่อยืนยันการลบ
           </label>
           <input
             id="delete-confirm-input"
@@ -204,19 +196,15 @@ export default function StationDeleteModal({
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
-            placeholder={`พิมพ์ ${targetName} เพื่อยืนยัน`}
+            placeholder={`พิมพ์ ${targetName}`}
             disabled={isDeleting}
             autoFocus
             style={{
               width: '100%',
-              fontSize: 14,
-              padding: '10px 14px',
-              borderRadius: 8,
-              border: isMatch
-                ? '1px solid #EF4444'
-                : '1px solid var(--border)',
-              boxShadow: isMatch ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
-              transition: 'all 0.15s ease',
+              fontSize: 13,
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: isMatch ? '1px solid #EF4444' : '1px solid rgba(255, 255, 255, 0.1)',
             }}
           />
         </div>

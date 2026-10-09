@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ResponsiveContainer,
@@ -22,22 +22,23 @@ import {
   ZapIcon,
   CpuIcon,
   MapPinIcon,
-  CheckCircleIcon,
   AlertTriangleIcon,
-  XCircleIcon,
   BarChart3Icon,
   ActivityIcon,
   CompassIcon,
   LayersIcon,
 } from "../ui/Icons";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
 
 interface StationTelemetryHubProps {
   station: Station;
+  stations?: Station[];
+  onSelectStation?: (stationId: string) => void;
 }
 
 type HubViewMode = "sensors" | "chart";
 type ActiveMetricKey =
-  | "level"
   | "temp"
   | "hum"
   | "batt"
@@ -49,19 +50,52 @@ type ActiveMetricKey =
 
 export const StationTelemetryHub = memo(function StationTelemetryHub({
   station,
+  stations,
+  onSelectStation,
 }: StationTelemetryHubProps) {
   const navigate = useNavigate();
 
   // View mode switcher: 'sensors' (8 Bento cards) or 'chart' (Live Trend Graph)
   const [viewMode, setViewMode] = useState<HubViewMode>("sensors");
 
-  // Mobile expandable diagnostics toggle (shows 4 primary by default, expands to 8)
+  // Mobile expandable diagnostics toggle (shows primary by default, expands to 8)
   const [showAllMetrics, setShowAllMetrics] = useState(false);
 
-  // Interactive Metric / KPI Filter Tab selection
-  const [activeMetric, setActiveMetric] = useState<ActiveMetricKey>("level");
+  // Active Metric card highlight
+  const [activeMetric, setActiveMetric] = useState<ActiveMetricKey>("temp");
 
   const [recentReadings, setRecentReadings] = useState<Reading[]>([]);
+
+  // VisionOS Sliding Glass Pill indicator coordinates
+  const trackRef = useRef<HTMLDivElement>(null);
+  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+  const [sliderStyle, setSliderStyle] = useState<{ left: number; width: number; ready: boolean }>({
+    left: 0,
+    width: 0,
+    ready: false,
+  });
+
+  useEffect(() => {
+    const updateSlider = () => {
+      const activeBtn = buttonRefs.current[station.id];
+      const track = trackRef.current;
+      if (activeBtn && track) {
+        setSliderStyle({
+          left: activeBtn.offsetLeft,
+          width: activeBtn.offsetWidth,
+          ready: true,
+        });
+      }
+    };
+
+    updateSlider();
+    const frameId = requestAnimationFrame(updateSlider);
+    window.addEventListener("resize", updateSlider);
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("resize", updateSlider);
+    };
+  }, [station.id, stations]);
 
   // Fetch recent readings for this specific station
   useEffect(() => {
@@ -105,7 +139,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
   const isBlindZone =
     station.isBlindZone || rawDistance <= (station.blindZoneOffset ?? 0.28);
 
-  // Water level thresholds (Optional)
+  // Water level thresholds
   const hasWarning =
     station.warningLevel !== null &&
     station.warningLevel !== undefined &&
@@ -116,48 +150,41 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
     !isNaN(Number(station.criticalLevel));
   const warningLevel = hasWarning ? Number(station.warningLevel) : null;
   const criticalLevel = hasCritical ? Number(station.criticalLevel) : null;
-  const isOffline = !station.isActive || station.operatingStatus === 'offline';
+  const isOffline = !station.isActive || station.operatingStatus === "offline";
 
-  // Status badge styling
-  let statusColor = "var(--status-normal)";
-  let statusBg = "var(--status-normal-dim)";
-  let statusLabel = `ระดับน้ำปกติ (ต่ำกว่า${refName})`;
-  let StatusIcon = CheckCircleIcon;
+  // Tactical Sonar status derivation
+  let statusBadgeType: "normal" | "warning" | "critical" | "offline" = "normal";
+  let statusText = `ระดับน้ำปกติ (ต่ำกว่า${refName})`;
 
   if (isOffline) {
-    statusColor = "#F59E0B";
-    statusBg = "rgba(245, 158, 11, 0.15)";
-    statusLabel = "ปิดให้บริการชั่วคราว (Offline)";
-    StatusIcon = AlertTriangleIcon;
+    statusBadgeType = "offline";
+    statusText = "ปิดให้บริการชั่วคราว (Offline)";
   } else if (hasCritical && waterLevel >= (criticalLevel as number)) {
-    statusColor = "var(--status-critical)";
-    statusBg = "var(--status-critical-dim)";
-    statusLabel = `ระดับน้ำวิกฤต (สูงกว่า${refName})`;
-    StatusIcon = XCircleIcon;
+    statusBadgeType = "critical";
+    statusText = `ระดับน้ำวิกฤต (สูงกว่า${refName})`;
   } else if (hasWarning && waterLevel >= (warningLevel as number)) {
-    statusColor = "var(--status-advisory)";
-    statusBg = "var(--status-advisory-dim)";
-    statusLabel = `เกณฑ์เฝ้าระวังพิเศษ`;
-    StatusIcon = AlertTriangleIcon;
+    statusBadgeType = "warning";
+    statusText = "เกณฑ์เฝ้าระวังพิเศษ";
   } else if (waterLevel > 0) {
-    statusColor = "var(--status-critical)";
-    statusBg = "var(--status-critical-dim)";
-    statusLabel = `น้ำสูงกว่า${refName} (+${waterLevel.toFixed(2)} ม.)`;
-    StatusIcon = AlertTriangleIcon;
+    statusBadgeType = "critical";
+    statusText = `น้ำสูงกว่า${refName} (+${waterLevel.toFixed(2)} ม.)`;
   }
 
   // Signal Strength Rating
   let signalRating = "สัญญาณดีเยี่ยม";
-  let signalColor = "#10B981";
+  let signalColor = "var(--sonar-green)";
   if (rssi < -90) {
     signalRating = "สัญญาณอ่อน";
-    signalColor = "#EF4444";
+    signalColor = "var(--beacon-red)";
   } else if (rssi < -75) {
     signalRating = "สัญญาณปานกลาง";
-    signalColor = "#F59E0B";
+    signalColor = "var(--tactical-amber)";
   }
 
-  // Format date/time
+  // Tilt Status
+  const isTilted = station.isPoleTilted ?? (Math.abs(tiltX) > 15 || Math.abs(tiltY) > 15);
+
+  // Format timestamp
   let formattedTime = "เมื่อสักครู่";
   if (station.lastUpdated) {
     try {
@@ -211,87 +238,251 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
       { time: "17:55", level: waterLevel },
       { time: "18:00", level: waterLevel },
     ];
-  }, [recentReadings, waterLevel]);
+  }, [recentReadings, sensorToRef, waterLevel]);
 
   return (
     <div
       className="bento-card animate-fade-in telemetry-hub-card"
       style={{
         background: "var(--card-surface)",
-        borderRadius: "1.5rem",
+        borderRadius: "14px",
         border: "1px solid var(--card-border)",
-        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
-        padding: "1.75rem 2rem",
-        marginBottom: "2rem",
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3)",
+        padding: "1.5rem",
+        marginBottom: "1.75rem",
       }}
     >
-      {/* ── 1. HUB HEADER: Station Identity & Segmented View Switcher ── */}
+      {/* ── 0. INTEGRATED STATION CAPSULE TRACK (VisionOS Floating Glass with Sliding Pill) ── */}
+      {stations && stations.length > 1 && onSelectStation && (
+        <div
+          className="station-capsule-track-container"
+          style={{
+            marginBottom: "1.25rem",
+            paddingBottom: "1rem",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          }}
+        >
+          {/* Scroll wrapper for multi-device touch scrolling */}
+          <div
+            className="vision-capsule-scroll-wrapper"
+            style={{
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+              scrollbarWidth: "none",
+              padding: "2px 2px",
+            }}
+          >
+            {/* The VisionOS Frosted Glass Pill Dock */}
+            <div
+              ref={trackRef}
+              role="tablist"
+              aria-label="เลือกสถานีตรวจวัด"
+              className="vision-glass-dock"
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
+                background: "rgba(8, 14, 22, 0.75)",
+                backdropFilter: "blur(20px) saturate(180%)",
+                WebkitBackdropFilter: "blur(20px) saturate(180%)",
+                border: "1px solid rgba(255, 255, 255, 0.09)",
+                borderRadius: "9999px",
+                padding: "4px",
+                boxShadow:
+                  "inset 0 1.5px 3px rgba(0, 0, 0, 0.6), inset 0 0.5px 0 rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.4)",
+              }}
+            >
+              {/* Animated Floating Glass Pill Indicator */}
+              {sliderStyle.ready && (
+                <div
+                  className="vision-sliding-glass-pill"
+                  style={{
+                    position: "absolute",
+                    top: "4px",
+                    bottom: "4px",
+                    left: `${sliderStyle.left}px`,
+                    width: `${sliderStyle.width}px`,
+                    borderRadius: "9999px",
+                    background:
+                      "linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(14, 165, 233, 0.14) 100%)",
+                    border: "1px solid rgba(56, 189, 248, 0.55)",
+                    boxShadow:
+                      "0 0 16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.3)",
+                    backdropFilter: "blur(12px)",
+                    WebkitBackdropFilter: "blur(12px)",
+                    transition:
+                      "left 0.35s cubic-bezier(0.16, 1, 0.3, 1), width 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+                    pointerEvents: "none",
+                    zIndex: 1,
+                  }}
+                />
+              )}
+
+              {/* Station Pills */}
+              {stations.map((s) => {
+                const isSelected = s.id === station.id;
+                const isOffline = !s.isActive || s.operatingStatus === "offline";
+
+                let dotColor = "var(--sonar-green)";
+                if (isOffline) {
+                  dotColor = "#94a3b8";
+                } else if (s.status === "critical") {
+                  dotColor = "var(--beacon-red)";
+                } else if (s.status === "warning") {
+                  dotColor = "var(--tactical-amber)";
+                }
+
+                return (
+                  <button
+                    key={`hub-capsule-${s.id}`}
+                    ref={(el) => {
+                      buttonRefs.current[s.id] = el;
+                    }}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => onSelectStation(s.id)}
+                    className={`vision-capsule-item ${isSelected ? "selected" : ""}`}
+                    style={{
+                      position: "relative",
+                      zIndex: 2,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "6px 14px",
+                      borderRadius: "9999px",
+                      fontSize: "0.8125rem",
+                      fontWeight: isSelected ? 600 : 500,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      minHeight: "34px",
+                      outline: "none",
+                      border: "none",
+                      background: "transparent",
+                      color: isSelected ? "#f0f9ff" : "#94a3b8",
+                      transition: "color 0.2s ease, transform 0.15s ease",
+                    }}
+                  >
+                    {/* Sonar Radar Dot with Pulse Ripple */}
+                    <span
+                      style={{
+                        position: "relative",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "8px",
+                        height: "8px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {isSelected && !isOffline && (
+                        <span
+                          className="sonar-pulse-ring"
+                          style={{
+                            position: "absolute",
+                            width: "100%",
+                            height: "100%",
+                            borderRadius: "9999px",
+                            backgroundColor: dotColor,
+                            opacity: 0.75,
+                          }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          position: "relative",
+                          width: "7px",
+                          height: "7px",
+                          borderRadius: "9999px",
+                          backgroundColor: dotColor,
+                          boxShadow:
+                            !isOffline && isSelected
+                              ? `0 0 8px ${dotColor}`
+                              : "none",
+                        }}
+                      />
+                    </span>
+
+                    {/* Station ID Tag */}
+                    <span
+                      className="tabular-nums"
+                      style={{
+                        fontWeight: 700,
+                        letterSpacing: "0.02em",
+                        color: isSelected ? "#38bdf8" : "#cbd5e1",
+                      }}
+                    >
+                      {s.id}
+                    </span>
+
+                    {/* Station Name */}
+                    <span
+                      style={{
+                        maxWidth: "150px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {s.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 1. HUB HEADER: Station Identity & Tactical Sonar Status ── */}
       <div
         className="telemetry-hub-header"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           paddingBottom: "1.25rem",
-          marginBottom: "1.5rem",
+          marginBottom: "1.25rem",
           flexWrap: "wrap",
           gap: "1rem",
         }}
       >
         {/* Left: Station Identity */}
-        <div className="telemetry-hub-station-header">
-          {/* Row 1: Station Code + Station Name + Live Status Pill */}
-          <div className="telemetry-station-primary-row">
+        <div className="telemetry-hub-station-header" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div className="telemetry-station-primary-row" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <span
+              className="tabular-nums"
               style={{
-                fontFamily: "monospace",
-                fontSize: "0.9375rem",
-                fontWeight: 800,
-                color: "#38BDF8",
-                background: "rgba(37, 99, 235, 0.15)",
-                border: "1px solid rgba(56, 189, 248, 0.3)",
-                padding: "0.2rem 0.6rem",
-                borderRadius: "0.5rem",
-                letterSpacing: "0.04em",
-                flexShrink: 0,
+                fontSize: "0.8125rem",
+                fontWeight: 700,
+                color: "var(--marine-blue)",
+                background: "var(--marine-blue-dim)",
+                border: "1px solid rgba(2, 132, 199, 0.3)",
+                padding: "3px 8px",
+                borderRadius: "6px",
+                letterSpacing: "0.02em",
               }}
             >
               {station.id}
             </span>
+
             <h2
               className="telemetry-station-title"
               style={{
-                fontSize: "1.375rem",
-                fontWeight: 800,
-                color: "#FFFFFF",
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "var(--text-primary)",
                 margin: 0,
-                letterSpacing: "-0.02em",
-                display: "inline-flex",
-                alignItems: "center",
+                letterSpacing: "-0.01em",
               }}
             >
               {station.name}
             </h2>
-            <div
-              className="telemetry-status-pill"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                padding: "0.25rem 0.75rem",
-                borderRadius: "9999px",
-                background: statusBg,
-                border: `1.5px solid ${statusColor}60`,
-                color: statusColor,
-                fontSize: "0.8125rem",
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              <StatusIcon size={14} />
-              <span>{statusLabel}</span>
-            </div>
+
+            <Badge status={statusBadgeType} dot label={statusText} />
           </div>
 
           <div
@@ -306,21 +497,19 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               fontWeight: 500,
             }}
           >
-            <span
-              style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
-            >
-              <MapPinIcon size={14} style={{ color: "var(--sky-highlight)" }} />
+            <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <MapPinIcon size={14} style={{ color: "var(--marine-blue)" }} />
               <span>{station.location || "จุดบริการลุ่มน้ำ"}</span>
             </span>
-            <span className="telemetry-coords">·</span>
-            <span className="telemetry-coords">
+            <span>·</span>
+            <span className="tabular-nums telemetry-coords">
               พิกัด{" "}
               <strong style={{ color: "var(--text-primary)" }}>
                 {station.lat.toFixed(6)}, {station.lng.toFixed(6)}
               </strong>
             </span>
-            <span>·</span>
-            <span>
+            <span className="telemetry-coords">·</span>
+            <span className="tabular-nums">
               อัปเดตล่าสุด{" "}
               <strong style={{ color: "var(--text-primary)" }}>
                 {formattedTime} น.
@@ -329,28 +518,20 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           </div>
         </div>
 
-        {/* Right: Controls (Segmented View Switcher) */}
-        <div
-          className="telemetry-view-switcher-wrap"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.75rem",
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Segmented Control / Sliding Pill Switcher */}
+        {/* Right: Controls & Navigation CTA */}
+        <div className="telemetry-view-switcher-wrap" style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {/* Segmented View Switcher: Sensors vs Chart */}
           <div
             role="tablist"
             aria-label="สลับมุมมองข้อมูลสถานี"
             style={{
               display: "inline-flex",
               alignItems: "center",
-              background: "rgba(8, 12, 20, 0.9)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
+              background: "rgba(6, 11, 15, 0.85)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
               borderRadius: "9999px",
-              padding: "0.25rem",
-              gap: "0.25rem",
+              padding: "3px",
+              gap: "3px",
             }}
           >
             <button
@@ -361,21 +542,19 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.45rem 0.95rem",
+                gap: "6px",
+                padding: "6px 14px",
                 borderRadius: "9999px",
                 background:
                   viewMode === "sensors"
-                    ? "var(--primary-accent)"
+                    ? "var(--marine-blue)"
                     : "transparent",
-                color:
-                  viewMode === "sensors" ? "#FFFFFF" : "var(--text-secondary)",
+                color: viewMode === "sensors" ? "#FFFFFF" : "var(--text-secondary)",
                 border: "none",
                 fontSize: "0.8125rem",
                 fontWeight: viewMode === "sensors" ? 700 : 500,
                 cursor: "pointer",
-                transition: "all 0.2s ease",
-                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
               }}
             >
               <LayersIcon size={14} />
@@ -390,21 +569,19 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.45rem 0.95rem",
+                gap: "6px",
+                padding: "6px 14px",
                 borderRadius: "9999px",
                 background:
                   viewMode === "chart"
-                    ? "var(--primary-accent)"
+                    ? "var(--marine-blue)"
                     : "transparent",
-                color:
-                  viewMode === "chart" ? "#FFFFFF" : "var(--text-secondary)",
+                color: viewMode === "chart" ? "#FFFFFF" : "var(--text-secondary)",
                 border: "none",
                 fontSize: "0.8125rem",
                 fontWeight: viewMode === "chart" ? 700 : 500,
                 cursor: "pointer",
-                transition: "all 0.2s ease",
-                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
               }}
             >
               <BarChart3Icon size={14} />
@@ -412,45 +589,31 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             </button>
           </div>
 
-          {/* Refined, Space-Efficient CTA Button (Desktop only, hidden on mobile) */}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             className="telemetry-desktop-cta"
             onClick={() => navigate("/chart")}
+            rightIcon={<ActivityIcon size={14} />}
             title="เปิดหน้าระบบวิเคราะห์ประวัติย้อนหลังแบบเต็มหน้าจอ"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.45rem 0.875rem",
-              borderRadius: "0.625rem",
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(255, 255, 255, 0.14)",
-              color: "var(--text-primary)",
-              fontSize: "0.8125rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
           >
-            <ActivityIcon size={15} />
-            <span>กราฟเชิงลึก ↗</span>
-          </button>
+            กราฟเชิงลึก
+          </Button>
         </div>
       </div>
 
-      {/* ── 2. PRIMARY WATER LEVEL & SAFETY SCALE ── */}
+      {/* ── 2. PRIMARY WATER LEVEL & SAFETY SCALE HERO ── */}
       <div
         className="telemetry-hero-card"
         style={{
-          background: "rgba(10, 16, 28, 0.85)",
-          border: "1px solid rgba(255, 255, 255, 0.1)",
-          borderRadius: "1.25rem",
+          background: "linear-gradient(135deg, rgba(8, 16, 23, 0.95) 0%, rgba(11, 19, 27, 0.98) 100%)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
+          borderRadius: "12px",
           padding: "1.25rem 1.5rem",
-          marginBottom: "1rem",
+          marginBottom: "1.25rem",
+          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.25)",
         }}
       >
-        {/* Section 1: Header with Title and Live Status Badge */}
         <div
           style={{
             display: "flex",
@@ -462,38 +625,28 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <DropletsIcon size={18} style={{ color: "var(--sky-highlight)", flexShrink: 0 }} />
-            <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#E2E8F0" }}>
+            <DropletsIcon size={18} style={{ color: "var(--marine-blue)", flexShrink: 0 }} />
+            <span style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)" }}>
               ระดับน้ำเทียบกับ{refName}
             </span>
           </div>
-          <span
-            className="telemetry-hero-badge"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              padding: "0.2rem 0.65rem",
-              borderRadius: "9999px",
-              background: isOffline ? "rgba(245, 158, 11, 0.12)" : waterLevel >= 0 ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)",
-              border: `1px solid ${isOffline ? "#F59E0B" : waterLevel >= 0 ? "#EF4444" : "#10B981"}40`,
-              color: isOffline ? "#F59E0B" : waterLevel >= 0 ? "#EF4444" : "#10B981",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-            }}
-          >
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} />
-            {isOffline
-              ? "ออฟไลน์"
-              : waterLevel < 0
-              ? `ต่ำกว่า${refName} ${Math.abs(waterLevel).toFixed(2)} ม.`
-              : waterLevel === 0
-              ? `เสมอ${refName} พอดี`
-              : `สูงกว่า${refName} ${waterLevel.toFixed(2)} ม. (น้ำล้น)`}
-          </span>
+
+          <Badge
+            status={waterLevel >= 0 ? "critical" : "normal"}
+            dot
+            label={
+              isOffline
+                ? "ออฟไลน์"
+                : waterLevel < 0
+                ? `ต่ำกว่า${refName} ${Math.abs(waterLevel).toFixed(2)} ม.`
+                : waterLevel === 0
+                ? `เสมอ${refName} พอดี`
+                : `สูงกว่า${refName} ${waterLevel.toFixed(2)} ม. (น้ำล้น)`
+            }
+          />
         </div>
 
-        {/* Section 2: Prominent Value Display */}
+        {/* Large Prominent Numerical Readout (Jitter-free tabular-nums) */}
         <div
           style={{
             display: "flex",
@@ -504,12 +657,12 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
         >
           {isOffline ? (
             <span
+              className="tabular-nums"
               style={{
                 fontSize: "2.75rem",
                 fontWeight: 800,
                 color: "var(--text-muted)",
                 lineHeight: 1,
-                fontFamily: "monospace",
               }}
             >
               -
@@ -517,13 +670,12 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           ) : (
             <>
               <span
-                className="water-level-value"
+                className="tabular-nums"
                 style={{
                   fontSize: "2.75rem",
                   fontWeight: 900,
-                  fontFamily: "monospace, inherit",
-                  color: waterLevel >= 0 ? "#F87171" : "#38BDF8",
-                  letterSpacing: "-0.03em",
+                  color: waterLevel >= 0 ? "var(--beacon-red)" : "var(--sonar-green)",
+                  letterSpacing: "-0.02em",
                   lineHeight: 1,
                 }}
               >
@@ -533,7 +685,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                 style={{
                   fontSize: "1.125rem",
                   color: "var(--text-secondary)",
-                  fontWeight: 700,
+                  fontWeight: 600,
                 }}
               >
                 เมตร (ม.)
@@ -542,7 +694,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           )}
         </div>
 
-        {/* Section 3: Blind Zone Warning Banner (only if triggered) */}
+        {/* Blind Zone Alert Banner */}
         {isBlindZone && (
           <div
             style={{
@@ -550,26 +702,26 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               alignItems: "center",
               gap: "0.625rem",
               padding: "0.625rem 0.875rem",
-              borderRadius: "0.625rem",
-              background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid rgba(239, 68, 68, 0.35)",
-              color: "#F87171",
+              borderRadius: "8px",
+              background: "var(--beacon-red-dim)",
+              border: "1px solid rgba(220, 38, 38, 0.35)",
+              color: "var(--beacon-red)",
               fontSize: "0.8125rem",
               fontWeight: 600,
               marginBottom: "0.875rem",
             }}
           >
             <AlertTriangleIcon size={16} />
-            <span>คำเตือน: ผิวน้ำเข้าสู่ระยะบอดของเซนเซอร์ (&lt; 0.28 ม.)</span>
+            <span>คำเตือน ผิวน้ำเข้าสู่ระยะบอดของเซนเซอร์ (&lt; 0.28 ม.)</span>
           </div>
         )}
 
-        {/* Section 4: Integrated Calibration Metrics (Unified divider layout) */}
+        {/* Integrated Calibration Metrics Grid */}
         <div className="hero-calibration-grid">
           <div className="hero-calibration-item">
             <span className="hero-calibration-label">ระยะผิวน้ำที่วัดได้</span>
             <strong
-              className="hero-calibration-val"
+              className="hero-calibration-val tabular-nums"
               style={{ color: isOffline ? "var(--text-muted)" : "var(--text-primary)" }}
             >
               {isOffline ? "-" : `${rawDistance.toFixed(2)} ม.`}
@@ -577,18 +729,15 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           </div>
           <div className="hero-calibration-item">
             <span className="hero-calibration-label">ระยะติดตั้งถึง{refName}</span>
-            <strong
-              className="hero-calibration-val"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <strong className="hero-calibration-val tabular-nums" style={{ color: "var(--text-primary)" }}>
               {sensorToRef.toFixed(2)} ม.
             </strong>
           </div>
           <div className="hero-calibration-item">
             <span className="hero-calibration-label">เกณฑ์เฝ้าระวัง</span>
             <strong
-              className="hero-calibration-val"
-              style={{ color: hasWarning ? "#F59E0B" : "var(--text-muted)" }}
+              className="hero-calibration-val tabular-nums"
+              style={{ color: hasWarning ? "var(--tactical-amber)" : "var(--text-muted)" }}
             >
               {hasWarning ? `${warningLevel! >= 0 ? "+" : ""}${warningLevel!.toFixed(2)} ม.` : "ไม่กำหนด"}
             </strong>
@@ -596,8 +745,8 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
           <div className="hero-calibration-item">
             <span className="hero-calibration-label">เกณฑ์วิกฤต</span>
             <strong
-              className="hero-calibration-val"
-              style={{ color: hasCritical ? "#EF4444" : "var(--text-muted)" }}
+              className="hero-calibration-val tabular-nums"
+              style={{ color: hasCritical ? "var(--beacon-red)" : "var(--text-muted)" }}
             >
               {hasCritical ? `${criticalLevel! >= 0 ? "+" : ""}${criticalLevel!.toFixed(2)} ม.` : "ไม่กำหนด"}
             </strong>
@@ -605,1185 +754,379 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
         </div>
       </div>
 
-      {/* ── 3. VIEW MODE A: INTERACTIVE METRIC / KPI FILTER TABS (Idea #2) ── */}
+      {/* ── 3. VIEW MODE A: TACTICAL BENTO TELEMETRY GRID ── */}
       {viewMode === "sensors" ? (
-        <div
-          className="telemetry-bento-grid"
-          style={{
-            marginBottom: "1.75rem",
-          }}
-        >
-          {/* Metric Tab 1: อุณหภูมิอากาศ */}
-          <div
-            role="button"
-            tabIndex={0}
-            className="telemetry-metric-card"
-            onClick={() => setActiveMetric("temp")}
-            style={{
-              background:
-                activeMetric === "temp"
-                  ? "rgba(245, 158, 11, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "temp"
-                  ? "1.5px solid #F59E0B"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
+        <div>
+          <div className="telemetry-bento-grid" style={{ marginBottom: "1rem" }}>
+            {/* Metric 1: Temperature */}
             <div
+              role="button"
+              tabIndex={0}
+              className="telemetry-metric-card"
+              onClick={() => setActiveMetric("temp")}
               style={{
+                background: activeMetric === "temp" ? "rgba(245, 158, 11, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "temp" ? "1.5px solid var(--tactical-amber)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
                 display: "flex",
-                alignItems: "center",
+                flexDirection: "column",
                 justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
               }}
             >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                อุณหภูมิอากาศ
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(245, 158, 11, 0.15)",
-                  color: "#F59E0B",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ThermometerIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : temp.toFixed(1)}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  อุณหภูมิอากาศ
                 </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    °C
-                  </span>
-                )}
+                <ThermometerIcon size={20} style={{ color: "var(--tactical-amber)" }} />
               </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.max(0, Math.round(((temp - 15) / (45 - 15)) * 100)))}%`,
-                        background: temp > 35 ? "#EF4444" : temp > 28 ? "#F59E0B" : "#10B981",
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: temp > 35 ? "#EF4444" : temp > 28 ? "#F59E0B" : "#10B981",
-                      }}
-                    >
-                      {temp > 35 ? "อากาศร้อนจัด" : temp > 28 ? "สภาพอากาศปกติ" : "อากาศเย็น"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      เซนเซอร์อากาศ
-                    </span>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* Metric Tab 2: ความชื้นสัมพัทธ์ */}
-          <div
-            role="button"
-            tabIndex={0}
-            className="telemetry-metric-card"
-            onClick={() => setActiveMetric("hum")}
-            style={{
-              background:
-                activeMetric === "hum"
-                  ? "rgba(56, 189, 248, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "hum"
-                  ? "1.5px solid var(--sky-highlight)"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                ความชื้นสัมพัทธ์
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(56, 189, 248, 0.15)",
-                  color: "var(--sky-highlight)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <DropletsIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : hum.toFixed(1)}
-                </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    %RH
-                  </span>
-                )}
-              </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.max(0, hum))}%`,
-                        background: "#38BDF8",
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#38BDF8",
-                      }}
-                    >
-                      {hum > 80 ? "ความชื้นสูงมาก" : hum > 50 ? "ความชื้นปกติ" : "อากาศแห้ง"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {hum.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* Metric Tab 3: ระดับพลังงานแบตเตอรี่ */}
-          <div
-            role="button"
-            tabIndex={0}
-            className="telemetry-metric-card"
-            onClick={() => setActiveMetric("batt")}
-            style={{
-              background:
-                activeMetric === "batt"
-                  ? "rgba(16, 185, 129, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "batt"
-                  ? "1.5px solid #10B981"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                แบตเตอรี่คงเหลือ
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background:
-                    battPercent > 20
-                      ? "rgba(16, 185, 129, 0.15)"
-                      : "rgba(239, 68, 68, 0.15)",
-                  color: battPercent > 20 ? "#10B981" : "#EF4444",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {battPercent > 20 ? (
-                  <BatteryChargingIcon size={22} />
-                ) : (
-                  <BatteryLowIcon size={22} />
-                )}
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : battPercent}
-                </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    %
-                  </span>
-                )}
-              </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  {/* เส้นแสดงเปอร์เซ็นต์แบตเตอรี่พร้อมรหัสสีตามระดับ */}
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(100, Math.max(0, battPercent))}%`,
-                        background:
-                          battPercent > 50
-                            ? "#10B981"
-                            : battPercent > 20
-                            ? "#F59E0B"
-                            : "#EF4444",
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color:
-                          battPercent > 50
-                            ? "#10B981"
-                            : battPercent > 20
-                            ? "#F59E0B"
-                            : "#EF4444",
-                      }}
-                    >
-                      {battPercent > 50
-                        ? "พร้อมใช้งาน"
-                        : battPercent > 20
-                        ? "แบตเตอรี่ปานกลาง"
-                        : "แบตเตอรี่ต่ำ"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      {battVolt.toFixed(1)}V
-                    </span>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* Metric Tab 4: ความแรงสัญญาณ (RSSI) - Primary Metric */}
-          <div
-            role="button"
-            tabIndex={0}
-            className="telemetry-metric-card"
-            onClick={() => setActiveMetric("rssi")}
-            style={{
-              background:
-                activeMetric === "rssi"
-                  ? `${signalColor}15`
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "rssi"
-                  ? `1.5px solid ${signalColor}`
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                ความแรงสัญญาณ (RSSI)
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: `${signalColor}20`,
-                  color: signalColor,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <WifiIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : rssi}
-                </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    dBm
-                  </span>
-                )}
-              </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(
-                          100,
-                          Math.max(0, Math.round(((rssi - -120) / (-50 - -120)) * 100))
-                        )}%`,
-                        background: signalColor,
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: signalColor,
-                      }}
-                    >
-                      {signalRating}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      LoRaWAN
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Metric Tab 5: แรงดันไฟฟ้าโซลาร์ - Secondary Diagnostic */}
-          <div
-            role="button"
-            tabIndex={0}
-            className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
-            onClick={() => setActiveMetric("volt")}
-            style={{
-              background:
-                activeMetric === "volt"
-                  ? "rgba(250, 204, 21, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "volt"
-                  ? "1.5px solid #FACC15"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                แรงดันไฟฟ้าโซลาร์
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(250, 204, 21, 0.15)",
-                  color: "#FACC15",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ZapIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : battVolt.toFixed(1)}
-                </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    V
-                  </span>
-                )}
-              </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            battVolt > 6
-                              ? Math.round(((battVolt - 11.0) / (14.5 - 11.0)) * 100)
-                              : Math.round(((battVolt - 3.2) / (4.2 - 3.2)) * 100)
-                          )
-                        )}%`,
-                        background: "#FACC15",
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: "#FACC15",
-                      }}
-                    >
-                      {battVolt >= 12.5 || (battVolt < 6 && battVolt >= 3.7) ? "จ่ายไฟปกติ" : "แรงดันต่ำ"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      โซลาร์เซลล์
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Metric Tab 6: อัตราสัญญาณต่อสัญญาณรบกวน (SNR) - Secondary Diagnostic */}
-          <div
-            role="button"
-            tabIndex={0}
-            className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
-            onClick={() => setActiveMetric("snr")}
-            style={{
-              background:
-                activeMetric === "snr"
-                  ? "rgba(37, 99, 235, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "snr"
-                  ? "1.5px solid var(--primary-accent)"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                คุณภาพสัญญาณ (SNR)
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(37, 99, 235, 0.15)",
-                  color: "#38BDF8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <RadioIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.35rem",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "2rem",
-                    fontWeight: 800,
-                    color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {isOffline ? "-" : snr.toFixed(1)}
-                </span>
-                {!isOffline && (
-                  <span
-                    style={{
-                      fontSize: "1rem",
-                      color: "var(--text-secondary)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    dB
-                  </span>
-                )}
-              </div>
-              {!isOffline && (
-                <div style={{ marginTop: "0.5rem" }}>
-                  <div
-                    style={{
-                      height: 6,
-                      width: "100%",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      borderRadius: 9999,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.min(
-                          100,
-                          Math.max(0, Math.round(((snr - -10) / (15 - -10)) * 100))
-                        )}%`,
-                        background: "#38BDF8",
-                        borderRadius: 9999,
-                        transition: "width 0.6s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginTop: "0.35rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        color: snr >= 0 ? "#10B981" : "#EF4444",
-                      }}
-                    >
-                      {snr >= 5 ? "สัญญาณคมชัด" : snr >= 0 ? "สัญญาณปกติ" : "สัญญาณรบกวนสูง"}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--text-muted)",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      SNR {snr.toFixed(1)} dB
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Metric Tab 7: ความเอียงทางกายภาพ (Tilt Incline X & Y) - Secondary Diagnostic */}
-          <div
-            role="button"
-            tabIndex={0}
-            className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
-            onClick={() => setActiveMetric("tilt")}
-            style={{
-              background:
-                activeMetric === "tilt"
-                  ? "rgba(37, 99, 235, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "tilt"
-                  ? "1.5px solid var(--primary-accent)"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                มุมเอียงเสา (Tilt X/Y)
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(37, 99, 235, 0.15)",
-                  color: "#38BDF8",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <CompassIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "0.5rem",
-                  marginBottom: "0.25rem",
-                  flexWrap: "wrap",
-                }}
-              >
-                {isOffline ? (
-                  <span
-                    style={{
-                      fontSize: "2rem",
-                      fontWeight: 800,
-                      color: "var(--text-muted)",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    -
-                  </span>
-                ) : (
-                  <>
-                    <span
-                      style={{
-                        fontSize: "clamp(1.15rem, 3.8vw, 1.35rem)",
-                        fontWeight: 800,
-                        color: "#FFFFFF",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      X {tiltX > 0 ? `+${tiltX.toFixed(1)}` : tiltX.toFixed(1)}°
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "clamp(1.15rem, 3.8vw, 1.35rem)",
-                        fontWeight: 800,
-                        color: "#FFFFFF",
-                        fontFamily: "monospace",
-                      }}
-                    >
-                      Y {tiltY > 0 ? `+${tiltY.toFixed(1)}` : tiltY.toFixed(1)}°
-                    </span>
-                  </>
-                )}
-              </div>
-              {!isOffline && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: "0.5rem",
-                    paddingTop: "0.4rem",
-                    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-                    flexWrap: "wrap",
-                    gap: "0.25rem",
-                  }}
-                >
-                  {(() => {
-                    const relTotal = station.relativeTotalTilt != null ? Number(station.relativeTotalTilt) : null;
-                    const isTilted = Boolean(station.isPoleTilted || (relTotal != null && relTotal > 15));
-                    return (
-                      <>
-                        <span
-                          style={{
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                            color: isTilted ? "#F59E0B" : "#10B981",
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: isTilted ? "#F59E0B" : "#10B981",
-                              flexShrink: 0,
-                            }}
-                          />
-                          {isTilted
-                            ? `เสาเอียง ${relTotal != null && !isNaN(relTotal) ? `${relTotal.toFixed(1)}°` : ""} (>15°)`
-                            : `ได้ระนาบ (${relTotal != null && !isNaN(relTotal) ? `±${relTotal.toFixed(1)}°` : "ปกติ"})`}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "0.6875rem",
-                            color: "var(--text-muted)",
-                            fontFamily: "monospace",
-                          }}
-                          title={`ระนาบอ้างอิง: X=${station.tiltOffsetX ?? 0}°, Y=${station.tiltOffsetY ?? 0}°`}
-                        >
-                          Ref: {station.tiltOffsetX ?? 0}°, {station.tiltOffsetY ?? 0}°
-                        </span>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Metric Tab 8: จุดรับส่งข้อมูลเกตเวย์ - Secondary Diagnostic */}
-          <div
-            role="button"
-            tabIndex={0}
-            className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
-            onClick={() => setActiveMetric("gateway")}
-            style={{
-              background:
-                activeMetric === "gateway"
-                  ? "rgba(34, 197, 94, 0.08)"
-                  : "rgba(255, 255, 255, 0.03)",
-              border:
-                activeMetric === "gateway"
-                  ? "1.5px solid #22C55E"
-                  : "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1.125rem",
-              padding: "1.35rem 1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{ fontSize: "1rem", color: "#E2E8F0", fontWeight: 600 }}
-              >
-                เกตเวย์เชื่อมต่อ
-              </span>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: "50%",
-                  background: "rgba(34, 197, 94, 0.15)",
-                  color: "#22C55E",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <ActivityIcon size={22} />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  fontSize: "1.375rem",
-                  fontWeight: 800,
-                  color: isOffline ? "var(--text-muted)" : "#FFFFFF",
-                  marginBottom: "0.25rem",
-                }}
-              >
-                {isOffline ? "-" : gateway}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.8125rem",
-                  color: isOffline ? "var(--text-muted)" : "#10B981",
-                  fontWeight: 600,
-                }}
-              >
-                {isOffline ? "ออฟไลน์" : `สถานะ ${gatewayStatus}`}
-              </div>
-            </div>
-          </div>
-
-          {/* Hardware Specifications & Geolocation - Secondary Diagnostic */}
-          <div
-            className={`telemetry-hw-specs-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
-            style={{
-              gridColumn: "1 / -1",
-              background: "rgba(8, 12, 20, 0.6)",
-              border: "1px solid rgba(255, 255, 255, 0.08)",
-              borderRadius: "1rem",
-              padding: "1rem 1.25rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "1rem",
-              fontSize: "0.8125rem",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-              <CpuIcon size={18} style={{ color: "var(--sky-highlight)" }} />
               <div>
-                <span style={{ color: "var(--text-secondary)" }}>รุ่นอุปกรณ์ </span>
-                <strong style={{ color: "#FFFFFF", fontWeight: 700 }}>
-                  {model}
-                </strong>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : temp.toFixed(1)}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>°C</span>}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>เซนเซอร์อุณหภูมิภายนอก</span>
               </div>
             </div>
 
-            <div>
-              <span style={{ color: "var(--text-secondary)" }}>เฟิร์มแวร์ </span>
-              <strong style={{ color: "#FFFFFF", fontWeight: 700 }}>
-                {firmware}
-              </strong>
-            </div>
-
-            <div>
-              <span style={{ color: "var(--text-secondary)" }}>
-                ประเภทแหล่งน้ำ{" "}
-              </span>
-              <strong style={{ color: "#FFFFFF", fontWeight: 700 }}>
-                {station.stationType || "แม่น้ำ"}
-              </strong>
-            </div>
-
-            <div>
-              <span style={{ color: "var(--text-secondary)" }}>พิกัดดาวเทียม </span>
-              <strong style={{ color: "var(--sky-highlight)", fontWeight: 700, fontFamily: "monospace" }}>
-                {station.lat.toFixed(6)}, {station.lng.toFixed(6)}
-              </strong>
-            </div>
-          </div>
-
-          {/* Mobile Expand / Collapse Secondary Metrics Row */}
-          <div className="telemetry-metrics-toggle-row">
-            <button
-              type="button"
-              onClick={() => setShowAllMetrics((prev) => !prev)}
-              className="telemetry-metrics-toggle-btn"
-              aria-expanded={showAllMetrics}
+            {/* Metric 2: Humidity */}
+            <div
+              role="button"
+              tabIndex={0}
+              className="telemetry-metric-card"
+              onClick={() => setActiveMetric("hum")}
+              style={{
+                background: activeMetric === "hum" ? "rgba(2, 132, 199, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "hum" ? "1.5px solid var(--marine-blue)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
             >
-              <span>
-                {showAllMetrics
-                  ? "ซ่อนข้อมูลเพิ่มเติม"
-                  : "ดูเซนเซอร์และข้อมูลอุปกรณ์เพิ่มเติม"}
-              </span>
-              <span style={{ fontSize: "10px", marginLeft: "4px" }}>
-                {showAllMetrics ? "▲" : "▼"}
-              </span>
-            </button>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  ความชื้นสัมพัทธ์
+                </span>
+                <DropletsIcon size={20} style={{ color: "var(--marine-blue)" }} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : hum.toFixed(1)}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>%</span>}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>ความชื้นในอากาศโดยรอบ</span>
+              </div>
+            </div>
+
+            {/* Metric 3: Battery */}
+            <div
+              role="button"
+              tabIndex={0}
+              className="telemetry-metric-card"
+              onClick={() => setActiveMetric("batt")}
+              style={{
+                background: activeMetric === "batt" ? "rgba(16, 185, 129, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "batt" ? "1.5px solid var(--sonar-green)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  ระดับแบตเตอรี่
+                </span>
+                {battPercent > 20 ? (
+                  <BatteryChargingIcon size={20} style={{ color: "var(--sonar-green)" }} />
+                ) : (
+                  <BatteryLowIcon size={20} style={{ color: "var(--beacon-red)" }} />
+                )}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : Math.round(battPercent)}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>%</span>}
+                </div>
+                {!isOffline && (
+                  <div style={{ marginTop: "6px" }}>
+                    <div style={{ height: 4, width: "100%", background: "rgba(255, 255, 255, 0.08)", borderRadius: 9999, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: `${Math.min(100, Math.max(0, battPercent))}%`,
+                          background: battPercent > 50 ? "var(--sonar-green)" : battPercent > 20 ? "var(--tactical-amber)" : "var(--beacon-red)",
+                          borderRadius: 9999,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Metric 4: LoRa RSSI Signal */}
+            <div
+              role="button"
+              tabIndex={0}
+              className="telemetry-metric-card"
+              onClick={() => setActiveMetric("rssi")}
+              style={{
+                background: activeMetric === "rssi" ? "rgba(2, 132, 199, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "rssi" ? "1.5px solid var(--marine-blue)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  ความแรงสัญญาณ LoRa
+                </span>
+                <RadioIcon size={20} style={{ color: signalColor }} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : rssi}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>dBm</span>}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: signalColor, fontWeight: 600 }}>
+                  {isOffline ? "ขาดการเชื่อมต่อ" : signalRating}
+                </span>
+              </div>
+            </div>
+
+            {/* Secondary Diagnostics (Shown on desktop or expanded on mobile) */}
+            <div
+              role="button"
+              tabIndex={0}
+              className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
+              onClick={() => setActiveMetric("volt")}
+              style={{
+                background: activeMetric === "volt" ? "rgba(245, 158, 11, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "volt" ? "1.5px solid var(--tactical-amber)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  แรงดันโซลาร์เซลล์
+                </span>
+                <ZapIcon size={20} style={{ color: "var(--tactical-amber)" }} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : battVolt.toFixed(1)}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>V</span>}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>ระบบประจุไฟฟ้าสำรอง</span>
+              </div>
+            </div>
+
+            {/* Metric 6: SNR Quality */}
+            <div
+              role="button"
+              tabIndex={0}
+              className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
+              onClick={() => setActiveMetric("snr")}
+              style={{
+                background: activeMetric === "snr" ? "rgba(2, 132, 199, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "snr" ? "1.5px solid var(--marine-blue)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  คุณภาพสัญญาณ SNR
+                </span>
+                <WifiIcon size={20} style={{ color: "var(--marine-blue)" }} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.875rem", fontWeight: 800, color: "#FFFFFF" }}>
+                    {isOffline ? "-" : snr.toFixed(1)}
+                  </span>
+                  {!isOffline && <span style={{ color: "var(--text-secondary)", fontWeight: 600 }}>dB</span>}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>สัญญาณต่อสัญญาณรบกวน</span>
+              </div>
+            </div>
+
+            {/* Metric 7: Mast Tilt Detection */}
+            <div
+              role="button"
+              tabIndex={0}
+              className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
+              onClick={() => setActiveMetric("tilt")}
+              style={{
+                background: isTilted ? "var(--beacon-red-dim)" : activeMetric === "tilt" ? "rgba(16, 185, 129, 0.08)" : "var(--bg-glass)",
+                border: isTilted ? "1.5px solid var(--beacon-red)" : activeMetric === "tilt" ? "1.5px solid var(--sonar-green)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  การเอียงของเสาตรวจวัด
+                </span>
+                <CompassIcon size={20} style={{ color: isTilted ? "var(--beacon-red)" : "var(--sonar-green)" }} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+                  <span className="tabular-nums" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
+                    X: {tiltX.toFixed(1)}°
+                  </span>
+                  <span className="tabular-nums" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
+                    Y: {tiltY.toFixed(1)}°
+                  </span>
+                </div>
+                <span style={{ fontSize: "0.75rem", color: isTilted ? "var(--beacon-red)" : "var(--sonar-green)", fontWeight: 600 }}>
+                  {isTilted ? "เสาเอียงเกินเกณฑ์ปลอดภัย" : "แนวตั้งฉากปกติ"}
+                </span>
+              </div>
+            </div>
+
+            {/* Metric 8: Gateway Connection */}
+            <div
+              role="button"
+              tabIndex={0}
+              className={`telemetry-metric-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
+              onClick={() => setActiveMetric("gateway")}
+              style={{
+                background: activeMetric === "gateway" ? "rgba(2, 132, 199, 0.08)" : "var(--bg-glass)",
+                border: activeMetric === "gateway" ? "1.5px solid var(--marine-blue)" : "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "12px",
+                padding: "1.25rem",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                gap: "0.75rem",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.9375rem", color: "var(--text-secondary)", fontWeight: 600 }}>
+                  เกตเวย์รับข้อมูล
+                </span>
+                <ActivityIcon size={20} style={{ color: "var(--sonar-green)" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF", marginBottom: "2px" }}>
+                  {isOffline ? "-" : gateway}
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--sonar-green)", fontWeight: 600 }}>
+                  {isOffline ? "ออฟไลน์" : `เชื่อมต่อ ${gatewayStatus}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Hardware Metadata Bar */}
+            <div
+              className={`telemetry-hw-specs-card telemetry-secondary-metric ${showAllMetrics ? "show" : ""}`}
+              style={{
+                gridColumn: "1 / -1",
+                background: "rgba(6, 11, 15, 0.7)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: "10px",
+                padding: "0.875rem 1.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "1rem",
+                fontSize: "0.8125rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <CpuIcon size={16} style={{ color: "var(--marine-blue)" }} />
+                <span>รุ่นอุปกรณ์: <strong style={{ color: "#FFFFFF" }}>{model}</strong></span>
+              </div>
+              <div>
+                <span>เฟิร์มแวร์: <strong style={{ color: "#FFFFFF" }}>{firmware}</strong></span>
+              </div>
+              <div>
+                <span>ประเภทสถานี: <strong style={{ color: "#FFFFFF" }}>{station.stationType || "แม่น้ำ"}</strong></span>
+              </div>
+              <div className="tabular-nums">
+                <span>พิกัดเรดาร์: <strong style={{ color: "var(--sonar-green)" }}>{station.lat.toFixed(6)}, {station.lng.toFixed(6)}</strong></span>
+              </div>
+            </div>
+
+            {/* Mobile Expand / Collapse Toggle Button */}
+            <div className="telemetry-metrics-toggle-row">
+              <Button
+                variant="ghost"
+                size="sm"
+                fullWidth
+                onClick={() => setShowAllMetrics((prev) => !prev)}
+                rightIcon={<span style={{ fontSize: "10px" }}>{showAllMetrics ? "▲" : "▼"}</span>}
+              >
+                {showAllMetrics ? "ซ่อนข้อมูลเพิ่มเติม" : "ดูเซนเซอร์และฮาร์ดแวร์เพิ่มเติม"}
+              </Button>
+            </div>
           </div>
         </div>
       ) : (
-        /* ── 3. VIEW MODE B: LIVE WATER LEVEL TREND AREA CHART (Tufte Data-Ink) ── */
+        /* ── 3. VIEW MODE B: HYDROLOGICAL WATER TREND CHART (Marine Blue Pulse) ── */
         <div
           className="telemetry-chart-card"
           style={{
-            background: "rgba(8, 12, 20, 0.7)",
+            background: "rgba(6, 11, 15, 0.75)",
             border: "1px solid rgba(255, 255, 255, 0.08)",
-            borderRadius: "1.25rem",
-            padding: "1.5rem 1.75rem",
-            marginBottom: "1.75rem",
+            borderRadius: "12px",
+            padding: "1.25rem 1.5rem",
+            marginBottom: "1rem",
           }}
         >
           <div
-            className="telemetry-chart-header"
             style={{
               display: "flex",
               alignItems: "center",
@@ -1793,174 +1136,79 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               gap: "0.5rem",
             }}
           >
-            <div
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <ActivityIcon size={18} style={{ color: "var(--sky-highlight)", flexShrink: 0 }} />
-              <h3
-                style={{
-                  fontSize: "1rem",
-                  fontWeight: 700,
-                  color: "#FFFFFF",
-                  margin: 0,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                กราฟแนวโน้มระดับน้ำ
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <ActivityIcon size={18} style={{ color: "var(--marine-blue)" }} />
+              <h3 style={{ fontSize: "0.9375rem", fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+                แนวโน้มระดับน้ำจริงย้อนหลัง (10 จุดตรวจวัดล่าสุด)
               </h3>
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  color: "var(--text-secondary)",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  padding: "0.15rem 0.5rem",
-                  borderRadius: "9999px",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                เทียบ{refName}
-              </span>
             </div>
+            <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+              แกน Y: เมตรเทียบกับ{refName}
+            </span>
           </div>
 
-          {isOffline ? (
-            <div
-              style={{
-                width: "100%",
-                height: 260,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.75rem",
-                background: "rgba(0, 0, 0, 0.25)",
-                borderRadius: "0.75rem",
-                border: "1px dashed rgba(245, 158, 11, 0.3)",
-              }}
-            >
-              <AlertTriangleIcon size={32} style={{ color: "#F59E0B" }} />
-              <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#E2E8F0" }}>
-                สถานีออฟไลน์
-              </div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                งดแสดงผลข้อมูลระดับน้ำขณะปิดให้บริการ
-              </div>
-            </div>
-          ) : (
-            <div style={{ width: "100%", minWidth: 0, height: 260 }}>
-              <ResponsiveContainer
-                width="100%"
-                height="100%"
-                minWidth="100%"
-                minHeight={260}
-                initialDimension={{ width: 350, height: 260 }}
-              >
-              <AreaChart
-                data={chartData}
-                margin={{ top: 15, right: 15, left: 10, bottom: 0 }}
-              >
+          <div style={{ width: "100%", height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
-                  <linearGradient
-                    id="stationWaterGrad"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="5%" stopColor="#38BDF8" stopOpacity={0.35} />
-                    <stop offset="95%" stopColor="#38BDF8" stopOpacity={0.0} />
+                  <linearGradient id="sonarWaterGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0284C7" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#0284C7" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="rgba(255, 255, 255, 0.05)"
-                  vertical={false}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.06)" />
                 <XAxis
                   dataKey="time"
-                  stroke="#64748B"
+                  stroke="var(--text-muted)"
                   fontSize={11}
                   tickLine={false}
-                  interval="preserveStartEnd"
-                  minTickGap={28}
                 />
                 <YAxis
-                  stroke="#64748B"
+                  stroke="var(--text-muted)"
                   fontSize={11}
                   tickLine={false}
-                  axisLine={false}
                   domain={["auto", "auto"]}
-                  tickCount={6}
-                  tickFormatter={(val: number) =>
-                    `${val >= 0 ? "+" : ""}${val.toFixed(2)} ม.`
-                  }
-                  width={62}
+                  tickFormatter={(v) => `${v.toFixed(2)}m`}
                 />
                 <Tooltip
                   contentStyle={{
-                    background: "rgba(15, 23, 42, 0.95)",
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    borderRadius: "0.5rem",
+                    background: "#060B0F",
+                    border: "1px solid rgba(2, 132, 199, 0.4)",
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.8)",
                     color: "#FFFFFF",
-                    fontSize: "0.8125rem",
+                    fontSize: "12px",
                   }}
-                  formatter={(val: any) => [
-                    `${Number(val) >= 0 ? "+" : ""}${Number(val).toFixed(3)} ม.`,
-                    `ระดับน้ำเทียบ${refName}`,
-                  ]}
-                />
-                {/* 0.00m Reference Point Line */}
-                <ReferenceLine
-                  y={0}
-                  stroke="#38BDF8"
-                  strokeWidth={1.5}
-                  strokeDasharray="3 3"
-                  label={{
-                    value: `${refName} (0.00 ม.)`,
-                    fill: "#38BDF8",
-                    fontSize: 11,
-                    position: "right",
-                  }}
+                  formatter={(value: any) => [`${Number(value).toFixed(3)} ม.`, "ระดับน้ำ"]}
+                  labelFormatter={(lbl) => `เวลา ${lbl} น.`}
                 />
                 {hasWarning && (
                   <ReferenceLine
                     y={warningLevel!}
-                    stroke="#F59E0B"
+                    stroke="var(--tactical-amber)"
                     strokeDasharray="4 4"
-                    label={{
-                      value: `เฝ้าระวัง (${warningLevel! >= 0 ? "+" : ""}${warningLevel!.toFixed(2)}ม.)`,
-                      fill: "#F59E0B",
-                      fontSize: 10,
-                      position: "right",
-                    }}
+                    label={{ value: "เฝ้าระวัง", fill: "var(--tactical-amber)", fontSize: 10, position: "insideTopRight" }}
                   />
                 )}
                 {hasCritical && (
                   <ReferenceLine
                     y={criticalLevel!}
-                    stroke="#EF4444"
+                    stroke="var(--beacon-red)"
                     strokeDasharray="4 4"
-                    label={{
-                      value: `วิกฤต (${criticalLevel! >= 0 ? "+" : ""}${criticalLevel!.toFixed(2)}ม.)`,
-                      fill: "#EF4444",
-                      fontSize: 10,
-                      position: "right",
-                    }}
+                    label={{ value: "วิกฤต", fill: "var(--beacon-red)", fontSize: 10, position: "insideTopRight" }}
                   />
                 )}
                 <Area
                   type="monotone"
                   dataKey="level"
-                  stroke="#38BDF8"
+                  stroke="#0284C7"
                   strokeWidth={2.5}
                   fillOpacity={1}
-                  fill="url(#stationWaterGrad)"
+                  fill="url(#sonarWaterGradient)"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          )}
         </div>
       )}
     </div>

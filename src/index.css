@@ -5,55 +5,75 @@
    ============================ */
 
 /* ============================================================
-   DESIGN SYSTEM TOKENS - COBALT & ELECTRIC CYAN THEME
-   (Rule: Dashboard UI Concepts & Public Service Architecture)
+   DESIGN SYSTEM TOKENS - TACTICAL SONAR & SUBMARINE COMMAND
+   (Matte Cockpit & Precision Pulse - Apple HIG Calibrated)
    ============================================================ */
 
 :root {
-  /* 3.1 Surface & Elevation */
-  --canvas-background: #080C14;
-  --card-surface: #111827;
-  --card-border: #1E293B;
+  /* 1. Surfaces & Cockpit Elevation */
+  --canvas-background: #060B0F;
+  --card-surface: #0B131B;
+  --card-border: #162638;
   --card-border-subtle: rgba(255, 255, 255, 0.08);
-  --card-hover-border: #334155;
+  --card-hover-border: #223850;
 
-  /* 3.2 Brand & Data Visualization Accents */
-  --primary-accent: #2563EB;
-  --primary-accent-glow: rgba(37, 99, 235, 0.2);
-  --cyan-glow: #0EA5E9;
-  --cyan-glow-dim: rgba(14, 165, 233, 0.12);
+  /* 2. Color Hierarchy:
+     - Primary / Actions / Navigation: Hydro Marine Blue (#0284C7)
+     - Secondary / Live Radar & Active Telemetry: Sonar Phosphor Green (#10B981)
+     - Tertiary / Caution & Diagnostics: Tactical Amber (#F59E0B)
+     - Quaternary / Emergency Warning: Beacon Red (#DC2626)
+  */
+  --marine-blue: #0284C7;
+  --marine-blue-dark: #0369A1;
+  --marine-blue-glow: rgba(2, 132, 199, 0.25);
+  --marine-blue-dim: rgba(2, 132, 199, 0.12);
   --sky-highlight: #38BDF8;
 
-  /* 3.3 Typography & Readability */
+  --sonar-green: #10B981;
+  --sonar-green-dim: rgba(16, 185, 129, 0.12);
+  --sonar-green-glow: rgba(16, 185, 129, 0.25);
+
+  --tactical-amber: #F59E0B;
+  --tactical-amber-dim: rgba(245, 158, 11, 0.12);
+
+  --beacon-red: #DC2626;
+  --beacon-red-dim: rgba(220, 38, 38, 0.14);
+
+  /* 3. Typography & Readability */
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
-  --text-inverse: #080C14;
+  --text-inverse: #060B0F;
 
-  /* 3.4 Semantic Status Tokens (Always pair color with semantic icons) */
-  --status-normal: #10B981;
-  --status-normal-dim: rgba(16, 185, 129, 0.12);
-  --status-advisory: #F59E0B;
-  --status-advisory-dim: rgba(245, 158, 11, 0.12);
-  --status-critical: #EF4444;
-  --status-critical-dim: rgba(239, 68, 68, 0.12);
+  /* 4. Semantic Status Tokens */
+  --status-normal: var(--sonar-green);
+  --status-normal-dim: var(--sonar-green-dim);
+  --status-advisory: var(--tactical-amber);
+  --status-advisory-dim: var(--tactical-amber-dim);
+  --status-critical: var(--beacon-red);
+  --status-critical-dim: var(--beacon-red-dim);
 
-  /* Legacy & Core Mappings for Compatibility */
+  /* Core Aliases for Compatibility */
   --bg-base: var(--canvas-background);
-  --bg-surface: #0E1526;
+  --bg-surface: #0E1A24;
   --bg-card: var(--card-surface);
-  --bg-card-hover: #162032;
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --bg-glass-hover: rgba(255, 255, 255, 0.07);
-  --bg-sidebar: #060a12;
-  --bg-input: #0e172a;
+  --bg-card-hover: #111D2A;
+  --bg-glass: rgba(11, 19, 27, 0.75);
+  --bg-glass-hover: rgba(22, 38, 56, 0.6);
+  --bg-sidebar: #05080C;
+  --bg-input: #081017;
 
-  --color-primary: #38BDF8;
-  --color-primary-dim: rgba(56, 189, 248, 0.12);
-  --color-primary-glow: rgba(56, 189, 248, 0.2);
-  --color-primary-dark: #0284C7;
-  --color-secondary: var(--primary-accent);
-  --color-secondary-dim: var(--primary-accent-glow);
+  --primary-accent: var(--marine-blue);
+  --primary-accent-glow: var(--marine-blue-glow);
+  --cyan-glow: var(--sky-highlight);
+  --cyan-glow-dim: var(--marine-blue-dim);
+
+  --color-primary: var(--marine-blue);
+  --color-primary-dim: var(--marine-blue-dim);
+  --color-primary-glow: var(--marine-blue-glow);
+  --color-primary-dark: var(--marine-blue-dark);
+  --color-secondary: var(--sonar-green);
+  --color-secondary-dim: var(--sonar-green-dim);
 
   --color-normal: var(--status-normal);
   --color-normal-dim: var(--status-normal-dim);
@@ -61,11 +81,11 @@
   --color-warning-dim: var(--status-advisory-dim);
   --color-critical: var(--status-critical);
   --color-critical-dim: var(--status-critical-dim);
-  --color-info: var(--sky-highlight);
-  --color-info-dim: rgba(56, 189, 248, 0.12);
+  --color-info: var(--marine-blue);
+  --color-info-dim: var(--marine-blue-dim);
 
   --border: var(--card-border);
-  --border-focus: var(--cyan-glow);
+  --border-focus: var(--marine-blue);
   --border-hover: var(--card-hover-border);
 
   /* Shadows */
@@ -76,9 +96,10 @@
   --shadow-glow-warning: 0 4px 20px rgba(0, 0, 0, 0.4);
   --shadow-glow-critical: 0 4px 20px rgba(0, 0, 0, 0.4);
 
-  /* Layout */
+  /* Layout & Apple HIG Radius Scale */
   --sidebar-width: 280px;
   --topbar-height: 56px;
+  --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -86,9 +107,9 @@
   --radius-full: 9999px;
 
   /* Transitions */
-  --t-fast: 150ms ease;
-  --t-base: 250ms ease;
-  --t-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-base: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --t-slow: 350ms cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Safe Area & Layout Dimensional Constants */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -154,13 +175,27 @@ textarea,
   justify-content: center;
 }
 
+/* Tabular Numerals for Jitter-Free Real-Time Telemetry */
+.tabular-nums,
+[data-tabular-nums] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* WCAG AA High-Contrast Focus Visible Ring */
+:focus-visible {
+  outline: 2px solid var(--cyan-glow) !important;
+  outline-offset: 2px !important;
+}
+
 /* Active touch feedback for mobile/tablet ergonomics */
-button:active,
-.btn:active,
+button:active:not(:disabled),
+.btn:active:not(:disabled),
+.ui-btn:active:not(:disabled),
 .nav-item:active,
 .mobile-nav-btn:active,
 [role="tab"]:active {
-  transform: scale(0.97);
+  transform: scale(0.975);
   transition: transform 0.1s ease;
 }
 
@@ -1053,70 +1088,94 @@ tbody tr:last-child td { border-bottom: none; }
 .topbar-action-btn,
 .notif-btn {
   position: relative;
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #94A3B8;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 0.5rem;
+  background-color: #222222;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #ffffff;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-tap-highlight-color: transparent;
   padding: 0;
 }
 
 .topbar-action-btn:hover,
 .notif-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #F8FAFC;
-  border-color: rgba(255, 255, 255, 0.18);
+  background-color: #333333;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.12);
   transform: translateY(-1px);
 }
 
 .topbar-action-btn:active,
 .notif-btn:active {
   transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.12);
+  background-color: #1a1a1a;
 }
 
 .topbar-action-btn:focus-visible,
 .notif-btn:focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid #0284c7;
   outline-offset: 2px;
 }
 
-.topbar-action-btn .spin,
-.spin {
-  animation: spin 0.8s linear infinite;
+/* Uiverse spin_357 animation on focus / click / refresh */
+.topbar-action-btn:focus svg,
+.topbar-action-btn.refreshing svg,
+.topbar-action-btn .spin {
+  animation: spin_357 0.6s linear;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes spin_357 {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
+/* Subtle bell swing on hover */
+@keyframes bell_swing {
+  0% { transform: rotate(0deg); }
+  20% { transform: rotate(12deg); }
+  40% { transform: rotate(-10deg); }
+  60% { transform: rotate(6deg); }
+  80% { transform: rotate(-4deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.notif-btn:hover .bell-icon,
+.topbar-action-btn:hover .bell-icon {
+  animation: bell_swing 0.5s ease-in-out;
+  transform-origin: top center;
+}
+
+/* Solid Crimson #E11D48 Badge with #222 outline */
 .notif-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 16px;
-  height: 16px;
+  min-width: 17px;
+  height: 17px;
   padding: 0 4px;
   border-radius: 9999px;
-  background: #EF4444;
+  background: #E11D48;
   color: #FFFFFF;
   font-size: 10px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid var(--bg-card);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  border: 2px solid #222222;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   line-height: 1;
 }
 
@@ -1399,6 +1458,9 @@ tbody tr:last-child td { border-bottom: none; }
 .telemetry-metrics-toggle-row {
   display: none !important;
 }
+.telemetry-hub-card {
+  padding: 1.5rem;
+}
 .station-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -1407,6 +1469,236 @@ tbody tr:last-child td { border-bottom: none; }
 .mobile-bottom-nav,
 .bottom-sheet-backdrop {
   display: none;
+}
+
+/* ── VisionOS Floating Glass Capsule Dock & Micro-interactions ── */
+.vision-capsule-scroll-wrapper {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.vision-capsule-scroll-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
+.vision-glass-dock {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.vision-glass-dock:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.vision-capsule-item {
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Glass Specular Sheen (Shimmer effect on hover) */
+.vision-capsule-item::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -70%;
+  width: 45%;
+  height: 200%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.16),
+    transparent
+  );
+  transform: rotate(25deg);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  opacity: 0;
+}
+.vision-capsule-item:hover::after {
+  transform: translateX(360%) rotate(25deg);
+  opacity: 1;
+}
+
+.vision-capsule-item:hover {
+  color: #ffffff !important;
+}
+
+.vision-capsule-item:not(.selected):hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.vision-capsule-item:active {
+  transform: scale(0.965);
+}
+
+.vision-capsule-item:focus-visible {
+  outline: 2px solid var(--marine-blue);
+  outline-offset: 2px;
+}
+
+/* Sonar Radar Pulse Ring Animation */
+@keyframes sonar-ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  60% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.sonar-pulse-ring {
+  animation: sonar-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Tactile Telemetry Quick Stats Pill */
+.tactile-stat-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(11, 19, 27, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.tactile-stat-pill:hover {
+  background: rgba(14, 26, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.tactile-stat-pill .stat-label {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.tactile-stat-pill .stat-val {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── VisionOS Time Range Switcher ── */
+.vision-timerange-dock {
+  transition: border-color 0.2s ease;
+}
+.vision-timerange-dock:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.vision-timerange-item {
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.vision-timerange-item:not(.selected):hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+.vision-timerange-item:active {
+  transform: scale(0.96);
+}
+
+/* ── Uiverse Flight CSV Export Button ── */
+.csv-flight-button {
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  padding: 0.5rem 1.15rem 0.5rem 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(2, 132, 199, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 34px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.csv-flight-button .flight-svg-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease-in-out;
+}
+
+.csv-flight-button span.flight-text {
+  display: block;
+  margin-left: 0.45em;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.csv-flight-button svg {
+  display: block;
+  transform-origin: center center;
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Hover flight action */
+.csv-flight-button:not(:disabled):not(.success):hover {
+  background: linear-gradient(135deg, #0284c7 0%, #0270a6 100%);
+  border-color: rgba(56, 189, 248, 0.7);
+  box-shadow: 0 4px 18px rgba(2, 132, 199, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.csv-flight-button:not(:disabled):not(.success):hover .flight-svg-wrapper {
+  animation: fly-1 0.6s ease-in-out infinite alternate;
+}
+
+.csv-flight-button:not(:disabled):not(.success):hover svg {
+  transform: translateX(1.1em) rotate(45deg) scale(1.15);
+}
+
+.csv-flight-button:not(:disabled):not(.success):hover span.flight-text {
+  transform: translateX(5.5em);
+  opacity: 0;
+}
+
+.csv-flight-button:active {
+  transform: scale(0.95);
+}
+
+.csv-flight-button:focus-visible {
+  outline: 2px solid var(--marine-blue);
+  outline-offset: 2px;
+}
+
+/* Success Download Morphing */
+.csv-flight-button.success {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  border-color: rgba(52, 211, 153, 0.5) !important;
+  box-shadow: 0 2px 14px rgba(16, 185, 129, 0.4) !important;
+}
+
+.csv-flight-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes fly-1 {
+  from {
+    transform: translateY(0.12em);
+  }
+  to {
+    transform: translateY(-0.12em);
+  }
 }
 
 /* Container Query Context */
@@ -1421,6 +1713,23 @@ tbody tr:last-child td { border-bottom: none; }
   grid-template-columns: 1fr 340px;
   gap: 1.25rem;
   align-items: start;
+}
+
+/* ChartPage Responsive Station Selector Behavior (Desktop vs Mobile/Tablet) */
+.chart-mobile-station-bar {
+  display: none !important;
+}
+.chart-desktop-station-column {
+  display: flex !important;
+}
+
+@media (max-width: 1024px) {
+  .chart-mobile-station-bar {
+    display: block !important;
+  }
+  .chart-desktop-station-column {
+    display: none !important;
+  }
 }
 .dashboard-main-split {
   display: grid;
@@ -1864,14 +2173,14 @@ tbody tr:last-child td { border-bottom: none; }
     color: #F1F5F9;
   }
 
-  /* Compact Sticky Mobile View Toggle Bar */
+  /* Compact Mobile View Toggle Bar (Non-sticky to prevent overlap with station track) */
   .mobile-view-toggle-wrap {
     display: flex !important;
     justify-content: center;
-    margin-bottom: 14px !important;
-    position: sticky;
-    top: calc(48px + var(--safe-top) + 6px);
-    z-index: 60;
+    margin-bottom: 12px !important;
+    position: relative !important;
+    z-index: 10;
+    width: 100%;
   }
   .mobile-view-toggle-bar {
     display: inline-flex;
@@ -1933,11 +2242,12 @@ tbody tr:last-child td { border-bottom: none; }
     margin-bottom: 1rem;
     max-width: 100% !important;
   }
-  .history-toolbar {
+  .history-toolbar,
+  .history-toolbar-tactical {
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 0.75rem !important;
-    padding: 12px 14px !important;
+    padding: 10px 12px !important;
   }
   .history-filter-station-wrap,
   .compact-dropdown-container,
@@ -1982,9 +2292,22 @@ tbody tr:last-child td { border-bottom: none; }
     gap: 0.75rem !important;
   }
 
+  /* Compact VisionOS Station Track on Mobile */
+  .station-capsule-track-container {
+    margin-bottom: 0.875rem !important;
+    padding-bottom: 0.75rem !important;
+  }
+  .vision-glass-dock {
+    padding: 3px !important;
+  }
+  .vision-capsule-item {
+    padding: 5px 12px !important;
+    font-size: 0.75rem !important;
+  }
+
   /* Compact Hub Card & Header on Mobile */
   .telemetry-hub-card {
-    padding: 14px 16px !important;
+    padding: 14px 14px !important;
     border-radius: 1rem !important;
     margin-bottom: 14px !important;
   }
@@ -2632,3 +2955,408 @@ tbody tr:last-child td { border-bottom: none; }
     display: none !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   TACTICAL LOG EXPLORER & HYBRID RESPONSIVE CARDS (ZERO-GLOW)
+   ───────────────────────────────────────────────────────────── */
+
+.history-toolbar-tactical {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Connected Tactical Button Group (Zero-Glow) */
+.tactical-btn-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.tactical-btn-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tactical-btn-item:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.tactical-btn-item.active {
+  background: #1e293b;
+  color: #ffffff;
+  font-weight: 600;
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.tactical-btn-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 1px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UNIFIED TACTICAL COMMAND STRIP (ZERO-GLOW & ZERO-COLON)
+   ───────────────────────────────────────────────────────────── */
+/* ── 4-Column Independent KPI Metric Cards ────────────────── */
+.history-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .history-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .history-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.history-kpi-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.history-kpi-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(20, 30, 52, 0.75);
+}
+
+.history-kpi-card-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-kpi-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.history-kpi-card-val {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* ── Linear / GitHub Style Table Header Tab Strip ─────────── */
+.table-header-tabstrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: rgba(17, 24, 39, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 16px;
+  min-height: 44px;
+}
+
+.table-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-tab-list::-webkit-scrollbar {
+  display: none;
+}
+
+.table-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  outline: none;
+}
+
+.table-tab-item:hover {
+  color: var(--text-primary);
+}
+
+.table-tab-item.active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.table-tab-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: #38bdf8;
+  border-radius: 2px 2px 0 0;
+}
+
+.table-tab-badge {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.table-tab-item.active .table-tab-badge {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+}
+
+.table-tab-badge.dimmed {
+  opacity: 0.45;
+}
+
+/* Tactical Export Scope Modal */
+.export-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: fadeIn 0.15s ease;
+}
+
+.export-modal-panel {
+  width: 100%;
+  max-width: 440px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  animation: slideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.export-option-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.export-option-card:hover {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.export-option-card.selected {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+/* Hybrid Responsive View Breakdown */
+.history-desktop-table-container {
+  display: block;
+}
+
+.history-mobile-cards-container {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .history-desktop-table-container {
+    display: none !important;
+  }
+  .history-mobile-cards-container {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+/* Tactical Desktop Table */
+.tactical-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.tactical-table th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.tactical-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tactical-table-row {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.tactical-table-row:hover {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+}
+
+.tactical-table-row.expanded {
+  background-color: rgba(30, 41, 59, 0.7) !important;
+  border-left: 2px solid #0284c7;
+}
+
+/* Accordion Expansion Sub-row */
+.tactical-accordion-row {
+  animation: expandRowAnim 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  background: rgba(11, 19, 27, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes expandRowAnim {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tactical-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px 18px;
+}
+
+@media (max-width: 900px) {
+  .tactical-telemetry-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tactical-telemetry-card {
+  padding: 12px 14px;
+  background: rgba(17, 24, 39, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+}
+
+.tactical-telemetry-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tactical-telemetry-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.tactical-telemetry-item-label {
+  color: var(--text-secondary);
+}
+
+.tactical-telemetry-item-val {
+  font-family: var(--font-mono, monospace);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Mobile Data Card */
+.tactical-mobile-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.15s ease;
+}
+
+.tactical-mobile-card.expanded {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+

@@ -5,6 +5,8 @@ import {
   fetchNotificationSettings,
   updateNotificationSettings,
   resetStationNotificationSettings,
+  fetchLineQuotaStatus,
+  type LineQuotaStatus,
 } from '../../services/apiService';
 import {
   BellIcon,
@@ -12,10 +14,11 @@ import {
   TrendingUpIcon,
   ClockIcon,
   ZapIcon,
-  MapPinIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
   RefreshCwIcon,
+  ActivityIcon,
+  MapPinIcon,
 } from '../ui/Icons';
 
 interface StationNotificationModalProps {
@@ -79,30 +82,16 @@ function NumberStepperInput({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      handleIncrement();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      handleDecrement();
-    } else if (e.key === 'Enter') {
-      (e.target as HTMLInputElement).blur();
-    }
-  };
-
   return (
     <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        background: 'rgba(15, 23, 42, 0.85)',
-        border: `1.5px solid ${isFocused ? accentColor : 'rgba(255, 255, 255, 0.14)'}`,
-        boxShadow: isFocused ? '0 0 0 2px rgba(2, 132, 199, 0.25)' : 'none',
-        borderRadius: 10,
-        padding: '3px 4px',
-        transition: 'all 0.2s ease',
-        gap: 4,
+        background: '#090E17',
+        border: `1px solid ${isFocused ? accentColor : 'rgba(255, 255, 255, 0.12)'}`,
+        borderRadius: 8,
+        padding: '2px 4px',
+        gap: 3,
       }}
     >
       <button
@@ -110,23 +99,20 @@ function NumberStepperInput({
         onClick={handleDecrement}
         disabled={value <= min}
         style={{
-          width: 30,
-          height: 30,
-          borderRadius: 7,
+          width: 26,
+          height: 26,
+          borderRadius: 6,
           background: 'rgba(255, 255, 255, 0.06)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          color: value <= min ? 'var(--text-muted)' : '#FFFFFF',
+          border: 'none',
+          color: value <= min ? '#475569' : '#FFFFFF',
           cursor: value <= min ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: 700,
-          lineHeight: 1,
-          transition: 'all 0.15s ease',
         }}
         aria-label={`ลดค่า ${ariaLabel}`}
-        title={`ลด (${step})`}
       >
         -
       </button>
@@ -140,25 +126,22 @@ function NumberStepperInput({
         aria-label={ariaLabel}
         onFocus={() => setIsFocused(true)}
         onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
         onChange={(e) => {
           setLocalVal(e.target.value);
           const num = parseFloat(e.target.value);
-          if (!isNaN(num)) {
-            onChange(num);
-          }
+          if (!isNaN(num)) onChange(num);
         }}
+        className="tabular-nums font-mono"
         style={{
-          width: 64,
+          width: 52,
           background: 'transparent',
           border: 'none',
           outline: 'none',
           color: '#FFFFFF',
-          fontFamily: 'monospace, inherit',
-          fontSize: 14,
-          fontWeight: 800,
+          fontSize: 13,
+          fontWeight: 700,
           textAlign: 'center',
-          padding: '4px 2px',
+          padding: '2px 0',
         }}
       />
 
@@ -167,38 +150,32 @@ function NumberStepperInput({
         onClick={handleIncrement}
         disabled={value >= max}
         style={{
-          width: 30,
-          height: 30,
-          borderRadius: 7,
+          width: 26,
+          height: 26,
+          borderRadius: 6,
           background: 'rgba(255, 255, 255, 0.06)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          color: value >= max ? 'var(--text-muted)' : '#FFFFFF',
+          border: 'none',
+          color: value >= max ? '#475569' : '#FFFFFF',
           cursor: value >= max ? 'not-allowed' : 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: 700,
-          lineHeight: 1,
-          transition: 'all 0.15s ease',
         }}
         aria-label={`เพิ่มค่า ${ariaLabel}`}
-        title={`เพิ่ม (${step})`}
       >
         +
       </button>
 
       <span
         style={{
-          padding: '4px 10px',
-          borderRadius: 6,
-          background: `${accentColor}18`,
-          border: `1px solid ${accentColor}35`,
+          padding: '2px 6px',
+          borderRadius: 5,
+          background: `${accentColor}15`,
           color: accentColor,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: 700,
-          letterSpacing: '0.02em',
-          userSelect: 'none',
           marginLeft: 2,
         }}
       >
@@ -218,7 +195,7 @@ function ToggleSwitch({
   ariaLabel?: string;
 }) {
   return (
-    <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer', flexShrink: 0 }}>
+    <label style={{ position: 'relative', display: 'inline-block', width: 40, height: 22, cursor: 'pointer', flexShrink: 0 }}>
       <input
         type="checkbox"
         checked={checked}
@@ -234,21 +211,20 @@ function ToggleSwitch({
           left: 0,
           right: 0,
           bottom: 0,
-          background: checked ? '#0284c7' : 'rgba(148, 163, 184, 0.3)',
-          transition: '0.2s',
-          borderRadius: 24,
+          background: checked ? '#0284C7' : 'rgba(255, 255, 255, 0.12)',
+          transition: 'all 0.18s ease',
+          borderRadius: 22,
         }}
       >
         <span
           style={{
             position: 'absolute',
-            content: '""',
-            height: 18,
-            width: 18,
-            left: checked ? 23 : 3,
+            height: 16,
+            width: 16,
+            left: checked ? 21 : 3,
             bottom: 3,
-            backgroundColor: '#fff',
-            transition: '0.2s',
+            backgroundColor: '#FFFFFF',
+            transition: 'all 0.18s ease',
             borderRadius: '50%',
           }}
         />
@@ -262,7 +238,7 @@ interface ConditionCardProps {
   iconBg: string;
   iconColor: string;
   title: string;
-  description: string;
+  description?: string;
   enabled: boolean;
   onToggle: (checked: boolean) => void;
   thresholdLabel: string;
@@ -305,20 +281,18 @@ function ConditionCard({
   return (
     <div
       style={{
-        padding: '14px 16px',
-        borderRadius: 12,
+        padding: '12px 14px',
+        borderRadius: 10,
         background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
-        transition: 'all 0.2s ease',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
       }}
     >
-      {/* Top Row: Icon + Title + Toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
           <div
             style={{
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               borderRadius: 8,
               background: iconBg,
               color: iconColor,
@@ -330,53 +304,45 @@ function ConditionCard({
           >
             {icon}
           </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>
               {title}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              {description}
-            </div>
+            </span>
+            {description && (
+              <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
+                {description}
+              </span>
+            )}
           </div>
         </div>
 
-        <ToggleSwitch
-          checked={enabled}
-          onChange={onToggle}
-          ariaLabel={`เปิด/ปิด ${title}`}
-        />
+        <ToggleSwitch checked={enabled} onChange={onToggle} ariaLabel={`เปิด/ปิด ${title}`} />
       </div>
 
-      {/* Expanded Controls: Threshold & Cooldown Frequency */}
       <div
         style={{
-          marginTop: 12,
-          paddingTop: 12,
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          marginTop: 10,
+          paddingTop: 10,
+          borderTop: '1px solid rgba(255, 255, 255, 0.04)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 10,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 8,
           opacity: enabled ? 1 : 0.35,
           pointerEvents: enabled ? 'auto' : 'none',
-          transition: 'opacity 0.2s ease',
         }}
       >
-        {/* 1. เกณฑ์ตรวจวัด (Threshold) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 10,
-            background: 'rgba(0, 0, 0, 0.22)',
-            padding: '8px 12px',
+            gap: 8,
+            background: 'rgba(9, 14, 23, 0.6)',
+            padding: '6px 10px',
             borderRadius: 8,
-            border: '1px solid rgba(255, 255, 255, 0.04)',
           }}
         >
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-            {thresholdLabel}
-          </div>
+          <span style={{ fontSize: 11.5, color: '#94A3B8' }}>{thresholdLabel}</span>
           <NumberStepperInput
             value={thresholdValue}
             onChange={onThresholdChange}
@@ -389,21 +355,19 @@ function ConditionCard({
           />
         </div>
 
-        {/* 2. ความถี่แจ้งเตือนซ้ำ (Cooldown Frequency) */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 10,
-            background: 'rgba(0, 0, 0, 0.22)',
-            padding: '8px 12px',
+            gap: 8,
+            background: 'rgba(9, 14, 23, 0.6)',
+            padding: '6px 10px',
             borderRadius: 8,
-            border: '1px solid rgba(255, 255, 255, 0.04)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', fontWeight: 500 }}>
-            <ClockIcon size={13} style={{ color: 'var(--text-muted)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#94A3B8' }}>
+            <ClockIcon size={12} style={{ color: '#64748B' }} />
             <span>เตือนซ้ำทุก</span>
           </div>
           <NumberStepperInput
@@ -413,8 +377,8 @@ function ConditionCard({
             max={cooldownMax}
             step={cooldownStep}
             unit="นาที"
-            accentColor="#0284c7"
-            ariaLabel={`ความถี่แจ้งเตือนซ้ำสำหรับ ${title}`}
+            accentColor="#0284C7"
+            ariaLabel={`ความถี่เตือนซ้ำสำหรับ ${title}`}
           />
         </div>
       </div>
@@ -434,6 +398,7 @@ export default function StationNotificationModal({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'water' | 'device'>('water');
+  const [lineQuota, setLineQuota] = useState<LineQuotaStatus | null>(null);
 
   const [settings, setSettings] = useState<NotificationSettings>({
     water_level_enabled: true,
@@ -459,10 +424,20 @@ export default function StationNotificationModal({
     setErrorMsg(null);
     setSaveSuccess(false);
     try {
-      const data = await fetchNotificationSettings(station?.id);
-      setSettings(data);
+      const [data, quotaData] = await Promise.allSettled([
+        fetchNotificationSettings(station?.id),
+        fetchLineQuotaStatus(),
+      ]);
+      if (data.status === 'fulfilled') {
+        setSettings(data.value);
+      } else {
+        throw new Error(data.reason?.message || 'ไม่สามารถโหลดข้อมูลการตั้งค่าได้');
+      }
+      if (quotaData.status === 'fulfilled') {
+        setLineQuota(quotaData.value);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'ไม่สามารถโหลดข้อมูลการตั้งค่าแจ้งเตือนได้');
+      setErrorMsg(err.message || 'ไม่สามารถโหลดข้อมูลการตั้งค่าได้');
     } finally {
       setLoading(false);
     }
@@ -487,7 +462,7 @@ export default function StationNotificationModal({
       setTimeout(() => {
         setSaveSuccess(false);
         onClose();
-      }, 1200);
+      }, 1000);
     } catch (err: any) {
       setErrorMsg(err.message || 'บันทึกการตั้งค่าไม่สำเร็จ');
     } finally {
@@ -497,7 +472,7 @@ export default function StationNotificationModal({
 
   const handleResetToGlobal = async () => {
     if (!station) return;
-    const ok = window.confirm('ต้องการคืนค่าการแจ้งเตือนของสถานีนี้กลับไปใช้ค่าเริ่มต้นส่วนกลางใช่หรือไม่?');
+    const ok = window.confirm('ต้องการคืนค่าการแจ้งเตือนกลับเป็นค่าเริ่มต้นส่วนกลาง?');
     if (!ok) return;
 
     setResetting(true);
@@ -507,68 +482,48 @@ export default function StationNotificationModal({
       await loadSettings();
       setSaveSuccess(true);
       if (onSaved) onSaved();
-      setTimeout(() => setSaveSuccess(false), 2000);
+      setTimeout(() => setSaveSuccess(false), 1500);
     } catch (err: any) {
-      setErrorMsg(err.message || 'รีเซ็ตการตั้งค่าไม่สำเร็จ');
+      setErrorMsg(err.message || 'รีเซ็ตไม่สำเร็จ');
     } finally {
       setResetting(false);
     }
   };
 
   const modalTitle = station
-    ? `ตั้งค่าการแจ้งเตือน — ${station.name}`
-    : 'ตั้งค่าการแจ้งเตือนส่วนกลาง (Global Settings)';
-
-  const modalSubtitle = station
-    ? `รหัส ${station.id} · จุดอ้างอิง ${station.referencePointName || 'จุดอ้างอิง'}`
-    : 'มีผลกับทุกสถานีที่ไม่ได้กำหนดค่าเฉพาะ';
+    ? `ตั้งค่าการแจ้งเตือน · ${station.name}`
+    : 'ตั้งค่าการแจ้งเตือนส่วนกลาง';
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={modalTitle}
-      subtitle={modalSubtitle}
-      maxWidth="720px"
+      maxWidth="680px"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 10 }}>
           <div>
-            {station && (
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  background: settings.is_custom ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
-                  color: settings.is_custom ? '#38BDF8' : 'var(--text-muted)',
-                  border: `1px solid ${settings.is_custom ? 'rgba(56, 189, 248, 0.25)' : 'rgba(148, 163, 184, 0.2)'}`,
-                  fontWeight: 600,
-                  marginRight: 8,
-                }}
-              >
-                {settings.is_custom ? 'กำหนดค่าเฉพาะสถานี' : 'ใช้ค่าเริ่มต้นส่วนกลาง'}
-              </span>
-            )}
             {station && settings.is_custom && (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={handleResetToGlobal}
                 disabled={resetting || saving}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}
+                style={{ fontSize: 11.5, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
               >
-                <RefreshCwIcon size={13} />
-                <span>{resetting ? 'กำลังคืนค่า...' : 'คืนค่าเริ่มต้นส่วนกลาง'}</span>
+                <RefreshCwIcon size={12} />
+                <span>{resetting ? 'กำลังคืนค่า...' : 'คืนค่าส่วนกลาง'}</span>
               </button>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={onClose}
               disabled={saving}
+              style={{ padding: '6px 14px' }}
             >
               ยกเลิก
             </button>
@@ -577,7 +532,7 @@ export default function StationNotificationModal({
               className="btn btn-primary btn-sm"
               onClick={handleSave}
               disabled={saving || loading}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ padding: '6px 18px', minWidth: 100, display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <BellIcon size={14} />
               <span>{saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}</span>
@@ -587,23 +542,22 @@ export default function StationNotificationModal({
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {/* Feedback alerts */}
         {saveSuccess && (
           <div
             style={{
-              padding: '10px 14px',
+              padding: '8px 12px',
               borderRadius: 8,
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               color: '#10B981',
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
-              fontWeight: 500,
+              gap: 6,
+              fontSize: 12.5,
+              fontWeight: 600,
             }}
           >
-            <CheckCircleIcon size={16} />
+            <CheckCircleIcon size={15} />
             <span>บันทึกการตั้งค่าเกณฑ์การแจ้งเตือนเรียบร้อยแล้ว</span>
           </div>
         )}
@@ -611,30 +565,106 @@ export default function StationNotificationModal({
         {errorMsg && (
           <div
             style={{
-              padding: '10px 14px',
+              padding: '8px 12px',
               borderRadius: 8,
               background: 'rgba(239, 68, 68, 0.12)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#EF4444',
+              color: '#F87171',
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
+              gap: 6,
+              fontSize: 12.5,
             }}
           >
-            <AlertTriangleIcon size={16} />
+            <AlertTriangleIcon size={15} />
             <span>{errorMsg}</span>
           </div>
         )}
 
-                {/* Concept 3: Category Tabs */}
+        {/* LINE Quota Alert Banner */}
+        {lineQuota?.isExceeded && (
+          <div
+            style={{
+              padding: '10px 14px',
+              borderRadius: 10,
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: 6,
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#EF4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                marginTop: 1,
+              }}
+            >
+              <AlertTriangleIcon size={14} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#F87171' }}>
+                  โควตาส่งข้อความ LINE OA ประจำเดือนเต็มแล้ว
+                </span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: '1px 6px',
+                    borderRadius: 9999,
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    color: '#FCA5A5',
+                    fontWeight: 700,
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {lineQuota.used}/{lineQuota.total} ข้อความ
+                </span>
+              </div>
+              <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, lineHeight: 1.4 }}>
+                ระบบไม่สามารถส่งการแจ้งเตือนพุชเข้า LINE ได้เนื่องจากแพ็กเกจฟรีเต็ม 300 ข้อความ กรุณาอัปเกรดบน LINE Official Account Manager หรือรอรีเซ็ตวันแรกของเดือนถัดไป
+              </span>
+            </div>
+          </div>
+        )}
+
+        {lineQuota && !lineQuota.isExceeded && typeof lineQuota.total === 'number' && lineQuota.total > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              fontSize: 11.5,
+              color: '#94A3B8',
+            }}
+          >
+            <span>โควตาส่งข้อความ LINE OA ประจำเดือน</span>
+            <span style={{ color: '#38BDF8', fontWeight: 600, fontFamily: 'monospace' }}>
+              ใช้ไป {lineQuota.used}/{lineQuota.total} · คงเหลือ {lineQuota.remaining}
+            </span>
+          </div>
+        )}
+
+        {/* Category Tabs */}
         <div
           style={{
             display: 'flex',
-            background: 'rgba(255, 255, 255, 0.04)',
+            background: '#090E17',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: 10,
-            padding: 4,
+            padding: 3,
             gap: 4,
           }}
           role="tablist"
@@ -646,35 +676,22 @@ export default function StationNotificationModal({
             onClick={() => setActiveTab('water')}
             style={{
               flex: 1,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              padding: '8px 14px',
+              gap: 6,
+              padding: '7px 12px',
               borderRadius: 8,
               border: 'none',
-              background: activeTab === 'water' ? 'rgba(56, 189, 248, 0.16)' : 'transparent',
-              color: activeTab === 'water' ? '#38BDF8' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'water' ? 600 : 500,
-              fontSize: 13,
+              background: activeTab === 'water' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: activeTab === 'water' ? '#38BDF8' : '#94A3B8',
+              fontWeight: activeTab === 'water' ? 700 : 500,
+              fontSize: 12.5,
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
             }}
           >
-            <DropletsIcon size={16} />
+            <DropletsIcon size={14} />
             <span>ระดับน้ำและอุทกวิทยา</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeTab === 'water' ? '#38BDF8' : 'rgba(255, 255, 255, 0.1)',
-                color: activeTab === 'water' ? '#0F172A' : 'var(--text-muted)',
-                fontWeight: 700,
-              }}
-            >
-              2
-            </span>
           </button>
 
           <button
@@ -684,171 +701,136 @@ export default function StationNotificationModal({
             onClick={() => setActiveTab('device')}
             style={{
               flex: 1,
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 8,
-              padding: '8px 14px',
+              gap: 6,
+              padding: '7px 12px',
               borderRadius: 8,
               border: 'none',
-              background: activeTab === 'device' ? 'rgba(168, 85, 247, 0.16)' : 'transparent',
-              color: activeTab === 'device' ? '#C084FC' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'device' ? 600 : 500,
-              fontSize: 13,
+              background: activeTab === 'device' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+              color: activeTab === 'device' ? '#C084FC' : '#94A3B8',
+              fontWeight: activeTab === 'device' ? 700 : 500,
+              fontSize: 12.5,
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
             }}
           >
-            <ZapIcon size={16} />
-            <span>สุขภาพอุปกรณ์และระบบ</span>
-            <span
-              style={{
-                fontSize: 11,
-                padding: '1px 6px',
-                borderRadius: 10,
-                background: activeTab === 'device' ? '#C084FC' : 'rgba(255, 255, 255, 0.1)',
-                color: activeTab === 'device' ? '#0F172A' : 'var(--text-muted)',
-                fontWeight: 700,
-              }}
-            >
-              3
-            </span>
+            <ActivityIcon size={14} />
+            <span>อุปกรณ์และระบบเครือข่าย</span>
           </button>
         </div>
 
-        {loading ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-            กำลังโหลดข้อมูลการตั้งค่า...
-          </div>
-        ) : (
+        {/* Tab Content: Water Level */}
+        {activeTab === 'water' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {activeTab === 'water' && (
-              <>
-                {/* Condition 1: Water Level Safety Offset */}
-                <ConditionCard
-                  icon={<DropletsIcon size={18} />}
-                  iconBg="rgba(56, 189, 248, 0.12)"
-                  iconColor="#38BDF8"
-                  title="ระดับน้ำใกล้จุดวิกฤต (Safety Offset)"
-                  description="เตือนล่วงหน้าก่อนระดับน้ำแตะจุดวิกฤต"
-                  enabled={settings.water_level_enabled}
-                  onToggle={(checked) => setSettings({ ...settings, water_level_enabled: checked })}
-                  thresholdLabel="ระยะเผื่อความปลอดภัย"
-                  thresholdValue={settings.safety_offset}
-                  onThresholdChange={(val) => setSettings({ ...settings, safety_offset: val })}
-                  thresholdMin={0.0}
-                  thresholdMax={3.0}
-                  thresholdStep={0.05}
-                  thresholdUnit="เมตร"
-                  thresholdAccent="#38BDF8"
-                  cooldownValue={settings.water_level_cooldown_minutes ?? 30}
-                  onCooldownChange={(val) => setSettings({ ...settings, water_level_cooldown_minutes: val })}
-                  cooldownMin={5}
-                  cooldownMax={720}
-                  cooldownStep={15}
-                />
+            <ConditionCard
+              icon={<DropletsIcon size={16} />}
+              iconBg="rgba(14, 165, 233, 0.12)"
+              iconColor="#0EA5E9"
+              title="ระดับน้ำแตะเกณฑ์เฝ้าระวังหรือวิกฤต"
+              description="เตือนเมื่อระดับน้ำแตะหรือเกินเกณฑ์ของสถานี"
+              enabled={settings.water_level_enabled}
+              onToggle={(checked) => setSettings((prev) => ({ ...prev, water_level_enabled: checked }))}
+              thresholdLabel="ระยะชดเชยความปลอดภัย"
+              thresholdValue={settings.safety_offset}
+              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, safety_offset: val }))}
+              thresholdMin={-2.0}
+              thresholdMax={2.0}
+              thresholdStep={0.05}
+              thresholdUnit="ม."
+              thresholdAccent="#0EA5E9"
+              cooldownValue={settings.water_level_cooldown_minutes ?? 30}
+              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, water_level_cooldown_minutes: val }))}
+            />
 
-                {/* Condition 2: Rate of Rise */}
-                <ConditionCard
-                  icon={<TrendingUpIcon size={18} />}
-                  iconBg="rgba(245, 158, 11, 0.12)"
-                  iconColor="#F59E0B"
-                  title="น้ำเพิ่มขึ้นฉับพลัน (Rate of Rise)"
-                  description="เตือนเมื่อน้ำเพิ่มขึ้นรวดเร็วเกินเกณฑ์ใน 1 ชั่วโมง"
-                  enabled={settings.rate_of_rise_enabled}
-                  onToggle={(checked) => setSettings({ ...settings, rate_of_rise_enabled: checked })}
-                  thresholdLabel="เกณฑ์เพิ่มขึ้นฉับพลัน"
-                  thresholdValue={settings.rate_of_rise_threshold}
-                  onThresholdChange={(val) => setSettings({ ...settings, rate_of_rise_threshold: val })}
-                  thresholdMin={0.1}
-                  thresholdMax={5.0}
-                  thresholdStep={0.05}
-                  thresholdUnit="ม./ชม."
-                  thresholdAccent="#F59E0B"
-                  cooldownValue={settings.rate_of_rise_cooldown_minutes ?? 30}
-                  onCooldownChange={(val) => setSettings({ ...settings, rate_of_rise_cooldown_minutes: val })}
-                  cooldownMin={5}
-                  cooldownMax={720}
-                  cooldownStep={15}
-                />
-              </>
-            )}
+            <ConditionCard
+              icon={<TrendingUpIcon size={16} />}
+              iconBg="rgba(245, 158, 11, 0.12)"
+              iconColor="#F59E0B"
+              title="อัตราการเพิ่มขึ้นฉับพลัน (Rate of Rise)"
+              description="เตือนเมื่อระดับน้ำเพิ่มขึ้นรวดเร็วผิดปกติ"
+              enabled={settings.rate_of_rise_enabled}
+              onToggle={(checked) => setSettings((prev) => ({ ...prev, rate_of_rise_enabled: checked }))}
+              thresholdLabel="น้ำเพิ่มขึ้นเกินกว่า"
+              thresholdValue={settings.rate_of_rise_threshold}
+              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_threshold: val }))}
+              thresholdMin={0.05}
+              thresholdMax={2.0}
+              thresholdStep={0.05}
+              thresholdUnit="ม./ชม."
+              thresholdAccent="#F59E0B"
+              cooldownValue={settings.rate_of_rise_cooldown_minutes ?? 30}
+              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_cooldown_minutes: val }))}
+            />
+          </div>
+        )}
 
-            {activeTab === 'device' && (
-              <>
-                {/* Condition 3: Offline Timeout */}
-                <ConditionCard
-                  icon={<ClockIcon size={18} />}
-                  iconBg="rgba(148, 163, 184, 0.12)"
-                  iconColor="#94A3B8"
-                  title="ขาดการส่งข้อมูลเข้าสู่ระบบ (Offline Timeout)"
-                  description="เตือนเมื่ออุปกรณ์หยุดส่งข้อมูลนานเกินกำหนด"
-                  enabled={settings.offline_timeout_enabled}
-                  onToggle={(checked) => setSettings({ ...settings, offline_timeout_enabled: checked })}
-                  thresholdLabel="เกณฑ์เวลาขาดส่งข้อมูล"
-                  thresholdValue={settings.offline_timeout_minutes}
-                  onThresholdChange={(val) => setSettings({ ...settings, offline_timeout_minutes: val })}
-                  thresholdMin={5}
-                  thresholdMax={360}
-                  thresholdStep={5}
-                  thresholdUnit="นาที"
-                  thresholdAccent="#94A3B8"
-                  cooldownValue={settings.offline_cooldown_minutes ?? 60}
-                  onCooldownChange={(val) => setSettings({ ...settings, offline_cooldown_minutes: val })}
-                  cooldownMin={15}
-                  cooldownMax={1440}
-                  cooldownStep={30}
-                />
+        {/* Tab Content: Device Health */}
+        {activeTab === 'device' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <ConditionCard
+              icon={<ClockIcon size={16} />}
+              iconBg="rgba(239, 68, 68, 0.12)"
+              iconColor="#EF4444"
+              title="ขาดการติดต่อเกินเวลาที่กำหนด (Offline Timeout)"
+              description="เตือนเมื่อสถานีหยุดส่งสัญญาณเข้าสู่ระบบ"
+              enabled={settings.offline_timeout_enabled}
+              onToggle={(checked) => setSettings((prev) => ({ ...prev, offline_timeout_enabled: checked }))}
+              thresholdLabel="หยุดส่งสัญญาณเกิน"
+              thresholdValue={settings.offline_timeout_minutes}
+              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, offline_timeout_minutes: val }))}
+              thresholdMin={5}
+              thresholdMax={720}
+              thresholdStep={5}
+              thresholdUnit="นาที"
+              thresholdAccent="#EF4444"
+              cooldownValue={settings.offline_cooldown_minutes ?? 60}
+              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, offline_cooldown_minutes: val }))}
+            />
 
-                {/* Condition 4: Battery Low */}
-                <ConditionCard
-                  icon={<ZapIcon size={18} />}
-                  iconBg="rgba(239, 68, 68, 0.12)"
-                  iconColor="#EF4444"
-                  title="แบตเตอรี่ของอุปกรณ์อยู่ในระดับต่ำ (Battery Low)"
-                  description="เตือนเมื่อระดับพลังงานแบตเตอรี่ต่ำกว่าเกณฑ์"
-                  enabled={settings.battery_low_enabled}
-                  onToggle={(checked) => setSettings({ ...settings, battery_low_enabled: checked })}
-                  thresholdLabel="ระดับแบตเตอรี่ที่เริ่มเตือน"
-                  thresholdValue={settings.battery_low_threshold}
-                  onThresholdChange={(val) => setSettings({ ...settings, battery_low_threshold: val })}
-                  thresholdMin={5}
-                  thresholdMax={50}
-                  thresholdStep={5}
-                  thresholdUnit="%"
-                  thresholdAccent="#EF4444"
-                  cooldownValue={settings.battery_low_cooldown_minutes ?? 120}
-                  onCooldownChange={(val) => setSettings({ ...settings, battery_low_cooldown_minutes: val })}
-                  cooldownMin={30}
-                  cooldownMax={1440}
-                  cooldownStep={30}
-                />
+            <ConditionCard
+              icon={<ZapIcon size={16} />}
+              iconBg="rgba(245, 158, 11, 0.12)"
+              iconColor="#F59E0B"
+              title="ระดับแบตเตอรี่ต่ำ (Battery Low)"
+              description="เตือนเมื่อพลังงานสำรองของสถานีใกล้หมด"
+              enabled={settings.battery_low_enabled}
+              onToggle={(checked) => setSettings((prev) => ({ ...prev, battery_low_enabled: checked }))}
+              thresholdLabel="แบตเตอรี่ต่ำกว่า"
+              thresholdValue={settings.battery_low_threshold}
+              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, battery_low_threshold: val }))}
+              thresholdMin={5}
+              thresholdMax={50}
+              thresholdStep={5}
+              thresholdUnit="%"
+              thresholdAccent="#F59E0B"
+              cooldownValue={settings.battery_low_cooldown_minutes ?? 120}
+              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, battery_low_cooldown_minutes: val }))}
+              cooldownMin={30}
+              cooldownStep={30}
+            />
 
-                {/* Condition 5: Geofence */}
-                <ConditionCard
-                  icon={<MapPinIcon size={18} />}
-                  iconBg="rgba(168, 85, 247, 0.12)"
-                  iconColor="#A855F7"
-                  title="ตรวจจับการเคลื่อนที่ (Geofence)"
-                  description="เตือนเมื่อเสาหรืออุปกรณ์ขยับออกนอกรัศมีพิกัด"
-                  enabled={settings.geofence_enabled}
-                  onToggle={(checked) => setSettings({ ...settings, geofence_enabled: checked })}
-                  thresholdLabel="รัศมีพิกัดที่อนุญาต"
-                  thresholdValue={settings.geofence_radius_meters}
-                  onThresholdChange={(val) => setSettings({ ...settings, geofence_radius_meters: val })}
-                  thresholdMin={20}
-                  thresholdMax={2000}
-                  thresholdStep={10}
-                  thresholdUnit="เมตร"
-                  thresholdAccent="#A855F7"
-                  cooldownValue={settings.geofence_cooldown_minutes ?? 60}
-                  onCooldownChange={(val) => setSettings({ ...settings, geofence_cooldown_minutes: val })}
-                  cooldownMin={15}
-                  cooldownMax={1440}
-                  cooldownStep={30}
-                />
-              </>
-            )}
+            <ConditionCard
+              icon={<MapPinIcon size={16} />}
+              iconBg="rgba(168, 85, 247, 0.12)"
+              iconColor="#A855F7"
+              title="ตรวจจับการเคลื่อนที่ (Geofence)"
+              description="เตือนเมื่อเสาหรืออุปกรณ์ขยับออกนอกรัศมีพิกัด"
+              enabled={settings.geofence_enabled}
+              onToggle={(checked) => setSettings((prev) => ({ ...prev, geofence_enabled: checked }))}
+              thresholdLabel="ขยับออกนอกรัศมีเกิน"
+              thresholdValue={settings.geofence_radius_meters}
+              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, geofence_radius_meters: val }))}
+              thresholdMin={10}
+              thresholdMax={1000}
+              thresholdStep={10}
+              thresholdUnit="ม."
+              thresholdAccent="#A855F7"
+              cooldownValue={settings.geofence_cooldown_minutes ?? 60}
+              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, geofence_cooldown_minutes: val }))}
+              cooldownMin={15}
+              cooldownStep={15}
+            />
           </div>
         )}
       </div>

@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import WaterLevelChart from '../components/charts/WaterLevelChart';
 import type { Station, TimeRange, WaterLevelReading, StationWithReading, Reading } from '../types';
-import { fetchStations, fetchReadingsInRange } from '../services/apiService';
+import { fetchStations, fetchReadingsInRange, downloadReadingsCSV } from '../services/apiService';
 import {
   AlertTriangleIcon,
   MapPinIcon,
@@ -13,11 +13,12 @@ import {
   DropletsIcon,
   BatteryChargingIcon,
   CheckCircleIcon,
-  DownloadIcon,
   ClockIcon,
   ActivityIcon,
+  XIcon,
 } from '../components/ui/Icons';
-import SegmentedControl from '../components/ui/SegmentedControl';
+import { Badge } from '../components/ui/Badge';
+import { SkeletonCard } from '../components/ui/Skeleton';
 import type { SegmentedOption } from '../components/ui/SegmentedControl';
 import { format } from 'date-fns';
 import { exportWaterLevelCSV } from '../utils/exportCSV';
@@ -203,6 +204,9 @@ export default function ChartPage() {
   const [readingsLoading, setReadingsLoading] = useState(false);
   const [readingsError, setReadingsError] = useState<string | null>(null);
   const [isExported, setIsExported] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportScope, setExportScope] = useState<'current_station' | 'all_stations'>('current_station');
+  const [exportLoading, setExportLoading] = useState(false);
 
   const selectedStation = useMemo(() => {
     return stations.find((s) => s.id === selectedStationId);
@@ -216,11 +220,63 @@ export default function ChartPage() {
     return detectOutages(readings, timeRange);
   }, [readings, timeRange]);
 
+  const stats = useMemo(() => {
+    if (!readings || readings.length === 0) return null;
+    const levels = readings
+      .map((r) => r.level)
+      .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+    if (levels.length === 0) return null;
+
+    const current = levels[levels.length - 1];
+    const min = Math.min(...levels);
+    const max = Math.max(...levels);
+    const delta = max - min;
+    const avg = levels.reduce((acc, curr) => acc + curr, 0) / levels.length;
+
+    return {
+      current,
+      min,
+      max,
+      delta,
+      avg,
+      count: readings.length,
+    };
+  }, [readings]);
+
   const handleExportCSV = () => {
-    if (!selectedStation || readings.length === 0 || readingsLoading) return;
-    exportWaterLevelCSV(readings, selectedStation, timeRange);
-    setIsExported(true);
-    setTimeout(() => setIsExported(false), 2500);
+    if (readingsLoading) return;
+    setIsExportModalOpen(true);
+  };
+
+  const handleConfirmExport = async () => {
+    if (exportScope === 'current_station') {
+      if (!selectedStation || readings.length === 0) return;
+      exportWaterLevelCSV(readings, selectedStation, timeRange);
+      setIsExportModalOpen(false);
+      setIsExported(true);
+      setTimeout(() => setIsExported(false), 2500);
+    } else {
+      setExportLoading(true);
+      try {
+        const blob = await downloadReadingsCSV({ timeRange });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `water_level_all_stations_${timeRange}_${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setIsExportModalOpen(false);
+        setIsExported(true);
+        setTimeout(() => setIsExported(false), 2500);
+      } catch (err: unknown) {
+        console.error('Export all stations CSV failed', err);
+      } finally {
+        setExportLoading(false);
+      }
+    }
   };
 
   // ── Load stations from DB ─────────────────────────────────────
@@ -311,38 +367,39 @@ export default function ChartPage() {
     <div className="page-container" style={{ paddingBottom: '3rem' }}>
 
       {/* Loading state for stations */}
+      {/* Loading state for stations (Zero-CLS Skeleton) */}
       {stationsLoading && (
-        <div className="card" style={{ textAlign: 'center', padding: '40px 20px', marginBottom: '1.5rem' }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              border: '3px solid rgba(6, 182, 212, 0.2)',
-              borderTopColor: 'var(--primary-accent)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-              margin: '0 auto 12px',
-            }}
-          />
-          <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>กำลังโหลดรายชื่อสถานี...</div>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+          <SkeletonCard height="64px" />
+          <div className="chart-main-split">
+            <SkeletonCard height="560px" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <SkeletonCard height="160px" />
+              <SkeletonCard height="160px" />
+              <SkeletonCard height="160px" />
+            </div>
+          </div>
         </div>
       )}
 
       {/* Error state */}
       {stationsError && (
         <div
-          className="card"
+          className="card animate-fade-in"
           style={{
-            color: 'var(--color-critical)',
-            padding: '1rem',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            color: '#f87171',
+            padding: '1rem 1.25rem',
+            borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             marginBottom: '1.5rem',
           }}
         >
           <AlertTriangleIcon size={18} />
-          <span><strong>เกิดข้อผิดพลาดในการโหลดรายชื่อสถานี</strong> {stationsError}</span>
+          <span><strong>เกิดข้อผิดพลาดในการโหลดรายชื่อสถานี:</strong> {stationsError}</span>
         </div>
       )}
 
@@ -359,15 +416,155 @@ export default function ChartPage() {
         >
           {/* ════════ LEFT COLUMN: THE HERO GRAPH ════════ */}
           <div
-            className="bento-card"
+            className="bento-card animate-fade-in"
             style={{
-              background: 'linear-gradient(135deg, #111827 0%, #0F172A 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--card-surface)',
+              border: '1px solid var(--card-border)',
               borderRadius: '1.25rem',
               padding: '1.25rem 1.5rem',
-              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.35)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3)',
             }}
           >
+            {/* ── Top: VisionOS Floating Glass Capsule Switcher (Mobile & Tablet <= 1024px only) ── */}
+            {stations.length > 1 && (
+              <div
+                className="chart-mobile-station-bar station-capsule-track-container"
+                style={{
+                  marginBottom: '1.25rem',
+                  paddingBottom: '1rem',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <div
+                  className="vision-capsule-scroll-wrapper"
+                  style={{
+                    overflowX: 'auto',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollbarWidth: 'none',
+                    padding: '2px 2px',
+                  }}
+                >
+                  <div
+                    role="tablist"
+                    aria-label="เลือกสถานีตรวจวัด"
+                    className="vision-glass-dock"
+                    style={{
+                      position: 'relative',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: 'rgba(8, 14, 22, 0.75)',
+                      backdropFilter: 'blur(20px) saturate(180%)',
+                      WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                      border: '1px solid rgba(255, 255, 255, 0.09)',
+                      borderRadius: '9999px',
+                      padding: '4px',
+                      boxShadow: 'inset 0 1.5px 3px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4)',
+                    }}
+                  >
+                    {stations.map((s) => {
+                      const isSelected = s.id === selectedStationId;
+                      const isOffline = !s.isActive || (s as any).operatingStatus === 'offline';
+                      let dotColor = '#10B981';
+                      if (isOffline) dotColor = '#94A3B8';
+                      else if (s.status === 'critical') dotColor = '#EF4444';
+                      else if (s.status === 'warning') dotColor = '#F59E0B';
+
+                      return (
+                        <button
+                          key={`chart-capsule-${s.id}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setSelectedStationId(s.id)}
+                          className={`vision-capsule-item ${isSelected ? 'selected' : ''}`}
+                          style={{
+                            position: 'relative',
+                            zIndex: 2,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 14px',
+                            borderRadius: '9999px',
+                            fontSize: '0.8125rem',
+                            fontWeight: isSelected ? 600 : 500,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            minHeight: '34px',
+                            outline: 'none',
+                            border: isSelected ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid transparent',
+                            background: isSelected
+                              ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(14, 165, 233, 0.14) 100%)'
+                              : 'transparent',
+                            boxShadow: isSelected ? '0 0 16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none',
+                            color: isSelected ? '#f0f9ff' : '#94a3b8',
+                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          }}
+                        >
+                          <span
+                            style={{
+                              position: 'relative',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '8px',
+                              height: '8px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {isSelected && !isOffline && (
+                              <span
+                                className="sonar-pulse-ring"
+                                style={{
+                                  position: 'absolute',
+                                  width: '100%',
+                                  height: '100%',
+                                  borderRadius: '9999px',
+                                  backgroundColor: dotColor,
+                                  opacity: 0.75,
+                                }}
+                              />
+                            )}
+                            <span
+                              style={{
+                                position: 'relative',
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '9999px',
+                                backgroundColor: dotColor,
+                                boxShadow: !isOffline && isSelected ? `0 0 8px ${dotColor}` : 'none',
+                              }}
+                            />
+                          </span>
+                          <span
+                            className="tabular-nums"
+                            style={{
+                              fontWeight: 700,
+                              letterSpacing: '0.02em',
+                              color: isSelected ? '#38bdf8' : '#cbd5e1',
+                            }}
+                          >
+                            {s.id}
+                          </span>
+                          <span
+                            style={{
+                              maxWidth: '140px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {s.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Chart Header Toolbar */}
             <div
               style={{
@@ -410,32 +607,9 @@ export default function ChartPage() {
                   </h2>
                   {(() => {
                     const isOffline = !selectedStation.isActive || (selectedStation as any).operatingStatus === 'offline';
-                    return (
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          padding: '0.2rem 0.6rem',
-                          borderRadius: '9999px',
-                          background: isOffline ? 'rgba(100, 116, 139, 0.15)' : `${statusColor[selectedStation.status]}20`,
-                          border: `1px solid ${isOffline ? 'rgba(100, 116, 139, 0.3)' : `${statusColor[selectedStation.status]}40`}`,
-                          color: isOffline ? '#94A3B8' : statusColor[selectedStation.status],
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            background: isOffline ? '#64748B' : statusColor[selectedStation.status],
-                          }}
-                        />
-                        {isOffline ? 'ออฟไลน์' : statusLabel[selectedStation.status]}
-                      </span>
-                    );
+                    const badgeStatus = isOffline ? 'offline' : (selectedStation.status as any);
+                    const badgeLabel = isOffline ? 'ออฟไลน์' : statusLabel[selectedStation.status];
+                    return <Badge status={badgeStatus} dot label={badgeLabel} size="sm" />;
                   })()}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
@@ -500,77 +674,162 @@ export default function ChartPage() {
                   flexWrap: 'wrap',
                 }}
               >
-                {/* Time Range Selector */}
-                <SegmentedControl
-                  options={timeRangeOptions}
-                  value={timeRange}
-                  onChange={(val) => setTimeRange(val as TimeRange)}
-                  size="md"
-                  ariaLabel="ช่วงเวลาของกราฟระดับน้ำ"
-                />
+                {/* ── VisionOS Frosted Glass Time Range Switcher ── */}
+                <div
+                  role="tablist"
+                  aria-label="ช่วงเวลาของกราฟระดับน้ำ"
+                  className="vision-timerange-dock"
+                  style={{
+                    position: 'relative',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    background: 'rgba(8, 14, 22, 0.75)',
+                    backdropFilter: 'blur(20px) saturate(180%)',
+                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '9999px',
+                    padding: '3px',
+                    boxShadow: 'inset 0 1.5px 3px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4)',
+                  }}
+                >
+                  {timeRangeOptions.map((opt) => {
+                    const isSelected = timeRange === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={isSelected}
+                        onClick={() => setTimeRange(opt.value)}
+                        className={`vision-timerange-item ${isSelected ? 'selected' : ''}`}
+                        style={{
+                          position: 'relative',
+                          zIndex: 2,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 14px',
+                          borderRadius: '9999px',
+                          fontSize: '0.8125rem',
+                          fontWeight: isSelected ? 700 : 500,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          minHeight: '32px',
+                          outline: 'none',
+                          border: isSelected ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid transparent',
+                          background: isSelected
+                            ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.32) 0%, rgba(14, 165, 233, 0.14) 100%)'
+                            : 'transparent',
+                          boxShadow: isSelected
+                            ? '0 0 16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28)'
+                            : 'none',
+                          color: isSelected ? '#f0f9ff' : '#94a3b8',
+                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', color: isSelected ? '#38bdf8' : 'inherit' }}>
+                          {opt.icon}
+                        </span>
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                {/* Export CSV Button (Visible for Staff & Admin only, no glow) */}
+                {/* ── Uiverse Flight CSV Export Button (RBAC: Staff & Admin only) ── */}
                 {canExport && (
                   <button
                     type="button"
-                    className="btn btn-secondary btn-sm"
                     onClick={handleExportCSV}
-                    disabled={readings.length === 0 || readingsLoading}
-                    title={
-                      readings.length === 0
-                        ? 'ไม่มีข้อมูลระดับน้ำสำหรับส่งออก'
-                        : `ส่งออกข้อมูลระดับน้ำ ${selectedStation?.name || ''} เป็นไฟล์ CSV (${timeRange === 'hourly' ? '24 ชั่วโมง' : timeRange === 'daily' ? '2 สัปดาห์' : '14 สัปดาห์'})`
-                    }
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.45rem',
-                      fontSize: '0.8125rem',
-                      fontWeight: 600,
-                      borderRadius: '0.5rem',
-                      boxShadow: 'none',
-                    }}
+                    disabled={readingsLoading}
+                    className={`csv-flight-button ${isExported ? 'success' : ''}`}
+                    title={`ส่งออกข้อมูลระดับน้ำเป็นไฟล์ CSV (${timeRange === 'hourly' ? '24 ชั่วโมง' : timeRange === 'daily' ? '2 สัปดาห์' : '14 สัปดาห์'})`}
                   >
-                    {isExported ? (
-                      <>
-                        <CheckCircleIcon size={14} style={{ color: '#10B981' }} />
-                        <span style={{ color: '#10B981' }}>ดาวน์โหลดสำเร็จ</span>
-                      </>
-                    ) : (
-                      <>
-                        <DownloadIcon size={14} />
-                        <span>ส่งออก CSV</span>
-                      </>
-                    )}
+                    <div className="flight-svg-wrapper">
+                      {isExported ? (
+                        <CheckCircleIcon size={16} style={{ color: '#ffffff' }} />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M22 2L11 13" />
+                          <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="flight-text">
+                      {isExported ? 'ดาวน์โหลดสำเร็จ' : 'ส่งออก CSV'}
+                    </span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Chart Area */}
-            {readingsLoading ? (
+            {/* ── Quick Glance Metrics Strip (Max / Min / Avg / Current) ── */}
+            {stats && (
               <div
                 style={{
-                  height: 480,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--text-muted)',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: '0.625rem',
+                  marginBottom: '1.25rem',
                 }}
               >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    border: '3px solid rgba(6, 182, 212, 0.15)',
-                    borderTopColor: 'var(--primary-accent)',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite',
-                    marginBottom: 10,
-                  }}
-                />
-                <span style={{ fontSize: '0.875rem' }}>กำลังดึงข้อมูลประวัติระดับน้ำ...</span>
+                <div className="tactile-stat-pill">
+                  <span className="stat-label">ระดับล่าสุด</span>
+                  <span
+                    className="stat-val tabular-nums"
+                    style={{ color: stats.current > 0 ? '#ef4444' : '#38bdf8' }}
+                  >
+                    {stats.current >= 0 ? `+${stats.current.toFixed(2)}` : stats.current.toFixed(2)} ม.
+                  </span>
+                </div>
+                <div className="tactile-stat-pill">
+                  <span className="stat-label">ระดับสูงสุด</span>
+                  <span
+                    className="stat-val tabular-nums"
+                    style={{ color: '#f87171' }}
+                  >
+                    {stats.max >= 0 ? `+${stats.max.toFixed(2)}` : stats.max.toFixed(2)} ม.
+                  </span>
+                </div>
+                <div className="tactile-stat-pill">
+                  <span className="stat-label">ระดับต่ำสุด</span>
+                  <span
+                    className="stat-val tabular-nums"
+                    style={{ color: '#34d399' }}
+                  >
+                    {stats.min >= 0 ? `+${stats.min.toFixed(2)}` : stats.min.toFixed(2)} ม.
+                  </span>
+                </div>
+                <div className="tactile-stat-pill">
+                  <span className="stat-label">ช่วงแกว่งตัว</span>
+                  <span className="stat-val tabular-nums" style={{ color: '#e2e8f0' }}>
+                    {stats.delta.toFixed(2)} ม.
+                  </span>
+                </div>
+                <div className="tactile-stat-pill">
+                  <span className="stat-label">จุดตรวจวัด</span>
+                  <span className="stat-val tabular-nums" style={{ color: '#94a3b8' }}>
+                    {stats.count} บันทึก
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Chart Area */}
+            {readingsLoading ? (
+              <div style={{ height: 480, display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.5rem 0' }}>
+                <SkeletonCard height="460px" />
               </div>
             ) : readingsError ? (
               <div
@@ -843,8 +1102,8 @@ export default function ChartPage() {
             )}
           </div>
 
-          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS ════════ */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          {/* ════════ RIGHT COLUMN: STATION SELECTOR WITH LIVE MINI-METRICS (Desktop > 1024px only) ════════ */}
+          <div className="chart-desktop-station-column" style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
             {/* Header of Selector Column */}
             <div
               style={{
@@ -1088,6 +1347,103 @@ export default function ChartPage() {
           </div>
           <p className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>ไม่มีสถานีที่ลงทะเบียน</p>
           <p className="empty-state-desc" style={{ fontSize: 13, color: 'var(--text-muted)' }}>ติดต่อเจ้าหน้าที่เพื่อขอเพิ่มสถานีติดตาม</p>
+        </div>
+      )}
+
+      {/* ══ TACTICAL EXPORT SCOPE MODAL ══ */}
+      {isExportModalOpen && (
+        <div className="export-modal-backdrop" onClick={() => !exportLoading && setIsExportModalOpen(false)}>
+          <div className="export-modal-panel" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                ส่งออก CSV
+              </h3>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: 4, color: 'var(--text-muted)' }}
+                onClick={() => !exportLoading && setIsExportModalOpen(false)}
+                disabled={exportLoading}
+              >
+                <XIcon size={16} />
+              </button>
+            </div>
+
+            {/* Body: Options */}
+            <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Option 1: Selected Station */}
+              <div
+                className={`export-option-card ${exportScope === 'current_station' ? 'selected' : ''}`}
+                onClick={() => setExportScope('current_station')}
+              >
+                <input
+                  type="radio"
+                  name="exportChartScope"
+                  checked={exportScope === 'current_station'}
+                  onChange={() => setExportScope('current_station')}
+                />
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    เฉพาะสถานีนี้ ({selectedStation?.name || selectedStationId})
+                  </span>
+                  <span style={{ color: '#38bdf8', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+                    {readings.length} จุดตรวจวัด
+                  </span>
+                </div>
+              </div>
+
+              {/* Option 2: All Stations */}
+              <div
+                className={`export-option-card ${exportScope === 'all_stations' ? 'selected' : ''}`}
+                onClick={() => setExportScope('all_stations')}
+              >
+                <input
+                  type="radio"
+                  name="exportChartScope"
+                  checked={exportScope === 'all_stations'}
+                  onChange={() => setExportScope('all_stations')}
+                />
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                    ทุกสถานีในระบบ
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+                    {stations.length} สถานี
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '12px 18px', background: 'rgba(11, 19, 27, 0.7)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setIsExportModalOpen(false)}
+                disabled={exportLoading}
+                style={{ fontSize: 12 }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleConfirmExport}
+                disabled={exportLoading || (exportScope === 'current_station' && readings.length === 0)}
+                style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                {exportLoading ? (
+                  <>
+                    <div style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                    <span>กำลังเตรียมข้อมูล...</span>
+                  </>
+                ) : (
+                  <span>ดาวน์โหลด CSV</span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

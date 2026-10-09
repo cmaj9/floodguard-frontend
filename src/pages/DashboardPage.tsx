@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import StationSegmentedControl from '../components/dashboard/StationSegmentedControl';
 import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
 import StationMap from '../components/map/StationMap';
 import StationRecentReadingsCard from '../components/dashboard/StationRecentReadingsCard';
@@ -16,6 +15,8 @@ import {
   MapIcon,
   CheckCircleIcon,
 } from '../components/ui/Icons';
+import { Button } from '../components/ui/Button';
+import { SkeletonCard, SkeletonMetric } from '../components/ui/Skeleton';
 import type { Station, StationWithReading } from '../types';
 import { fetchStations } from '../services/apiService';
 
@@ -348,59 +349,59 @@ export default function DashboardPage() {
     >
 
 
-      {/* ── Subscribed Confirmation Banner ── */}
+      {/* ── Subscribed Confirmation Banner (Sonar Green) ── */}
       {showSubscribedBanner && (
         <div
           className="bento-card animate-fade-in"
           style={{
             marginBottom: '1.25rem',
-            padding: '16px 20px',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16) 0%, rgba(15, 23, 42, 0.95) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.45)',
-            borderRadius: '16px',
+            padding: '14px 18px',
+            background: 'linear-gradient(135deg, var(--sonar-green-dim) 0%, rgba(11, 19, 27, 0.95) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.35)',
+            borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 16,
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+            gap: '14px',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: 'rgba(16, 185, 129, 0.2)',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: 'var(--sonar-green-dim)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#10B981',
+                color: 'var(--sonar-green)',
                 flexShrink: 0,
               }}
             >
-              <CheckCircleIcon size={22} />
+              <CheckCircleIcon size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#10B981', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--sonar-green)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span>บันทึกสำเร็จ</span>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: 14 }}>กำลังติดตาม</span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>กำลังติดตาม</span>
                 <span
                   style={{
                     color: '#FFFFFF',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    padding: '2px 10px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    padding: '2px 8px',
                     borderRadius: '6px',
-                    fontSize: 14,
+                    fontSize: '0.8125rem',
                     fontWeight: 700,
                   }}
                 >
                   {subscribedNames.length > 0 ? subscribedNames.join(', ') : 'ทุกสถานี'}
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 กำลังแสดงเฉพาะสถานีที่คุณลงทะเบียนติดตาม ({displayedStations.length} สถานี)
               </div>
             </div>
@@ -409,11 +410,11 @@ export default function DashboardPage() {
             type="button"
             onClick={() => setShowSubscribedBanner(false)}
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.06)',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '6px',
               color: 'var(--text-secondary)',
-              padding: '6px 8px',
+              padding: '6px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -421,18 +422,19 @@ export default function DashboardPage() {
             }}
             title="ปิดแถบแจ้งเตือน"
           >
-            <XCircleIcon size={18} />
+            <XCircleIcon size={16} />
           </button>
         </div>
       )}
 
-      {/* ── 0. CRITICAL ALERT TOAST (If any station exceeds threshold) ── */}
+      {/* ── 0. CRITICAL ALERT TOAST (Beacon Red) ── */}
       {criticalStations.length > 0 && (
         <div
           className="bento-card animate-fade-in"
           style={{
-            background: 'linear-gradient(90deg, rgba(239,68,68,0.2) 0%, rgba(17,24,39,0.95) 100%)',
-            border: '1px solid #EF4444',
+            background: 'linear-gradient(90deg, var(--beacon-red-dim) 0%, rgba(11, 19, 27, 0.95) 100%)',
+            border: '1px solid rgba(220, 38, 38, 0.45)',
+            borderRadius: '12px',
             padding: '1rem 1.25rem',
             marginBottom: '1.25rem',
             display: 'flex',
@@ -443,9 +445,9 @@ export default function DashboardPage() {
           role="alert"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <XCircleIcon size={24} style={{ color: '#EF4444', flexShrink: 0 }} />
+            <XCircleIcon size={22} style={{ color: 'var(--beacon-red)', flexShrink: 0 }} />
             <div>
-              <span style={{ fontWeight: 700, color: '#EF4444', fontSize: '0.9375rem', marginRight: '0.5rem' }}>
+              <span style={{ fontWeight: 700, color: 'var(--beacon-red)', fontSize: '0.9375rem', marginRight: '0.5rem' }}>
                 ประกาศเตือนภัยระดับวิกฤต
               </span>
               <span style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>
@@ -453,35 +455,25 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-sm"
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => setSelectedStationId(criticalStations[0].id)}
-            style={{
-              background: '#EF4444',
-              color: '#ffffff',
-              fontSize: '0.75rem',
-              padding: '0.35rem 0.75rem',
-              borderRadius: '0.375rem',
-              border: 'none',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
           >
             ดูจุดวิกฤต
-          </button>
+          </Button>
         </div>
       )}
-
 
       {/* ── ERROR STATE WITH RECOVERY ── */}
       {loadError && (
         <div
           className="bento-card"
           style={{
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            padding: '1.25rem',
+            background: 'var(--beacon-red-dim)',
+            border: '1px solid rgba(220, 38, 38, 0.35)',
+            borderRadius: '12px',
+            padding: '1rem 1.25rem',
             marginBottom: '1.25rem',
             display: 'flex',
             alignItems: 'center',
@@ -490,9 +482,9 @@ export default function DashboardPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <AlertTriangleIcon size={24} style={{ color: '#EF4444' }} />
+            <AlertTriangleIcon size={22} style={{ color: 'var(--beacon-red)', flexShrink: 0 }} />
             <div>
-              <div style={{ fontWeight: 600, color: '#EF4444', fontSize: '0.875rem' }}>
+              <div style={{ fontWeight: 600, color: 'var(--beacon-red)', fontSize: '0.875rem' }}>
                 เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -500,14 +492,14 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={loadData}
-            style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+            leftIcon={<RefreshCwIcon size={14} />}
           >
-            <RefreshCwIcon size={14} /> ลองเชื่อมต่อใหม่
-          </button>
+            ลองเชื่อมต่อใหม่
+          </Button>
         </div>
       )}
 
@@ -519,9 +511,9 @@ export default function DashboardPage() {
             padding: '2.5rem 1.5rem',
             textAlign: 'center',
             marginBottom: '1rem',
-            background: 'rgba(15, 23, 42, 0.6)',
+            background: 'var(--card-surface)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px',
+            borderRadius: '14px',
           }}
         >
           <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
@@ -531,13 +523,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* ── 2. SPACE-EFFICIENT SEGMENTED STATION SWITCHER ── */}
-      <StationSegmentedControl
-        stations={displayedStations}
-        selectedStationId={selectedStation?.id || null}
-        onSelectStation={(id) => setSelectedStationId(id)}
-      />
 
       {/* ── MOBILE VIEW TOGGLE BAR (Visible on Mobile only <= 768px) ── */}
       <div className="mobile-view-toggle-wrap">
@@ -561,13 +546,29 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── 3. CENTRAL TELEMETRY CANVAS ── */}
-      {selectedStation && (
-        <div className={`dashboard-telemetry-container ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}>
-          <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงผลมาตรวัดสถานี">
-            <StationTelemetryHub station={selectedStation} />
-          </ErrorBoundary>
+      {/* ── 2. CENTRAL TELEMETRY CANVAS (With Zero-CLS Skeleton Loading) ── */}
+      {isLoading ? (
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.75rem' }}>
+          <SkeletonCard height="220px" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <SkeletonMetric />
+            <SkeletonMetric />
+            <SkeletonMetric />
+            <SkeletonMetric />
+          </div>
         </div>
+      ) : (
+        selectedStation && (
+          <div className={`dashboard-telemetry-container ${mobileTab === 'map' ? 'mobile-hidden' : ''}`}>
+            <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงผลมาตรวัดสถานี">
+              <StationTelemetryHub
+                station={selectedStation}
+                stations={displayedStations}
+                onSelectStation={(id) => setSelectedStationId(id)}
+              />
+            </ErrorBoundary>
+          </div>
+        )
       )}
 
       {/* ── 4. LOWER CANVAS: GIS MAP + RECENT READINGS ── */}

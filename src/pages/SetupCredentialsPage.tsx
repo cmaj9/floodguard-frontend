@@ -96,8 +96,8 @@ export default function SetupCredentialsPage() {
             style={{
               width: 36,
               height: 36,
-              border: "3px solid rgba(0, 212, 255, 0.2)",
-              borderTopColor: "#00D4FF",
+              border: "3px solid rgba(14, 165, 233, 0.2)",
+              borderTopColor: "var(--cyan-glow)",
               borderRadius: "50%",
               margin: "0 auto 16px",
               animation: "spin 0.8s linear infinite",
@@ -207,8 +207,8 @@ export default function SetupCredentialsPage() {
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <ShieldCheckIcon size={16} style={{ color: "#00D4FF" }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#00D4FF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <ShieldCheckIcon size={16} style={{ color: "var(--cyan-glow)" }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--cyan-glow)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     ข้อมูลสำหรับเข้าสู่ระบบในครั้งต่อไป
                   </span>
                 </div>

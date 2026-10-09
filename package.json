@@ -1,7 +1,7 @@
 {
   "name": "floodguard-frontend",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.2.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@line/liff": "^2.31.0",
+    "@ridemountainpig/svgl-react": "^1.0.18",
     "@tanstack/react-query": "^5.101.2",
     "axios": "^1.18.1",
     "date-fns": "^4.4.0",
@@ -18,9 +19,11 @@
     "papaparse": "^5.5.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-is": "^19.3.0",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.1",
-    "recharts": "^3.9.2"
+    "recharts": "^3.9.2",
+    "svgl-react": "^1.1.4"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",

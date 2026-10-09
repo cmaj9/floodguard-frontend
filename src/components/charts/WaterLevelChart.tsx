@@ -60,13 +60,14 @@ function CustomTooltip({ active, payload, label, station }: any) {
   return (
     <div
       style={{
-        background: 'rgba(15, 23, 42, 0.96)',
-        border: '1px solid rgba(56, 189, 248, 0.25)',
+        background: 'rgba(8, 14, 22, 0.94)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         borderRadius: 12,
         padding: '12px 16px',
         fontSize: 13,
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(12px)',
+        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         minWidth: 200,
       }}
     >
@@ -236,18 +237,19 @@ export default function WaterLevelChart({ readings, station, timeRange, height =
       <ComposedChart data={data} margin={{ top: 20, right: 32, left: 8, bottom: 6 }}>
         <defs>
           <linearGradient id="levelGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#38BDF8" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="#38BDF8" stopOpacity={0.01} />
+            <stop offset="0%" stopColor="#0284C7" stopOpacity={0.32} />
+            <stop offset="60%" stopColor="#0284C7" stopOpacity={0.08} />
+            <stop offset="100%" stopColor="#0284C7" stopOpacity={0.0} />
           </linearGradient>
           <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#2563EB" />
+            <stop offset="0%" stopColor="#0284C7" />
             <stop offset="100%" stopColor="#38BDF8" />
           </linearGradient>
         </defs>
 
         <CartesianGrid
           strokeDasharray="3 3"
-          stroke="rgba(255, 255, 255, 0.07)"
+          stroke="rgba(255, 255, 255, 0.05)"
           vertical={false}
         />
 

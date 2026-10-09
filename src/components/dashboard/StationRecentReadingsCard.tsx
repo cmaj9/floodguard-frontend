@@ -73,9 +73,9 @@ export default function StationRecentReadingsCard({
         flexDirection: "column",
         height: "100%",
         width: "100%",
-        background: "#111827",
-        borderRadius: "1.25rem",
-        border: "1px solid rgba(255, 255, 255, 0.08)",
+        background: "var(--card-surface)",
+        borderRadius: "14px",
+        border: "1px solid var(--card-border)",
         overflow: "hidden",
         boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)",
       }}
@@ -85,7 +85,7 @@ export default function StationRecentReadingsCard({
         className="recent-readings-header"
         style={{
           padding: "0.875rem 1.25rem",
-          background: "#111827",
+          background: "var(--card-surface)",
           borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
           display: "flex",
           alignItems: "center",
