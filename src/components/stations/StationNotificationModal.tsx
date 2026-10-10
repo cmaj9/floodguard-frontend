@@ -87,7 +87,7 @@ function NumberStepperInput({
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        background: '#090E17',
+        background: 'rgba(255, 255, 255, 0.04)',
         border: `1px solid ${isFocused ? accentColor : 'rgba(255, 255, 255, 0.12)'}`,
         borderRadius: 8,
         padding: '2px 4px',
@@ -661,7 +661,7 @@ export default function StationNotificationModal({
         <div
           style={{
             display: 'flex',
-            background: '#090E17',
+            background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: 10,
             padding: 3,

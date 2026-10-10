@@ -131,10 +131,10 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                   ? "2px solid #0284c7"
                   : "1px solid rgba(255, 255, 255, 0.1)",
                 background: isSelected
-                  ? "linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(15, 23, 42, 0.95) 100%)"
-                  : "rgba(15, 23, 42, 0.75)",
+                  ? "#15181E"
+                  : "var(--card-surface, #0C0E12)",
                 boxShadow: isSelected
-                  ? "0 4px 16px rgba(0, 0, 0, 0.35)"
+                  ? "0 4px 16px rgba(0, 0, 0, 0.4)"
                   : "0 2px 8px rgba(0, 0, 0, 0.2)",
                 transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                 outline: "none",
@@ -144,7 +144,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                 if (!isSelected) {
                   e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.45)";
                   e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.background = "rgba(26, 36, 56, 0.85)";
+                  e.currentTarget.style.background = "#15181E";
                   e.currentTarget.style.boxShadow =
                     "0 8px 24px rgba(0, 0, 0, 0.4)";
                 }
@@ -154,7 +154,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                   e.currentTarget.style.borderColor =
                     "rgba(255, 255, 255, 0.1)";
                   e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.background = "rgba(15, 23, 42, 0.75)";
+                  e.currentTarget.style.background = "var(--card-surface, #0C0E12)";
                   e.currentTarget.style.boxShadow =
                     "0 4px 14px rgba(0, 0, 0, 0.25)";
                 }

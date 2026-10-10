@@ -77,7 +77,7 @@ export default function LoginPage() {
         <div
           className="login-card"
           style={{
-            background: "linear-gradient(180deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)",
+            background: "var(--card-surface, #0C0E12)",
             border: "1px solid rgba(255, 255, 255, 0.08)",
             borderRadius: 20,
             padding: "36px 28px",
@@ -163,7 +163,7 @@ export default function LoginPage() {
         <div
           className="login-card"
           style={{
-            background: "linear-gradient(180deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)",
+            background: "var(--card-surface, #0C0E12)",
             border: "1px solid rgba(255, 255, 255, 0.08)",
             borderRadius: 20,
             padding: "32px 28px",
@@ -220,7 +220,7 @@ export default function LoginPage() {
                 style={{
                   height: 44,
                   fontSize: 14,
-                  backgroundColor: "rgba(15, 23, 42, 0.7)",
+                  backgroundColor: "rgba(255, 255, 255, 0.04)",
                   border: "1px solid rgba(255, 255, 255, 0.12)",
                   color: "#FFFFFF",
                   borderRadius: 10,
@@ -263,7 +263,7 @@ export default function LoginPage() {
                     height: 44,
                     fontSize: 14,
                     paddingRight: 42,
-                    backgroundColor: "rgba(15, 23, 42, 0.7)",
+                    backgroundColor: "rgba(255, 255, 255, 0.04)",
                     border: "1px solid rgba(255, 255, 255, 0.12)",
                     color: "#FFFFFF",
                     borderRadius: 10,
@@ -272,6 +272,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
+                  className="tactile-press"
                   onClick={() => setShowPassword(!showPassword)}
                   style={{
                     position: "absolute",
@@ -320,7 +321,7 @@ export default function LoginPage() {
             <button
               id="login-submit"
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary tactile-press"
               style={{
                 width: "100%",
                 height: 44,
@@ -404,7 +405,7 @@ export default function LoginPage() {
               type="button"
               id="citizen-direct-entry-btn"
               onClick={handleCitizenAccess}
-              className="btn btn-secondary"
+              className="btn btn-secondary tactile-press"
               style={{
                 width: "100%",
                 height: 42,
@@ -432,7 +433,7 @@ export default function LoginPage() {
               onClick={handleLineLogin}
               disabled={lineLoading || loading}
               aria-busy={lineLoading}
-              className="btn"
+              className="btn tactile-press"
               style={{
                 width: "100%",
                 height: 42,
@@ -485,11 +486,13 @@ export default function LoginPage() {
             </span>
             <Link
               to="/register"
+              className="tactile-press"
               style={{
                 fontSize: 13,
                 fontWeight: 600,
                 color: "#38BDF8",
                 textDecoration: "none",
+                display: "inline-block",
               }}
             >
               ลงทะเบียนใหม่
@@ -516,7 +519,7 @@ export default function LoginPage() {
         .login-input:-webkit-autofill:hover, 
         .login-input:-webkit-autofill:focus {
           -webkit-text-fill-color: #ffffff !important;
-          -webkit-box-shadow: 0 0 0px 1000px #0f172a inset !important;
+          -webkit-box-shadow: 0 0 0px 1000px #0C0E12 inset !important;
           transition: background-color 5000s ease-in-out 0s;
         }
       `}</style>

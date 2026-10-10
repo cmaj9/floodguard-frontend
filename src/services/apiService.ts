@@ -6,13 +6,83 @@ import axios from 'axios';
 import type { Reading, StationWithReading, User, AuthUser, DbAlert, NotificationSettings, SubscriberPreferences } from '../types';
 
 const DEFAULT_API_URL = 'https://waterwatch-backend-production.up.railway.app';
-const BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001' : DEFAULT_API_URL);
+const isLocalhost = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.')
+);
+const BASE_URL = import.meta.env.VITE_API_URL || (isLocalhost ? 'http://localhost:3001' : DEFAULT_API_URL);
 
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 8000,
   headers: { 'Content-Type': 'application/json' },
 });
+
+export const getAuthToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const directToken = localStorage.getItem('wl_auth_token');
+  if (directToken) return directToken;
+  try {
+    const userStr = localStorage.getItem('wl_auth_user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user.token) {
+        localStorage.setItem('wl_auth_token', user.token);
+        return user.token;
+      }
+    }
+  } catch {}
+  return null;
+};
+
+export const setAuthToken = (token: string | null) => {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem('wl_auth_token', token);
+  } else {
+    localStorage.removeItem('wl_auth_token');
+  }
+};
+
+api.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Promote custom backend error string to error.message if available
+    const backendMessage = error.response?.data?.error;
+    if (backendMessage && typeof backendMessage === 'string') {
+      error.message = backendMessage;
+    }
+
+    // Handle 401 Unauthorized on protected routes
+    if (error.response?.status === 401) {
+      const requestUrl = error.config?.url || '';
+      const isLoginOrAuth = requestUrl.includes('/api/auth/login') || requestUrl.includes('/api/users/login');
+
+      if (!isLoginOrAuth && typeof window !== 'undefined') {
+        console.warn('[apiService] 401 Unauthorized detected for endpoint:', requestUrl);
+        setAuthToken(null);
+        window.dispatchEvent(
+          new CustomEvent('app:unauthorized', {
+            detail: {
+              message: backendMessage || 'เซสชันการเข้าสู่ระบบหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+              url: requestUrl,
+            },
+          })
+        );
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 // ── Types ─────────────────────────────────────────────────────────
 interface ApiResponse<T> {

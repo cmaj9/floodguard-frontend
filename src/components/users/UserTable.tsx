@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import type { User, UserRole } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { SearchIcon, MapPinIcon, Edit3Icon, Trash2Icon, MessageSquareIcon } from '../ui/Icons';
+import { SearchIcon, MapPinIcon, Edit3Icon, Trash2Icon, MessageSquareIcon, XIcon } from '../ui/Icons';
 
 interface UserTableProps {
   users: User[];
@@ -27,23 +27,49 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
   const [search, setSearch] = useState('');
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  // Close delete modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && userToDelete) {
+        setUserToDelete(null);
+      }
+    };
+    if (userToDelete) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [userToDelete]);
+
   const filtered = users.filter((u) => {
     const s = search.toLowerCase();
     const lineId = u.line_user_id || u.lineUserId || '';
     return (
       u.name.toLowerCase().includes(s) ||
       u.email.toLowerCase().includes(s) ||
-      u.district.toLowerCase().includes(s) ||
+      (u.district && u.district.toLowerCase().includes(s)) ||
       lineId.toLowerCase().includes(s)
     );
   });
 
   return (
     <div>
-      {/* Search Bar */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div className="search-wrap">
-          <span className="search-icon" style={{ display: 'flex', alignItems: 'center' }}><SearchIcon size={16} /></span>
+      {/* Search & Telemetry Count Dock */}
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div className="search-wrap" style={{ position: 'relative', maxWidth: 360, width: '100%' }}>
+          <span className="search-icon" style={{ display: 'flex', alignItems: 'center' }}>
+            <SearchIcon size={16} />
+          </span>
           <label htmlFor="user-search" className="visually-hidden">ค้นหาผู้ใช้</label>
           <input
             id="user-search"
@@ -51,8 +77,55 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
             placeholder="ค้นหาชื่อ, อีเมล, LINE ID, อำเภอ..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 300 }}
+            style={{ width: '100%', paddingRight: search ? 36 : 14 }}
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="tactile-press"
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 22,
+                height: 22,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+              title="ล้างคำค้นหา"
+              aria-label="ล้างคำค้นหา"
+            >
+              <XIcon size={12} />
+            </button>
+          )}
+        </div>
+
+        {/* Live Filter Count Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>แสดงผล</span>
+          <span
+            className="font-mono tabular-nums"
+            style={{
+              padding: '2px 8px',
+              borderRadius: 6,
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#F1F5F9',
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {filtered.length} / {users.length}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>บัญชี</span>
         </div>
       </div>
 
@@ -66,17 +139,46 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               <th>เบอร์โทร</th>
               <th>บทบาท</th>
               <th>LINE ID</th>
-              <th>สถานีที่ติดตาม</th>
+              <th>สถานีที่ดูแล</th>
               <th>สถานะ</th>
               <th>วันที่สมัคร</th>
-              <th>จัดการ</th>
+              <th style={{ textAlign: 'right' }}>จัดการ</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                  ไม่พบข้อมูลผู้ใช้ในระบบ
+                <td colSpan={9} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      <SearchIcon size={22} />
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      {search ? `ไม่พบบัญชีผู้ใช้ที่ตรงกับ "${search}"` : 'ไม่พบข้อมูลผู้ใช้ในระบบ'}
+                    </div>
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={() => setSearch('')}
+                        className="btn btn-sm btn-secondary tactile-press"
+                        style={{ marginTop: 4 }}
+                      >
+                        ล้างคำค้นหา
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -86,17 +188,23 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                 const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
 
                 return (
-                  <tr key={u.id} style={{ opacity: isActive ? 1 : 0.6 }}>
+                  <tr key={u.id} style={{ opacity: isActive ? 1 : 0.65 }}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div
                           className="user-avatar"
-                          style={{ width: 32, height: 32, fontSize: 12 }}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            fontSize: 12,
+                            flexShrink: 0,
+                            borderRadius: 8,
+                          }}
                         >
                           {u.name.slice(0, 1)}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 500 }}>{u.name}</div>
+                          <div style={{ fontWeight: 600, color: '#F8FAFC' }}>{u.name}</div>
                           {u.district && (
                             <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
                               <MapPinIcon size={11} />
@@ -107,32 +215,41 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                       </div>
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.phone || '-'}</td>
                     <td>
-                      <span className={`badge ${roleClass[u.role]}`}>
+                      {u.phone ? (
+                        <span className="font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          {u.phone}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${roleClass[u.role]}`} style={{ fontWeight: 600 }}>
                         {roleLabel[u.role]}
                       </span>
                     </td>
                     <td>
                       {lineId ? (
                         <span
+                          className="font-mono"
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 4,
-                            padding: '2px 8px',
-                            background: 'rgba(6, 199, 85, 0.15)',
-                            color: '#06c755',
+                            gap: 5,
+                            padding: '3px 8px',
+                            background: 'rgba(6, 199, 85, 0.12)',
+                            color: '#06C755',
                             border: '1px solid rgba(6, 199, 85, 0.3)',
                             borderRadius: 'var(--radius-full)',
                             fontSize: 11,
-                            fontWeight: 500,
-                            maxWidth: 130,
+                            fontWeight: 600,
+                            maxWidth: 135,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                           }}
-                          title={`LINE User ID: ${lineId}`}
+                          title={`LINE User ID (${lineId})`}
                         >
                           <MessageSquareIcon size={12} />
                           <span>{lineId.slice(0, 10)}...</span>
@@ -147,13 +264,15 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                           {stations.map((st) => (
                             <span
                               key={st}
+                              className="font-mono"
                               style={{
-                                padding: '2px 6px',
-                                background: 'var(--color-primary-dim)',
-                                color: 'var(--color-primary)',
-                                borderRadius: 'var(--radius-sm)',
+                                padding: '2px 7px',
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                color: '#38BDF8',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                borderRadius: 4,
                                 fontSize: 11,
-                                fontWeight: 500,
+                                fontWeight: 600,
                               }}
                             >
                               {st}
@@ -168,28 +287,40 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                       <span
                         aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
                         style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '3px 9px',
                           borderRadius: 'var(--radius-full)',
                           fontSize: 11,
                           fontWeight: 600,
-                          background: isActive ? 'rgba(76, 175, 80, 0.15)' : 'rgba(255, 82, 82, 0.15)',
-                          color: isActive ? '#4caf50' : '#ff5252',
-                          border: `1px solid ${isActive ? 'rgba(76, 175, 80, 0.3)' : 'rgba(255, 82, 82, 0.3)'}`,
+                          background: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                          color: isActive ? '#10B981' : '#EF4444',
+                          border: `1px solid ${isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
                         }}
                       >
-                        {isActive ? '● ปกติ' : '○ ระงับ'}
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            backgroundColor: isActive ? '#10B981' : '#EF4444',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span>{isActive ? 'ปกติ' : 'ระงับ'}</span>
                       </span>
                     </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+                    <td style={{ color: 'var(--text-muted)', fontSize: 12.5 }} className="font-mono tabular-nums">
                       {u.createdAt || u.created_at
                         ? format(new Date(u.createdAt || u.created_at!), 'dd MMM yyyy', { locale: th })
-                        : '-'}
+                        : '—'}
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button
-                          className="btn btn-sm btn-secondary"
+                          type="button"
+                          className="btn btn-sm btn-secondary tactile-press"
                           onClick={() => onEdit(u)}
                           disabled={u.id === currentUser?.id}
                           title="แก้ไขข้อมูลผู้ใช้"
@@ -199,7 +330,8 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                           <span>แก้ไข</span>
                         </button>
                         <button
-                          className="btn btn-sm btn-secondary"
+                          type="button"
+                          className="btn btn-sm btn-secondary tactile-press"
                           onClick={() => setUserToDelete(u)}
                           disabled={u.id === currentUser?.id}
                           title={u.id === currentUser?.id ? 'ไม่สามารถลบบัญชีของตนเองได้' : 'ลบผู้ใช้'}
@@ -207,7 +339,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 4,
-                            color: u.id === currentUser?.id ? 'var(--text-muted)' : 'var(--color-danger)',
+                            color: u.id === currentUser?.id ? 'var(--text-muted)' : '#EF4444',
                           }}
                         >
                           <Trash2Icon size={13} />
@@ -222,8 +354,10 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
         </table>
       </div>
 
-      <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-        แสดง {filtered.length} จาก {users.length} รายการ
+      <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>
+          แสดง <span className="font-mono tabular-nums">{filtered.length}</span> จากทั้งหมด <span className="font-mono tabular-nums">{users.length}</span> บัญชี
+        </span>
       </div>
 
       {/* Pop-up ยืนยันการลบผู้ใช้ */}
@@ -234,9 +368,9 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -246,15 +380,18 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
         >
           <div
             className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-user-modal-title"
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#0B1120',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
               borderRadius: 16,
               padding: '24px 28px',
-              maxWidth: 400,
+              maxWidth: 420,
               width: '100%',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
+              boxShadow: '0 24px 48px rgba(0, 0, 0, 0.7), 0 0 20px rgba(239, 68, 68, 0.1)',
             }}
           >
             {/* Header */}
@@ -274,7 +411,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               >
                 <Trash2Icon size={18} />
               </div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+              <h3 id="delete-user-modal-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
                 ยืนยันการลบผู้ใช้
               </h3>
             </div>
@@ -295,7 +432,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <span
                   className={`badge ${roleClass[userToDelete.role]}`}
-                  style={{ fontSize: 11, padding: '2px 8px' }}
+                  style={{ fontSize: 11, padding: '2px 8px', fontWeight: 600 }}
                 >
                   {roleLabel[userToDelete.role]}
                 </span>
@@ -322,7 +459,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary tactile-press"
                 onClick={() => setUserToDelete(null)}
                 style={{
                   padding: '9px 20px',
@@ -335,7 +472,7 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn tactile-press"
                 onClick={() => {
                   onDelete(userToDelete.id);
                   setUserToDelete(null);

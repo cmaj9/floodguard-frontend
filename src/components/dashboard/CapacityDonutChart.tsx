@@ -87,8 +87,8 @@ export default function CapacityDonutChart({
                 <Tooltip
                   formatter={(val: any, name: any) => [`${val} จุด (${Math.round((Number(val) / total) * 100)}%)`, name]}
                   contentStyle={{
-                    background: 'rgba(2, 6, 23, 0.95)',
-                    border: '1px solid #1e293b',
+                    background: 'rgba(12, 14, 18, 0.95)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
                     borderRadius: '8px',
                     fontSize: '12px',
                     color: '#f8fafc',

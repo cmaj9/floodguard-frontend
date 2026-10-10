@@ -235,7 +235,7 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         <div
           style={{
             display: 'flex',
-            background: '#090E17',
+            background: 'rgba(255, 255, 255, 0.04)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
             borderRadius: 10,
             padding: 3,
@@ -307,7 +307,7 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
               <div
                 style={{
                   display: 'inline-flex',
-                  background: '#090E17',
+                  background: 'rgba(255, 255, 255, 0.04)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: 999,
                   padding: 2,

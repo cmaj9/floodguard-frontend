@@ -152,7 +152,7 @@ function ResetBoundsButton({ stations }: { stations: Station[] }) {
         width: '36px',
         height: '36px',
         borderRadius: '50%',
-        background: '#111827',
+        background: '#15181E',
         border: '1px solid rgba(255, 255, 255, 0.15)',
         color: '#38bdf8',
         display: 'flex',
@@ -163,11 +163,11 @@ function ResetBoundsButton({ stations }: { stations: Station[] }) {
         transition: 'all 0.2s ease',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = '#1E293B';
+        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
         e.currentTarget.style.color = '#FFFFFF';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = '#111827';
+        e.currentTarget.style.background = '#15181E';
         e.currentTarget.style.color = '#38bdf8';
       }}
     >
@@ -203,7 +203,7 @@ export default function StationMap({
         flexDirection: 'column',
         height: height,
         width: '100%',
-        background: '#111827',
+        background: 'var(--card-surface, #0C0E12)',
         borderRadius: '1.25rem',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         overflow: 'hidden',
@@ -215,7 +215,7 @@ export default function StationMap({
         <div
           style={{
             padding: '0.875rem 1.25rem',
-            background: '#111827',
+            background: 'var(--card-surface, #0C0E12)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
             display: 'flex',
             alignItems: 'center',
@@ -237,7 +237,7 @@ export default function StationMap({
                 letterSpacing: '-0.01em',
               }}
             >
-              แผนที่จุดตรวจวัด
+              แผนที่สถานี
             </h2>
           </div>
 
@@ -296,7 +296,7 @@ export default function StationMap({
         <MapContainer
           center={defaultCenter}
           zoom={12}
-          style={{ height: '100%', width: '100%', background: '#080C14' }}
+          style={{ height: '100%', width: '100%', background: '#000000' }}
           zoomControl={true}
         >
           {mapLayer === 'dark' ? (
@@ -338,8 +338,8 @@ export default function StationMap({
                 }}
               >
                 <Popup>
-                  <div style={{ minWidth: 200, fontFamily: 'inherit', color: '#0F172A' }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#0F172A' }}>
+                  <div style={{ minWidth: 200, fontFamily: 'inherit', color: 'var(--text-primary, #F8FAFC)' }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: 'var(--text-primary, #F8FAFC)' }}>
                       {station.name}
                     </div>
                     <div

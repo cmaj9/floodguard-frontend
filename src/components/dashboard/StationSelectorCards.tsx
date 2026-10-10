@@ -79,7 +79,7 @@ export const StationSelectorCards = memo(function StationSelectorCards({
               aria-pressed={isSelected}
               style={{
                 background: isSelected
-                  ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(37, 99, 235, 0.15) 100%)'
+                  ? '#15181E'
                   : 'var(--card-surface)',
                 borderRadius: '1rem',
                 border: isSelected

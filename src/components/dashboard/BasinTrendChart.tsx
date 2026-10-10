@@ -53,8 +53,8 @@ function DarkMinimalTooltip({ active, payload, label }: any) {
   return (
     <div
       style={{
-        background: 'rgba(2, 6, 23, 0.92)', // slate-950/90
-        border: '1px solid #1e293b', // slate-800
+        background: 'rgba(12, 14, 18, 0.95)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
         borderRadius: '0.625rem',
         padding: '0.625rem 0.875rem',
         fontSize: '0.75rem',
@@ -84,7 +84,7 @@ function DarkMinimalTooltip({ active, payload, label }: any) {
         </div>
       )}
 
-      <div style={{ marginTop: '0.5rem', paddingTop: '0.375rem', borderTop: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+      <div style={{ marginTop: '0.5rem', paddingTop: '0.375rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
         <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
         <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6875rem' }}>
           สถานการณ์ปกติ (ต่ำกว่าเกณฑ์เฝ้าระวัง 1.08 ม.)

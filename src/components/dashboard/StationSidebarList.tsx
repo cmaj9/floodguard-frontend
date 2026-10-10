@@ -109,7 +109,7 @@ export const StationSidebarList = memo(function StationSidebarList({
   return (
     <div
       style={{
-        background: '#111827',
+        background: 'var(--card-surface, #0C0E12)',
         borderRadius: '1.25rem',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
@@ -154,7 +154,7 @@ export const StationSidebarList = memo(function StationSidebarList({
             style={{
               width: '100%',
               padding: '0.625rem 1rem 0.625rem 2.5rem',
-              background: '#0B1120',
+              background: 'rgba(255, 255, 255, 0.04)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
               borderRadius: '0.625rem',
               color: '#F8FAFC',
@@ -393,7 +393,7 @@ export const StationSidebarList = memo(function StationSidebarList({
                               background: isSelected
                                 ? 'var(--cyan-glow)'
                                 : 'rgba(255, 255, 255, 0.05)',
-                              color: isSelected ? '#080C14' : '#94A3B8',
+                              color: isSelected ? '#000000' : '#94A3B8',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',

@@ -56,7 +56,7 @@ export const StationPhotoCard = memo(function StationPhotoCard({
       aria-pressed={isSelected}
       className={`station-photo-card ${isSelected ? 'selected' : ''}`}
       style={{
-        background: '#111827',
+        background: 'var(--card-surface, #0C0E12)',
         borderRadius: '1.25rem',
         border: isSelected
           ? '2px solid #0284c7'
@@ -80,7 +80,7 @@ export const StationPhotoCard = memo(function StationPhotoCard({
           width: '100%',
           height: '148px',
           overflow: 'hidden',
-          background: '#0a0f1d',
+          background: '#07090C',
         }}
       >
         <img
@@ -106,7 +106,7 @@ export const StationPhotoCard = memo(function StationPhotoCard({
             position: 'absolute',
             inset: 0,
             background:
-              'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(17, 24, 39, 0.05) 40%, rgba(17, 24, 39, 0.85) 85%, #111827 100%)',
+              'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(12, 14, 18, 0.05) 40%, rgba(12, 14, 18, 0.85) 85%, #0C0E12 100%)',
             pointerEvents: 'none',
           }}
         />
@@ -276,8 +276,10 @@ export const StationPhotoCard = memo(function StationPhotoCard({
             >
               <div
                 style={{
-                  width: `${isOnline ? battery : 0}%`,
+                  width: '100%',
                   height: '100%',
+                  transform: `scaleX(${isOnline ? battery / 100 : 0})`,
+                  transformOrigin: 'left',
                   background:
                     isOnline && battery > 20
                       ? '#10B981'
@@ -285,7 +287,7 @@ export const StationPhotoCard = memo(function StationPhotoCard({
                       ? '#F59E0B'
                       : '#475569',
                   borderRadius: '9999px',
-                  transition: 'width 0.3s ease',
+                  transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}
               />
             </div>

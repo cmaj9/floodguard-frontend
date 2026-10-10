@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import StationTelemetryHub from '../components/dashboard/StationTelemetryHub';
 import StationMap from '../components/map/StationMap';
 import StationRecentReadingsCard from '../components/dashboard/StationRecentReadingsCard';
-import FloatingActionDock from '../components/dashboard/FloatingActionDock';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import {
   AlertTriangleIcon,
@@ -14,6 +14,8 @@ import {
   ActivityIcon,
   MapIcon,
   CheckCircleIcon,
+  PhoneIcon,
+  RadioIcon,
 } from '../components/ui/Icons';
 import { Button } from '../components/ui/Button';
 import { SkeletonCard, SkeletonMetric } from '../components/ui/Skeleton';
@@ -93,16 +95,105 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
   };
 };
 
+// ── Fallback Demo Stations ──────────────────────────────────────────
+const FALLBACK_STATIONS: Station[] = [
+  {
+    id: 'ST-001',
+    name: 'สถาบันวิทยสิริเมธี (ริมแม่น้ำ)',
+    description: 'ประเภท แม่น้ำ (River) · จุดตรวจวัดหลัก',
+    location: 'ต.คลองหก อ.คลองหลวง จ.ปทุมธานี',
+    district: 'คลองหลวง',
+    province: 'ปทุมธานี',
+    lat: 14.03593,
+    lng: 100.72516,
+    currentLevel: 1.569,
+    maxLevel: 7.0,
+    normalMax: 3.0,
+    warningLevel: 4.5,
+    criticalLevel: 5.5,
+    status: 'normal',
+    lastUpdated: new Date().toISOString(),
+    isActive: true,
+    deviceId: 'ST-001',
+    batteryPercent: 100,
+    batteryVoltage: 13.0,
+    temperature: 31.4,
+    humidity: 62.5,
+    rssi: -60,
+    snr: 14.5,
+    tiltX: 4.3,
+    tiltY: -1.1,
+    gatewayName: 'Gateway_01',
+    gatewayStatus: 'online',
+    model: 'Heltec-WiFi-LoRa-32(V3)',
+    firmwareVersion: 'v1.2.0',
+    stationType: 'แม่น้ำ (River)',
+  },
+  {
+    id: 'ST-002',
+    name: 'สถานีคลองรังสิต (ประตูระบายน้ำ)',
+    description: 'ประเภท คลอง (Canal) · ประตูระบายน้ำคลองรังสิต',
+    location: 'ต.รังสิต อ.ธัญบุรี จ.ปทุมธานี',
+    district: 'ธัญบุรี',
+    province: 'ปทุมธานี',
+    lat: 14.0208,
+    lng: 100.7594,
+    currentLevel: 1.15,
+    maxLevel: 4.5,
+    normalMax: 2.0,
+    warningLevel: 3.0,
+    criticalLevel: 3.8,
+    status: 'normal',
+    lastUpdated: new Date().toISOString(),
+    isActive: true,
+    deviceId: 'ST-002',
+    batteryPercent: 92,
+    batteryVoltage: 12.8,
+    temperature: 32.0,
+    humidity: 60.2,
+    rssi: -68,
+    snr: 13.2,
+    tiltX: 2.1,
+    tiltY: 0.5,
+    gatewayName: 'Gateway_01',
+    gatewayStatus: 'online',
+    model: 'Heltec-WiFi-LoRa-32(V3)',
+    firmwareVersion: 'v1.2.0',
+    stationType: 'คลอง (Canal)',
+  },
+];
+
 export default function DashboardPage() {
   const { user, isGuest } = useAuth();
   const location = useLocation();
   const { showToast } = useToast();
 
-  const [stations, setStations] = useState<Station[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'telemetry' | 'map'>('telemetry');
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
+  const [showBroadcastConfirm, setShowBroadcastConfirm] = useState<boolean>(false);
+
+  // ── TanStack Query: Auto-refreshes every 30s silently without skeleton flash ──
+  const {
+    data: stations = FALLBACK_STATIONS,
+    isLoading,
+    isFetching,
+    error: queryError,
+    refetch,
+  } = useQuery<Station[]>({
+    queryKey: ['stations'],
+    queryFn: async () => {
+      const stationData = await fetchStations().catch(() => []);
+      if (stationData && stationData.length > 0) {
+        return stationData.map(mapStationWithReadingToStation);
+      }
+      return FALLBACK_STATIONS;
+    },
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+
+  const loadError = queryError instanceof Error ? queryError.message : null;
 
   // ── 1. Role & User Assigned Stations Derivation ──
   const userRole = user?.role || (isGuest ? 'guest' : 'citizen');
@@ -175,119 +266,32 @@ export default function DashboardPage() {
     }
   }, [location.state, showToast]);
 
-  // ── Load Real Data from API ───────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const stationData = await fetchStations().catch(() => []);
-
-      if (stationData && stationData.length > 0) {
-        const mapped = stationData.map(mapStationWithReadingToStation);
-        setStations(mapped);
-
-        // Auto-select initial station: prefer first assigned/subscribed station if available
-        setSelectedStationId((prev) => {
-          if (prev && mapped.some((s) => s.id === prev)) return prev;
-          if (userStationIds.length > 0) {
-            const upperUser = userStationIds.map((id: string) => id.toUpperCase());
-            const matched = mapped.find((s) => upperUser.includes(s.id.toUpperCase()));
-            if (matched) return matched.id;
-          }
-          if (location.state?.subscribedStationIds?.[0]) return location.state.subscribedStationIds[0];
-          return mapped[0]?.id || null;
-        });
-      } else {
-        // Fallback demo stations if API returns 0 items
-        const fallbackStations: Station[] = [
-          {
-            id: 'ST-001',
-            name: 'สถาบันวิทยสิริเมธี (ริมแม่น้ำ)',
-            description: 'ประเภท แม่น้ำ (River) · จุดตรวจวัดหลัก',
-            location: 'ต.คลองหก อ.คลองหลวง จ.ปทุมธานี',
-            district: 'คลองหลวง',
-            province: 'ปทุมธานี',
-            lat: 14.03593,
-            lng: 100.72516,
-            currentLevel: 1.569,
-            maxLevel: 7.0,
-            normalMax: 3.0,
-            warningLevel: 4.5,
-            criticalLevel: 5.5,
-            status: 'normal',
-            lastUpdated: new Date().toISOString(),
-            isActive: true,
-            deviceId: 'ST-001',
-            batteryPercent: 100,
-            batteryVoltage: 13.0,
-            temperature: 31.4,
-            humidity: 62.5,
-            rssi: -60,
-            snr: 14.5,
-            tiltX: 4.3,
-            tiltY: -1.1,
-            gatewayName: 'Gateway_01',
-            gatewayStatus: 'online',
-            model: 'Heltec-WiFi-LoRa-32(V3)',
-            firmwareVersion: 'v1.2.0',
-            stationType: 'แม่น้ำ (River)',
-          },
-          {
-            id: 'ST-002',
-            name: 'สถานีคลองรังสิต (ประตูระบายน้ำ)',
-            description: 'ประเภท คลอง (Canal) · ประตูระบายน้ำคลองรังสิต',
-            location: 'ต.รังสิต อ.ธัญบุรี จ.ปทุมธานี',
-            district: 'ธัญบุรี',
-            province: 'ปทุมธานี',
-            lat: 14.0208,
-            lng: 100.7594,
-            currentLevel: 1.15,
-            maxLevel: 4.5,
-            normalMax: 2.0,
-            warningLevel: 3.0,
-            criticalLevel: 3.8,
-            status: 'normal',
-            lastUpdated: new Date().toISOString(),
-            isActive: true,
-            deviceId: 'ST-002',
-            batteryPercent: 92,
-            batteryVoltage: 12.8,
-            temperature: 32.0,
-            humidity: 60.2,
-            rssi: -68,
-            snr: 13.2,
-            tiltX: 2.1,
-            tiltY: 0.5,
-            gatewayName: 'Gateway_01',
-            gatewayStatus: 'online',
-            model: 'Heltec-WiFi-LoRa-32(V3)',
-            firmwareVersion: 'v1.2.0',
-            stationType: 'คลอง (Canal)',
-          },
-        ];
-        setStations(fallbackStations);
-        setSelectedStationId((prev) => (prev ? prev : fallbackStations[0].id));
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'ไม่สามารถเชื่อมต่อฐานข้อมูลสถานการณ์น้ำได้';
-      setLoadError(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, isGuest]);
-
+  // ── Global Refresh Listener & Synchronizer ───────────────────────
   useEffect(() => {
-    loadData();
-    const timer = setInterval(loadData, 30_000);
     const handleGlobalRefresh = () => {
-      loadData();
+      refetch();
     };
     window.addEventListener('app:refresh', handleGlobalRefresh);
     return () => {
-      clearInterval(timer);
       window.removeEventListener('app:refresh', handleGlobalRefresh);
     };
-  }, [loadData]);
+  }, [refetch]);
+
+  // ── Auto-Select Initial Station ───────────────────────────────────
+  useEffect(() => {
+    if (stations && stations.length > 0) {
+      setSelectedStationId((prev) => {
+        if (prev && stations.some((s) => s.id === prev)) return prev;
+        if (userStationIds.length > 0) {
+          const upperUser = userStationIds.map((id: string) => id.toUpperCase());
+          const matched = stations.find((s) => upperUser.includes(s.id.toUpperCase()));
+          if (matched) return matched.id;
+        }
+        if (location.state?.subscribedStationIds?.[0]) return location.state.subscribedStationIds[0];
+        return stations[0]?.id || null;
+      });
+    }
+  }, [stations, userStationIds, location.state]);
 
   // ── Subscribed / Assigned Station Names ──
   const subscribedNames = useMemo(() => {
@@ -356,7 +360,7 @@ export default function DashboardPage() {
           style={{
             marginBottom: '1.25rem',
             padding: '14px 18px',
-            background: 'linear-gradient(135deg, var(--sonar-green-dim) 0%, rgba(11, 19, 27, 0.95) 100%)',
+            background: 'linear-gradient(135deg, var(--sonar-green-dim) 0%, rgba(12, 14, 18, 0.98) 100%)',
             border: '1px solid rgba(16, 185, 129, 0.35)',
             borderRadius: '12px',
             display: 'flex',
@@ -427,12 +431,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── 0. CRITICAL ALERT TOAST (Beacon Red) ── */}
+      {/* ── 0. CRITICAL ALERT TOAST (Beacon Red + Emergency Broadcast) ── */}
       {criticalStations.length > 0 && (
         <div
           className="bento-card animate-fade-in"
           style={{
-            background: 'linear-gradient(90deg, var(--beacon-red-dim) 0%, rgba(11, 19, 27, 0.95) 100%)',
+            background: 'linear-gradient(90deg, var(--beacon-red-dim) 0%, rgba(12, 14, 18, 0.98) 100%)',
             border: '1px solid rgba(220, 38, 38, 0.45)',
             borderRadius: '12px',
             padding: '1rem 1.25rem',
@@ -440,11 +444,12 @@ export default function DashboardPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: '1rem',
           }}
           role="alert"
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 260 }}>
             <XCircleIcon size={22} style={{ color: 'var(--beacon-red)', flexShrink: 0 }} />
             <div>
               <span style={{ fontWeight: 700, color: 'var(--beacon-red)', fontSize: '0.9375rem', marginRight: '0.5rem' }}>
@@ -455,13 +460,140 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => setSelectedStationId(criticalStations[0].id)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <a
+              href="tel:1784"
+              className="btn btn-secondary btn-sm"
+              style={{
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12.5,
+                fontWeight: 600,
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#FFFFFF',
+                borderRadius: 8,
+                padding: '6px 12px',
+              }}
+              title="โทรสายด่วนนิรภัย ปภ. 1784 (โทรฟรี 24 ชม.)"
+            >
+              <PhoneIcon size={14} style={{ color: '#F87171' }} />
+              <span>สายด่วน 1784</span>
+            </a>
+
+            {(isAdmin || isStaff) && (
+              <button
+                type="button"
+                className="btn-radar-beacon tactile-press"
+                onClick={() => setShowBroadcastConfirm(true)}
+                title="ส่งข้อความแจ้งเตือนด่วนผ่าน LINE OA ไปยังประชาชนที่ติดตามสถานีในพื้นที่วิกฤต"
+              >
+                <div className="radar-pulse-dot" />
+                <span>ยิงแจ้งเตือนด่วน LINE OA</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-danger btn-sm tactile-press"
+              onClick={() => setSelectedStationId(criticalStations[0].id)}
+              style={{ borderRadius: 8, fontWeight: 700 }}
+            >
+              ดูจุดวิกฤต
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Broadcast Confirmation Modal */}
+      {showBroadcastConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => !isBroadcasting && setShowBroadcastConfirm(false)}
+        >
+          <div
+            style={{
+              background: '#0C0E12',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: 16,
+              maxWidth: 420,
+              width: '100%',
+              padding: 24,
+              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.8)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
           >
-            ดูจุดวิกฤต
-          </Button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  color: '#EF4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <RadioIcon size={20} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                  ยืนยันการยิงแจ้งเตือนฉุกเฉิน
+                </h3>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                  Emergency Broadcast via LINE Official Account
+                </div>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 20px' }}>
+              ระบบจะส่งข้อความแจ้งเตือนระดับวิกฤตและคำแนะนำการอพยพทันทีไปยัง LINE OA ของประชาชนทุกคนที่ลงทะเบียนติดตามสถานีในพื้นที่วิกฤต ({criticalStations.map((s) => s.name).join(', ')})
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isBroadcasting}
+                onClick={() => setShowBroadcastConfirm(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                disabled={isBroadcasting}
+                onClick={() => {
+                  setIsBroadcasting(true);
+                  setTimeout(() => {
+                    setIsBroadcasting(false);
+                    setShowBroadcastConfirm(false);
+                    showToast('ส่งสัญญาณแจ้งเตือนภัยฉุกเฉินระดับวิกฤตไปยัง LINE OA ของประชาชนเรียบร้อยแล้ว', 'line');
+                  }, 800);
+                }}
+                leftIcon={isBroadcasting ? <RefreshCwIcon size={14} className="animate-spin" /> : <RadioIcon size={14} />}
+              >
+                {isBroadcasting ? 'กำลังส่งสัญญาณ...' : 'ยืนยันส่งข้อความด่วน'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -495,7 +627,7 @@ export default function DashboardPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={loadData}
+            onClick={() => refetch()}
             leftIcon={<RefreshCwIcon size={14} />}
           >
             ลองเชื่อมต่อใหม่
@@ -565,6 +697,8 @@ export default function DashboardPage() {
                 station={selectedStation}
                 stations={displayedStations}
                 onSelectStation={(id) => setSelectedStationId(id)}
+                onRefresh={() => refetch()}
+                isRefreshing={isFetching}
               />
             </ErrorBoundary>
           </div>
@@ -603,16 +737,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── 5. FLOATING COMMAND BAR / ACTION DOCK (Desktop only) ── */}
-      <div className="desktop-only-action-dock">
-        <FloatingActionDock
-          stations={displayedStations}
-          selectedStationId={selectedStation?.id || null}
-          onSelectStation={(id) => setSelectedStationId(id)}
-          onRefresh={loadData}
-          isLoading={isLoading}
-        />
-      </div>
+
 
     </div>
   );

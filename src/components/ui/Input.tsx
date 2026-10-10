@@ -115,7 +115,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             fontSize: '16px', // Strict iOS Safari rule to prevent auto-zoom on mobile focus
             fontFamily: 'inherit',
             color: 'var(--text-primary)',
-            background: 'rgba(15, 23, 42, 0.75)',
+            background: 'rgba(255, 255, 255, 0.04)',
             border: `1px solid ${error ? '#EF4444' : 'rgba(255, 255, 255, 0.12)'}`,
             borderRadius: '8px',
             outline: 'none',

@@ -88,6 +88,8 @@ export default function TopBar({
             className="topbar-action-btn notif-btn"
             onClick={() => setShowNotif((v) => !v)}
             aria-label="การแจ้งเตือน"
+            aria-expanded={showNotif}
+            aria-haspopup="dialog"
             title="การแจ้งเตือน"
           >
             <BellIcon size={16} className="bell-icon" />

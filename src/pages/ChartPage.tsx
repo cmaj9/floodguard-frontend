@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import WaterLevelChart from '../components/charts/WaterLevelChart';
@@ -16,6 +16,10 @@ import {
   ClockIcon,
   ActivityIcon,
   XIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
+  MinusIcon,
+  WavesIcon,
 } from '../components/ui/Icons';
 import { Badge } from '../components/ui/Badge';
 import { SkeletonCard } from '../components/ui/Skeleton';
@@ -23,11 +27,12 @@ import type { SegmentedOption } from '../components/ui/SegmentedControl';
 import { format } from 'date-fns';
 import { exportWaterLevelCSV } from '../utils/exportCSV';
 import { applyWaterLevelFilter, detectOutages } from '../utils/waterLevelFilter';
+import ManagementBackBar from '../components/ui/ManagementBackBar';
 
 const timeRangeOptions: SegmentedOption<TimeRange>[] = [
-  { value: 'hourly', label: 'รายชั่วโมง', icon: <ClockIcon size={14} /> },
-  { value: 'daily', label: 'รายวัน', icon: <ActivityIcon size={14} /> },
-  { value: 'weekly', label: 'รายสัปดาห์', icon: <LineChartIcon size={14} /> },
+  { value: 'hourly', label: '24 ชั่วโมง', icon: <ClockIcon size={14} /> },
+  { value: 'daily', label: '14 วัน', icon: <ActivityIcon size={14} /> },
+  { value: 'weekly', label: '14 สัปดาห์', icon: <LineChartIcon size={14} /> },
 ];
 
 const statusLabel: Record<string, string> = {
@@ -80,7 +85,6 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     lastUpdated: swr.last_reading_time || new Date().toISOString(),
     isActive: swr.status === 'active',
     deviceId: swr.station_id,
-    // Sensor readings: return undefined when null so offline guard ("-") displays correctly
     batteryPercent: swr.battery_percent != null ? Number(swr.battery_percent) : undefined,
     batteryVoltage: swr.battery_voltage != null ? Number(swr.battery_voltage) : undefined,
     temperature: swr.temperature != null ? Number(swr.temperature) : undefined,
@@ -104,9 +108,8 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 };
 
 /**
- * กรองข้อมูลที่ผิดปกติ (Outlier Filtering) ตาม Datasheet เซนเซอร์ (0 - 600 cm / 0.00 - 6.00 m)
- * และตัดค่าระยะใกล้เกินไปในระยะบอด Blind Zone (< 28 cm หรือ blindZoneOffset ของสถานี)
- * พร้อมแปลงเป็นข้อมูลรายจุดตรวจวัดจริง (Real discrete points) โดยไม่หาค่าเฉลี่ย
+ * Outlier Filtering ตาม Datasheet เซนเซอร์ (0 - 600 cm / 0.00 - 6.00 m)
+ * และตัดค่าระยะใกล้เกินไปในระยะบอด Blind Zone (< 28 cm)
  */
 function filterAndMapReadings(
   readings: Reading[],
@@ -120,41 +123,34 @@ function filterAndMapReadings(
   const blindZoneLimit =
     station?.blindZoneOffset !== undefined && station?.blindZoneOffset !== null && station.blindZoneOffset > 0
       ? station.blindZoneOffset
-      : 0.28; // 28 cm
+      : 0.28;
 
   const result: WaterLevelReading[] = [];
 
   readings.forEach((r) => {
-    // 1. ตรวจสอบความถูกต้องของเวลา
     const d = new Date(r.timestamp);
     if (isNaN(d.getTime())) return;
 
-    // 2. ตรวจสอบระยะตรวจวัดเซนเซอร์ raw_distance
     const rawDist =
       r.raw_distance !== null && r.raw_distance !== undefined && !isNaN(Number(r.raw_distance))
         ? Number(r.raw_distance)
         : null;
 
-    // ระบบกรองข้อมูล Outlier:
-    // ตาม Datasheet เซนเซอร์วัดได้ 0 - 600 cm (0.00 - 6.00 ม.)
-    // ตัดค่าที่เกิน 600 cm (> 6.00 ม.) และค่าที่ใกล้เกินไปในระยะ Blind Zone (< 0.28 ม.) ออกจากกราฟ
     if (rawDist !== null) {
       if (rawDist < blindZoneLimit || rawDist > 6.0) {
-        return; // ตัดทิ้ง ไม่นำมาคำนวณหรือพล็อตกราฟ
+        return;
       }
     }
 
-    // 3. คำนวณระดับน้ำจริงเทียบจุดอ้างอิง
     let calculatedLevel: number;
     if (rawDist !== null) {
       calculatedLevel = Number((sToRef - rawDist).toFixed(3));
     } else if (r.water_level !== null && r.water_level !== undefined && !isNaN(Number(r.water_level))) {
       calculatedLevel = Number(Number(r.water_level).toFixed(3));
     } else {
-      return; // ไม่มีค่าระยะหรือระดับน้ำที่ใช้การได้
+      return;
     }
 
-    // กรองค่าระดับน้ำที่กระโดดผิดปกติ
     if (calculatedLevel < -6.0 || calculatedLevel > 6.0) {
       return;
     }
@@ -179,10 +175,8 @@ function filterAndMapReadings(
     });
   });
 
-  // เรียงลำดับตามเวลาจากอดีตไปปัจจุบัน
   result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-  // ผ่านระบบ 3-Layer Intelligent Hydrological Filter (Deduplication, Adaptive Hampel & Persistence, Resampling & Gap Breaking)
   return applyWaterLevelFilter(result, timeRange, station);
 }
 
@@ -228,10 +222,12 @@ export default function ChartPage() {
     if (levels.length === 0) return null;
 
     const current = levels[levels.length - 1];
+    const first = levels[0];
     const min = Math.min(...levels);
     const max = Math.max(...levels);
     const delta = max - min;
     const avg = levels.reduce((acc, curr) => acc + curr, 0) / levels.length;
+    const netChange = Number((current - first).toFixed(3));
 
     return {
       current,
@@ -239,6 +235,8 @@ export default function ChartPage() {
       max,
       delta,
       avg,
+      netChange,
+      direction: netChange > 0.005 ? ('up' as const) : netChange < -0.005 ? ('down' as const) : ('stable' as const),
       count: readings.length,
     };
   }, [readings]);
@@ -288,7 +286,6 @@ export default function ChartPage() {
         const data = await fetchStations();
         const mapped = data.map(mapStationWithReadingToStation);
         
-        // Registered citizens see their subscribed stations; staff see assigned stations; fallback to all
         const isRegisteredCitizen =
           Boolean(user) &&
           user?.role === 'citizen' &&
@@ -310,11 +307,13 @@ export default function ChartPage() {
         const finalStations = filtered.length > 0 ? filtered : mapped;
         setStations(finalStations);
 
-        // Target station from URL / deep-link
         if (targetId && mapped.some((s) => s.id === targetId)) {
           setSelectedStationId(targetId);
-        } else if (finalStations.length > 0 && (!selectedStationId || !finalStations.some((s) => s.id === selectedStationId))) {
-          setSelectedStationId(finalStations[0].id);
+        } else {
+          setSelectedStationId((prev) => {
+            if (prev && finalStations.some((s) => s.id === prev)) return prev;
+            return finalStations.length > 0 ? finalStations[0].id : '';
+          });
         }
       } catch (err: any) {
         setStationsError(err.message || 'ไม่สามารถดึงข้อมูลสถานีได้');
@@ -340,13 +339,10 @@ export default function ChartPage() {
         const end = new Date();
         const start = new Date();
         if (timeRange === 'hourly') {
-          // 1 วัน (24 ชั่วโมงย้อนหลัง)
           start.setHours(start.getHours() - 24);
         } else if (timeRange === 'daily') {
-          // 2 สัปดาห์ย้อนหลัง (14 วัน)
           start.setDate(start.getDate() - 14);
         } else if (timeRange === 'weekly') {
-          // 14 สัปดาห์ย้อนหลัง (14 * 7 วัน)
           start.setDate(start.getDate() - 14 * 7);
         }
 
@@ -364,12 +360,48 @@ export default function ChartPage() {
   }, [selectedStationId, timeRange]);
 
   return (
-    <div className="page-container" style={{ paddingBottom: '3rem' }}>
+    <div className="page-container" style={{ maxWidth: 1440, margin: '0 auto', paddingBottom: '4rem' }}>
+      {/* ── TOP MANAGEMENT BAR ── */}
+      <ManagementBackBar
+        title="วิเคราะห์กราฟโทรมาตร"
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {selectedStation && (
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 14px',
+                  borderRadius: 999,
+                  background: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: selectedStation.isActive ? '#10B981' : '#94A3B8',
+                    boxShadow: selectedStation.isActive ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
+                    display: 'inline-block',
+                  }}
+                  className={selectedStation.isActive ? 'heartbeat-dot' : ''}
+                />
+                <span className="tabular-nums font-mono" style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>
+                  {selectedStation.id} · {selectedStation.name}
+                </span>
+              </div>
+            )}
+          </div>
+        }
+      />
 
-      {/* Loading state for stations */}
       {/* Loading state for stations (Zero-CLS Skeleton) */}
       {stationsLoading && (
-        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.25rem', marginBottom: '1.5rem' }}>
           <SkeletonCard height="64px" />
           <div className="chart-main-split">
             <SkeletonCard height="560px" />
@@ -389,17 +421,18 @@ export default function ChartPage() {
           style={{
             background: 'rgba(239, 68, 68, 0.12)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
-            color: '#f87171',
+            color: '#F87171',
             padding: '1rem 1.25rem',
             borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             gap: 10,
+            marginTop: '1.25rem',
             marginBottom: '1.5rem',
           }}
         >
           <AlertTriangleIcon size={18} />
-          <span><strong>เกิดข้อผิดพลาดในการโหลดรายชื่อสถานี:</strong> {stationsError}</span>
+          <span><strong>เกิดข้อผิดพลาดในการโหลดรายชื่อสถานี</strong> {stationsError}</span>
         </div>
       )}
 
@@ -412,14 +445,15 @@ export default function ChartPage() {
             gridTemplateColumns: 'minmax(0, 1fr) 340px',
             gap: '1.25rem',
             alignItems: 'start',
+            marginTop: '1.25rem',
           }}
         >
           {/* ════════ LEFT COLUMN: THE HERO GRAPH ════════ */}
           <div
             className="bento-card animate-fade-in"
             style={{
-              background: 'var(--card-surface)',
-              border: '1px solid var(--card-border)',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '1.25rem',
               padding: '1.25rem 1.5rem',
               boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3)',
@@ -453,7 +487,7 @@ export default function ChartPage() {
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px',
-                      background: 'rgba(8, 14, 22, 0.75)',
+                      background: '#15181E',
                       backdropFilter: 'blur(20px) saturate(180%)',
                       WebkitBackdropFilter: 'blur(20px) saturate(180%)',
                       border: '1px solid rgba(255, 255, 255, 0.09)',
@@ -477,7 +511,7 @@ export default function ChartPage() {
                           role="tab"
                           aria-selected={isSelected}
                           onClick={() => setSelectedStationId(s.id)}
-                          className={`vision-capsule-item ${isSelected ? 'selected' : ''}`}
+                          className={`vision-capsule-item tactile-press ${isSelected ? 'selected' : ''}`}
                           style={{
                             position: 'relative',
                             zIndex: 2,
@@ -498,7 +532,7 @@ export default function ChartPage() {
                               ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(14, 165, 233, 0.14) 100%)'
                               : 'transparent',
                             boxShadow: isSelected ? '0 0 16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.3)' : 'none',
-                            color: isSelected ? '#f0f9ff' : '#94a3b8',
+                            color: isSelected ? '#F0F9FF' : '#94A3B8',
                             transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                           }}
                         >
@@ -538,11 +572,11 @@ export default function ChartPage() {
                             />
                           </span>
                           <span
-                            className="tabular-nums"
+                            className="tabular-nums font-mono"
                             style={{
                               fontWeight: 700,
                               letterSpacing: '0.02em',
-                              color: isSelected ? '#38bdf8' : '#cbd5e1',
+                              color: isSelected ? '#38BDF8' : '#CBD5E1',
                             }}
                           >
                             {s.id}
@@ -580,7 +614,7 @@ export default function ChartPage() {
             >
               {/* Left: Active Station Info */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                   <span
                     style={{
                       fontFamily: 'monospace',
@@ -588,7 +622,7 @@ export default function ChartPage() {
                       fontSize: '0.8125rem',
                       padding: '0.15rem 0.5rem',
                       borderRadius: '0.375rem',
-                      background: 'rgba(37, 99, 235, 0.15)',
+                      background: 'rgba(56, 189, 248, 0.15)',
                       border: '1px solid rgba(56, 189, 248, 0.35)',
                       color: '#38BDF8',
                     }}
@@ -613,7 +647,7 @@ export default function ChartPage() {
                   })()}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                  <MapPinIcon size={13} style={{ color: 'var(--sky-highlight)' }} />
+                  <MapPinIcon size={13} style={{ color: '#38BDF8' }} />
                   <span>{selectedStation.location || `${selectedStation.district} · ${selectedStation.province}`}</span>
                   <span style={{ color: 'rgba(255, 255, 255, 0.2)' }}>•</span>
                   {(() => {
@@ -659,7 +693,7 @@ export default function ChartPage() {
                         fontSize: '0.6875rem',
                       }}
                     >
-                      Blind Zone (≤0.28m)
+                      Blind Zone (&lt; 0.28 ม.)
                     </span>
                   )}
                 </div>
@@ -674,77 +708,40 @@ export default function ChartPage() {
                   flexWrap: 'wrap',
                 }}
               >
-                {/* ── VisionOS Frosted Glass Time Range Switcher ── */}
+                {/* ── Chrono-Horizon Time Range Switcher (Pure Minimal Timeline) ── */}
                 <div
                   role="tablist"
                   aria-label="ช่วงเวลาของกราฟระดับน้ำ"
-                  className="vision-timerange-dock"
-                  style={{
-                    position: 'relative',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: 'rgba(8, 14, 22, 0.75)',
-                    backdropFilter: 'blur(20px) saturate(180%)',
-                    WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '9999px',
-                    padding: '3px',
-                    boxShadow: 'inset 0 1.5px 3px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 0, 0, 0.4)',
-                  }}
+                  className="chrono-horizon-dock"
                 >
-                  {timeRangeOptions.map((opt) => {
+                  {timeRangeOptions.map((opt, idx) => {
                     const isSelected = timeRange === opt.value;
                     return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={isSelected}
-                        onClick={() => setTimeRange(opt.value)}
-                        className={`vision-timerange-item ${isSelected ? 'selected' : ''}`}
-                        style={{
-                          position: 'relative',
-                          zIndex: 2,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '6px 14px',
-                          borderRadius: '9999px',
-                          fontSize: '0.8125rem',
-                          fontWeight: isSelected ? 700 : 500,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          minHeight: '32px',
-                          outline: 'none',
-                          border: isSelected ? '1px solid rgba(56, 189, 248, 0.55)' : '1px solid transparent',
-                          background: isSelected
-                            ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.32) 0%, rgba(14, 165, 233, 0.14) 100%)'
-                            : 'transparent',
-                          boxShadow: isSelected
-                            ? '0 0 16px rgba(2, 132, 199, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28)'
-                            : 'none',
-                          color: isSelected ? '#f0f9ff' : '#94a3b8',
-                          transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                        }}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', color: isSelected ? '#38bdf8' : 'inherit' }}>
-                          {opt.icon}
-                        </span>
-                        <span>{opt.label}</span>
-                      </button>
+                      <Fragment key={opt.value}>
+                        {idx > 0 && <span className="chrono-horizon-sep">·</span>}
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={isSelected}
+                          onClick={() => setTimeRange(opt.value)}
+                          className={`chrono-horizon-item tactile-press ${isSelected ? 'selected' : ''}`}
+                        >
+                          <span className="time-marker" />
+                          <span>{opt.label}</span>
+                        </button>
+                      </Fragment>
                     );
                   })}
                 </div>
 
-                {/* ── Uiverse Flight CSV Export Button (RBAC: Staff & Admin only) ── */}
+                {/* ── Flight CSV Export Button ── */}
                 {canExport && (
                   <button
                     type="button"
                     onClick={handleExportCSV}
                     disabled={readingsLoading}
-                    className={`csv-flight-button ${isExported ? 'success' : ''}`}
-                    title={`ส่งออกข้อมูลระดับน้ำเป็นไฟล์ CSV (${timeRange === 'hourly' ? '24 ชั่วโมง' : timeRange === 'daily' ? '2 สัปดาห์' : '14 สัปดาห์'})`}
+                    className={`csv-flight-button tactile-press ${isExported ? 'success' : ''}`}
+                    title={`ส่งออกข้อมูลระดับน้ำเป็นไฟล์ CSV (${timeRange === 'hourly' ? '24 ชั่วโมง' : timeRange === 'daily' ? '14 วัน' : '14 สัปดาห์'})`}
                   >
                     <div className="flight-svg-wrapper">
                       {isExported ? (
@@ -774,7 +771,7 @@ export default function ChartPage() {
               </div>
             </div>
 
-            {/* ── Quick Glance Metrics Strip (Max / Min / Avg / Current) ── */}
+            {/* ── Quick Glance Metrics Strip (Giant Telemetry Mono) ── */}
             {stats && (
               <div
                 style={{
@@ -787,8 +784,8 @@ export default function ChartPage() {
                 <div className="tactile-stat-pill">
                   <span className="stat-label">ระดับล่าสุด</span>
                   <span
-                    className="stat-val tabular-nums"
-                    style={{ color: stats.current > 0 ? '#ef4444' : '#38bdf8' }}
+                    className="stat-val tabular-nums font-mono"
+                    style={{ color: stats.current > 0 ? '#EF4444' : '#38BDF8', fontWeight: 900 }}
                   >
                     {stats.current >= 0 ? `+${stats.current.toFixed(2)}` : stats.current.toFixed(2)} ม.
                   </span>
@@ -796,8 +793,8 @@ export default function ChartPage() {
                 <div className="tactile-stat-pill">
                   <span className="stat-label">ระดับสูงสุด</span>
                   <span
-                    className="stat-val tabular-nums"
-                    style={{ color: '#f87171' }}
+                    className="stat-val tabular-nums font-mono"
+                    style={{ color: '#F87171', fontWeight: 800 }}
                   >
                     {stats.max >= 0 ? `+${stats.max.toFixed(2)}` : stats.max.toFixed(2)} ม.
                   </span>
@@ -805,21 +802,48 @@ export default function ChartPage() {
                 <div className="tactile-stat-pill">
                   <span className="stat-label">ระดับต่ำสุด</span>
                   <span
-                    className="stat-val tabular-nums"
-                    style={{ color: '#34d399' }}
+                    className="stat-val tabular-nums font-mono"
+                    style={{ color: '#34D399', fontWeight: 800 }}
                   >
                     {stats.min >= 0 ? `+${stats.min.toFixed(2)}` : stats.min.toFixed(2)} ม.
                   </span>
                 </div>
                 <div className="tactile-stat-pill">
                   <span className="stat-label">ช่วงแกว่งตัว</span>
-                  <span className="stat-val tabular-nums" style={{ color: '#e2e8f0' }}>
+                  <span className="stat-val tabular-nums font-mono" style={{ color: '#E2E8F0', fontWeight: 800 }}>
                     {stats.delta.toFixed(2)} ม.
                   </span>
                 </div>
                 <div className="tactile-stat-pill">
+                  <span className="stat-label">แนวโน้มสุทธิ</span>
+                  <span
+                    className="stat-val tabular-nums font-mono"
+                    style={{
+                      color:
+                        stats.direction === 'up'
+                          ? '#EF4444'
+                          : stats.direction === 'down'
+                          ? '#10B981'
+                          : '#94A3B8',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                  >
+                    {stats.direction === 'up' ? (
+                      <TrendingUpIcon size={14} />
+                    ) : stats.direction === 'down' ? (
+                      <TrendingDownIcon size={14} />
+                    ) : (
+                      <MinusIcon size={14} />
+                    )}
+                    <span>{stats.netChange > 0 ? `+${stats.netChange}` : stats.netChange} ม.</span>
+                  </span>
+                </div>
+                <div className="tactile-stat-pill">
                   <span className="stat-label">จุดตรวจวัด</span>
-                  <span className="stat-val tabular-nums" style={{ color: '#94a3b8' }}>
+                  <span className="stat-val tabular-nums font-mono" style={{ color: '#94A3B8', fontWeight: 700 }}>
                     {stats.count} บันทึก
                   </span>
                 </div>
@@ -838,7 +862,7 @@ export default function ChartPage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: 'var(--color-critical)',
+                  color: '#EF4444',
                   fontSize: '0.875rem',
                   gap: 8,
                 }}
@@ -889,8 +913,9 @@ export default function ChartPage() {
                         <button
                           type="button"
                           onClick={() => setTimeRange('daily')}
+                          className="tactile-press"
                           style={{
-                            color: 'var(--primary-accent)',
+                            color: '#38BDF8',
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
@@ -899,9 +924,9 @@ export default function ChartPage() {
                             padding: 0,
                           }}
                         >
-                          "รายวัน"
+                          "14 วัน"
                         </button>{' '}
-                        เพื่อดูข้อมูลย้อนหลังที่มีในระบบได้ครับ
+                        เพื่อดูข้อมูลย้อนหลังที่มีในระบบ
                       </>
                     ) : (
                       'ลองปรับเปลี่ยนช่วงเวลาการแสดงผล หรือเลือกสถานีอื่น'
@@ -936,12 +961,12 @@ export default function ChartPage() {
               {/* Legend */}
               <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
-                  <div style={{ width: 24, height: 3, background: 'linear-gradient(90deg, #7c5cfc, #06B6D4)', borderRadius: 2 }} />
+                  <div style={{ width: 24, height: 3, background: 'linear-gradient(90deg, #0284C7, #38BDF8)', borderRadius: 2 }} />
                   <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>ระดับน้ำจริง</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
-                  <div style={{ width: 20, height: 2, borderTop: '2px solid rgba(255, 255, 255, 0.4)' }} />
-                  <span style={{ color: 'var(--text-muted)' }}>
+                  <div style={{ width: 20, height: 2, borderTop: '2px solid rgba(56, 189, 248, 0.8)' }} />
+                  <span style={{ color: '#38BDF8' }}>
                     {selectedStation.referencePointName || 'จุดอ้างอิง'} (0.00 ม.)
                   </span>
                 </div>
@@ -949,14 +974,14 @@ export default function ChartPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
                   <div style={{ width: 22, height: 2, borderTop: '2px dashed #F59E0B' }} />
                   <span style={{ color: '#F59E0B', fontWeight: 600 }}>
-                    เกณฑ์เฝ้าระวัง ({((selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? 0.3) >= 0 ? '+' : '')}{Number(selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? 0.3).toFixed(2)} ม.)
+                    เกณฑ์เฝ้าระวัง ({((selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? -0.5) >= 0 ? '+' : '')}{Number(selectedStation.warningLevel ?? (selectedStation as any).warning_level ?? -0.5).toFixed(2)} ม.)
                   </span>
                 </div>
                 {/* Critical Level */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8125rem' }}>
                   <div style={{ width: 22, height: 2, borderTop: '2px dashed #EF4444' }} />
                   <span style={{ color: '#EF4444', fontWeight: 600 }}>
-                    เกณฑ์วิกฤต ({((selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.6) >= 0 ? '+' : '')}{Number(selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.6).toFixed(2)} ม.)
+                    เกณฑ์วิกฤต ({((selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.0) >= 0 ? '+' : '')}{Number(selectedStation.criticalLevel ?? (selectedStation as any).critical_level ?? 0.0).toFixed(2)} ม.)
                   </span>
                 </div>
               </div>
@@ -977,7 +1002,7 @@ export default function ChartPage() {
                   marginTop: '1.25rem',
                   padding: '1rem 1.25rem',
                   borderRadius: '0.75rem',
-                  background: 'rgba(30, 41, 59, 0.65)',
+                  background: 'var(--card-surface, #0C0E12)',
                   border: '1px solid rgba(245, 158, 11, 0.25)',
                   display: 'flex',
                   flexDirection: 'column',
@@ -1044,7 +1069,7 @@ export default function ChartPage() {
                           gap: '0.75rem',
                           padding: '0.625rem 0.875rem',
                           borderRadius: '0.5rem',
-                          background: 'rgba(15, 23, 42, 0.65)',
+                          background: 'rgba(255, 255, 255, 0.04)',
                           border: '1px solid rgba(255, 255, 255, 0.06)',
                           fontSize: '0.8125rem',
                         }}
@@ -1114,7 +1139,7 @@ export default function ChartPage() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <RadioIcon size={16} style={{ color: 'var(--sky-highlight)' }} />
+                <RadioIcon size={16} style={{ color: '#38BDF8' }} />
                 <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#FFFFFF' }}>
                   สถานีตรวจวัด ({stations.length})
                 </span>
@@ -1126,7 +1151,6 @@ export default function ChartPage() {
               const isSelected = s.id === selectedStationId;
               const sColor = statusColor[s.status] || '#10B981';
 
-              // Battery color
               const battPct = s.batteryPercent ?? 100;
               const battColor = battPct > 50 ? '#10B981' : battPct > 20 ? '#F59E0B' : '#EF4444';
 
@@ -1135,6 +1159,7 @@ export default function ChartPage() {
                   key={s.id}
                   type="button"
                   onClick={() => setSelectedStationId(s.id)}
+                  className="tactile-press"
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -1142,11 +1167,11 @@ export default function ChartPage() {
                     padding: '1rem 1.125rem',
                     borderRadius: '1rem',
                     border: isSelected
-                      ? '2px solid var(--primary-accent)'
-                      : '1px solid rgba(255, 255, 255, 0.1)',
+                      ? '2px solid #0284C7'
+                      : '1px solid rgba(255, 255, 255, 0.08)',
                     background: isSelected
-                      ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(15, 23, 42, 0.95) 100%)'
-                      : 'rgba(15, 23, 42, 0.75)',
+                      ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, #15181E 100%)'
+                      : 'var(--card-surface, #0C0E12)',
                     boxShadow: isSelected
                       ? '0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
                       : '0 4px 12px rgba(0, 0, 0, 0.25)',
@@ -1161,14 +1186,14 @@ export default function ChartPage() {
                     if (!isSelected) {
                       e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.45)';
                       e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.background = 'rgba(30, 41, 59, 0.85)';
+                      e.currentTarget.style.background = '#15181E';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isSelected) {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
                       e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)';
+                      e.currentTarget.style.background = 'var(--card-surface, #0C0E12)';
                     }
                   }}
                 >
@@ -1181,7 +1206,7 @@ export default function ChartPage() {
                         left: 0,
                         right: 0,
                         height: 3,
-                        background: '#2563EB',
+                        background: '#0284C7',
                       }}
                     />
                   )}
@@ -1189,7 +1214,6 @@ export default function ChartPage() {
                   {/* Station Code & Active Status */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                      {/* Status beacon dot */}
                       <span
                         style={{
                           width: 8,
@@ -1200,13 +1224,13 @@ export default function ChartPage() {
                         }}
                       />
                       <span
+                        className="tabular-nums font-mono"
                         style={{
-                          fontFamily: 'monospace',
                           fontWeight: 800,
                           fontSize: '0.8125rem',
                           padding: '0.15rem 0.5rem',
                           borderRadius: '0.375rem',
-                          background: isSelected ? 'rgba(37, 99, 235, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                          background: isSelected ? 'rgba(56, 189, 248, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                           color: isSelected ? '#38BDF8' : 'var(--text-primary)',
                         }}
                       >
@@ -1214,7 +1238,6 @@ export default function ChartPage() {
                       </span>
                     </div>
 
-                    {/* Active badge */}
                     {isSelected && (
                       <span
                         style={{
@@ -1222,7 +1245,7 @@ export default function ChartPage() {
                           fontWeight: 700,
                           padding: '0.15rem 0.5rem',
                           borderRadius: '9999px',
-                          background: 'rgba(37, 99, 235, 0.2)',
+                          background: 'rgba(56, 189, 248, 0.15)',
                           border: '1px solid rgba(56, 189, 248, 0.35)',
                           color: '#38BDF8',
                           display: 'inline-flex',
@@ -1236,7 +1259,7 @@ export default function ChartPage() {
                     )}
                   </div>
 
-                  {/* Station Name & District */}
+                  {/* Station Name & Location */}
                   <div>
                     <h3
                       style={{
@@ -1265,8 +1288,8 @@ export default function ChartPage() {
                       justifyContent: 'space-between',
                       padding: '0.45rem 0.75rem',
                       borderRadius: '0.625rem',
-                      background: isSelected ? 'rgba(6, 182, 212, 0.08)' : 'rgba(255, 255, 255, 0.04)',
-                      border: isSelected ? '1px solid rgba(6, 182, 212, 0.2)' : '1px solid rgba(255, 255, 255, 0.06)',
+                      background: isSelected ? 'rgba(56, 189, 248, 0.1)' : 'rgba(255, 255, 255, 0.03)',
+                      border: isSelected ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
@@ -1275,10 +1298,11 @@ export default function ChartPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
                       <strong
+                        className="tabular-nums font-mono"
                         style={{
-                          fontSize: '0.875rem',
-                          color: isSelected ? '#38BDF8' : s.currentLevel > 0 ? '#EF4444' : '#FFFFFF',
-                          fontFamily: 'monospace',
+                          fontSize: '0.9375rem',
+                          fontWeight: 800,
+                          color: isSelected ? '#38BDF8' : s.currentLevel > 0 ? '#EF4444' : '#10B981',
                         }}
                       >
                         {(s.currentLevel > 0 ? '+' : '') + s.currentLevel.toFixed(2)}
@@ -1304,7 +1328,7 @@ export default function ChartPage() {
                       <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
                         <BatteryChargingIcon size={11} style={{ color: battColor }} /> แบต
                       </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: battColor, fontFamily: 'monospace' }}>
+                      <span className="tabular-nums font-mono" style={{ fontSize: '0.75rem', fontWeight: 700, color: battColor }}>
                         {battPct}%
                       </span>
                       <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
@@ -1315,9 +1339,9 @@ export default function ChartPage() {
                     {/* Temp */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <ThermometerIcon size={11} style={{ color: '#F59E0B' }} /> อุณหภูมิ
+                        <ThermometerIcon size={11} style={{ color: '#F97316' }} /> อุณหภูมิ
                       </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#F59E0B', fontFamily: 'monospace' }}>
+                      <span className="tabular-nums font-mono" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#F97316' }}>
                         {s.temperature !== undefined ? `${s.temperature.toFixed(1)}°` : '—'}
                       </span>
                     </div>
@@ -1325,9 +1349,9 @@ export default function ChartPage() {
                     {/* Humidity */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                       <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <DropletsIcon size={11} style={{ color: '#38BDF8' }} /> ความชื้น
+                        <DropletsIcon size={11} style={{ color: '#06B6D4' }} /> ความชื้น
                       </span>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38BDF8', fontFamily: 'monospace' }}>
+                      <span className="tabular-nums font-mono" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#06B6D4' }}>
                         {s.humidity !== undefined ? `${s.humidity.toFixed(0)}%` : '—'}
                       </span>
                     </div>
@@ -1341,11 +1365,11 @@ export default function ChartPage() {
 
       {/* Empty State */}
       {stations.length === 0 && !stationsLoading && (
-        <div className="empty-state card" style={{ textAlign: 'center', padding: '50px 20px' }}>
+        <div className="empty-state card" style={{ textAlign: 'center', padding: '50px 20px', marginTop: '1.5rem', background: 'var(--card-surface, #0C0E12)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: 16 }}>
           <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-            <LineChartIcon size={48} style={{ color: 'var(--text-muted)' }} />
+            <WavesIcon size={48} style={{ color: 'var(--text-muted)' }} />
           </div>
-          <p className="empty-state-title" style={{ fontSize: 16, fontWeight: 700 }}>ไม่มีสถานีที่ลงทะเบียน</p>
+          <p className="empty-state-title" style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>ไม่มีสถานีที่ลงทะเบียน</p>
           <p className="empty-state-desc" style={{ fontSize: 13, color: 'var(--text-muted)' }}>ติดต่อเจ้าหน้าที่เพื่อขอเพิ่มสถานีติดตาม</p>
         </div>
       )}
@@ -1361,7 +1385,7 @@ export default function ChartPage() {
               </h3>
               <button
                 type="button"
-                className="btn btn-ghost"
+                className="btn btn-ghost tactile-press"
                 style={{ padding: 4, color: 'var(--text-muted)' }}
                 onClick={() => !exportLoading && setIsExportModalOpen(false)}
                 disabled={exportLoading}
@@ -1373,11 +1397,13 @@ export default function ChartPage() {
             {/* Body: Options */}
             <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Option 1: Selected Station */}
-              <div
-                className={`export-option-card ${exportScope === 'current_station' ? 'selected' : ''}`}
-                onClick={() => setExportScope('current_station')}
+              <label
+                htmlFor="export-current-station"
+                className={`export-option-card tactile-press ${exportScope === 'current_station' ? 'selected' : ''}`}
+                style={{ cursor: 'pointer' }}
               >
                 <input
+                  id="export-current-station"
                   type="radio"
                   name="exportChartScope"
                   checked={exportScope === 'current_station'}
@@ -1387,18 +1413,20 @@ export default function ChartPage() {
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                     เฉพาะสถานีนี้ ({selectedStation?.name || selectedStationId})
                   </span>
-                  <span style={{ color: '#38bdf8', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+                  <span className="tabular-nums font-mono" style={{ color: '#38BDF8', fontSize: 12 }}>
                     {readings.length} จุดตรวจวัด
                   </span>
                 </div>
-              </div>
+              </label>
 
               {/* Option 2: All Stations */}
-              <div
-                className={`export-option-card ${exportScope === 'all_stations' ? 'selected' : ''}`}
-                onClick={() => setExportScope('all_stations')}
+              <label
+                htmlFor="export-all-stations"
+                className={`export-option-card tactile-press ${exportScope === 'all_stations' ? 'selected' : ''}`}
+                style={{ cursor: 'pointer' }}
               >
                 <input
+                  id="export-all-stations"
                   type="radio"
                   name="exportChartScope"
                   checked={exportScope === 'all_stations'}
@@ -1408,18 +1436,18 @@ export default function ChartPage() {
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                     ทุกสถานีในระบบ
                   </span>
-                  <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', fontSize: 12 }}>
+                  <span className="tabular-nums font-mono" style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                     {stations.length} สถานี
                   </span>
                 </div>
-              </div>
+              </label>
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '12px 18px', background: 'rgba(11, 19, 27, 0.7)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <div style={{ padding: '12px 18px', background: 'var(--card-surface, #0C0E12)', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm tactile-press"
                 onClick={() => setIsExportModalOpen(false)}
                 disabled={exportLoading}
                 style={{ fontSize: 12 }}
@@ -1428,7 +1456,7 @@ export default function ChartPage() {
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm tactile-press"
                 onClick={handleConfirmExport}
                 disabled={exportLoading || (exportScope === 'current_station' && readings.length === 0)}
                 style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}

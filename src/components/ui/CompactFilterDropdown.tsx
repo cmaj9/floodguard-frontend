@@ -104,9 +104,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
           gap: '0.625rem',
           padding: variant === 'tactical' ? '0.45rem 0.85rem' : '0.55rem 1rem',
           borderRadius: variant === 'tactical' ? '8px' : '0.75rem',
-          background: variant === 'tactical'
-            ? (isOpen ? 'rgba(30, 41, 59, 0.95)' : 'rgba(15, 23, 42, 0.85)')
-            : (isOpen ? 'rgba(37, 99, 235, 0.12)' : 'rgba(17, 24, 39, 0.75)'),
+          background: isOpen ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.04)',
           border: variant === 'tactical'
             ? `1px solid ${isOpen ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255, 255, 255, 0.08)'}`
             : `1px solid ${isOpen ? 'var(--primary-accent)' : 'rgba(255, 255, 255, 0.12)'}`,
@@ -183,7 +181,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
             zIndex: 9999,
             minWidth: '280px',
             maxWidth: '380px',
-            background: '#0D1526',
+            background: '#0C0E12',
             border: variant === 'tactical' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(56, 189, 248, 0.35)',
             borderRadius: variant === 'tactical' ? '8px' : '0.875rem',
             padding: '0.5rem',
@@ -219,7 +217,7 @@ export const CompactFilterDropdown = memo(function CompactFilterDropdown({
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.background = '#172238';
+                    e.currentTarget.style.background = '#15181E';
                     e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
                   }
                 }}

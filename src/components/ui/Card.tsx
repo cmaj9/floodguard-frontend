@@ -37,24 +37,24 @@ export function Card({
 
   const variantStyles: Record<CardVariant, React.CSSProperties> = {
     flat: {
-      background: 'rgba(17, 24, 39, 0.65)',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'var(--card-surface, #0C0E12)',
+      border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
       boxShadow: 'none',
     },
     raised: {
-      background: 'rgba(17, 24, 39, 0.85)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'var(--card-surface, #0C0E12)',
+      border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2)',
     },
     interactive: {
-      background: 'rgba(17, 24, 39, 0.85)',
-      border: '1px solid rgba(255, 255, 255, 0.12)',
+      background: 'var(--card-surface, #0C0E12)',
+      border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.35)',
       cursor: 'pointer',
       transition: 'transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease',
     },
     glass: {
-      background: 'rgba(14, 21, 38, 0.65)',
+      background: 'rgba(12, 14, 18, 0.75)',
       border: '1px solid rgba(255, 255, 255, 0.12)',
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
       backdropFilter: 'blur(16px)',

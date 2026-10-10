@@ -380,7 +380,7 @@ export default function StationCalibrationModal({
           {/* ── RIGHT COLUMN: TACTICAL BLUEPRINT VECTOR SCHEMATIC ── */}
           <div
             style={{
-              background: '#090E17',
+              background: 'var(--card-surface, #0C0E12)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: 12,
               padding: 12,
@@ -426,7 +426,7 @@ export default function StationCalibrationModal({
               style={{
                 position: 'relative',
                 height: 175,
-                background: 'linear-gradient(180deg, #070B12 0%, #0B131F 100%)',
+                background: 'linear-gradient(180deg, #07090C 0%, #0C0E12 100%)',
                 borderRadius: 8,
                 border: '1px solid rgba(255, 255, 255, 0.06)',
                 overflow: 'hidden',
@@ -485,7 +485,7 @@ export default function StationCalibrationModal({
                         strokeWidth="1.5"
                         strokeDasharray="4 3"
                       />
-                      <rect x="180" y={refY - 16} width="125" height="15" fill="#0F172A" rx="3" stroke="#F59E0B" strokeWidth="1" />
+                      <rect x="180" y={refY - 16} width="125" height="15" fill="#15181E" rx="3" stroke="#F59E0B" strokeWidth="1" />
                       <text x="185" y={refY - 5} fill="#FCD34D" fontSize="9" fontWeight="bold">
                         {effectiveRefName} (0.00 ม.)
                       </text>

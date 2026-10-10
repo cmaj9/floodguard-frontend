@@ -47,7 +47,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         >
           <div
             style={{
-              background: '#111827',
+              background: 'var(--card-surface, #0C0E12)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
               borderRadius: '16px',
               padding: '28px 24px',

@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FloodGuard · Station Card Action Controls Demo</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0C0E12;
+      --surface-card: #0E1218;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.2);
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --cyan: #38BDF8;
+      --marine: #0284C7;
+      --emerald: #10B981;
+      --amber: #F59E0B;
+      --rose: #EF4444;
+      --font: -apple-system, BlinkMacSystemFont, "Noto Sans Thai", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 40px 20px 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .option-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 26px;
+      margin-bottom: 30px;
+      box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6);
+      position: relative;
+    }
+
+    .option-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+    }
+
+    .option-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .option-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .tag-recommend {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .option-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    /* ── MOCK STATION CARD ── */
+    .station-mock-card {
+      background: #080A0D;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .station-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .st-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 2px 7px;
+      border-radius: 5px;
+    }
+
+    .st-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .water-gauge-hero {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      font-family: var(--font-mono);
+    }
+    .water-val {
+      font-size: 22px;
+      font-weight: 900;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+    .water-unit {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .card-row-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 14px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* ── ONLINE / OFFLINE TOGGLE (6PX SEGMENTED SWITCH) ── */
+    .status-switch-bar {
+      display: inline-flex;
+      align-items: center;
+      background: #040507;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px; /* ขอบมน 6px ไร้แคปซูล */
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .status-switch-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .status-switch-btn.active-online {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #34D399;
+      font-weight: 700;
+    }
+
+    .status-switch-btn.active-offline {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #FBBF24;
+      font-weight: 700;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN OPTION 1: MINIMAL ICON-ACTION CLUSTER WITH TOOLTIPS
+       ปุ่มไอคอน 32px ขอบมน 8px ประหยัดพื้นที่ คลีนตา มี Tooltip
+       ══════════════════════════════════════════════════════════════ */
+    .icon-action-cluster {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon-tactile {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      user-select: none;
+    }
+
+    .btn-icon-tactile:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .btn-icon-tactile:active {
+      transform: scale(0.94) translateY(1px);
+    }
+
+    .btn-icon-tactile.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #F87171;
+    }
+
+    /* Tooltip */
+    .btn-icon-tactile[data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #181C24;
+      color: #FFFFFF;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+
+    .btn-icon-tactile:hover[data-tip]::after {
+      opacity: 1;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN OPTION 2: COMPACT TEXT BADGES
+       ปุ่มข้อความสั้น ขอบมน 8px บางเบา ไม่แย่งสายตา
+       ══════════════════════════════════════════════════════════════ */
+    .badge-action-cluster {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .btn-badge-action {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .btn-badge-action:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .btn-badge-action:active {
+      transform: scale(0.96) translateY(1px);
+    }
+
+    .btn-badge-action.danger {
+      color: #F87171;
+    }
+    .btn-badge-action.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN OPTION 3: CONTEXT ACTION MENU (⋯)
+       มินิมอลสูงสุด มีเพียงปุ่ม 3 จุด เมื่อกดจะเปิดเมนูกระจกดำ
+       ══════════════════════════════════════════════════════════════ */
+    .menu-action-wrapper {
+      position: relative;
+    }
+
+    .btn-dots-trigger {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .btn-dots-trigger:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+    }
+
+    .context-menu-pop {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      background: #12161E;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      padding: 6px;
+      min-width: 170px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+      z-index: 99;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .context-menu-pop.open {
+      display: flex;
+    }
+
+    .context-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      width: 100%;
+      text-align: left;
+      transition: all 0.12s ease;
+    }
+
+    .context-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #FFFFFF;
+    }
+
+    .context-item.danger {
+      color: #F87171;
+    }
+    .context-item.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+      color: #FECACA;
+    }
+
+    .feedback-dock {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+      margin-top: 14px;
+      text-align: center;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-badge">✦ STATION CARDS · ACTION BUTTONS DEMO</div>
+      <h1 class="title">3 สไตล์ปุ่มจัดการบนการ์ดสถานี (StationsPage)</h1>
+      <p class="subtitle">
+        จำลองหน้าตาของการ์ดสถานีตรวจวัดพร้อมปุ่มสั่งการ (สลับสถานะออนไลน์/ออฟไลน์, ตั้งจุดอ้างอิง, เตือนภัย, แก้ไข, ลบ) ลองคลิกทดสอบดูฟีลลิ่งแต่ละแบบได้เลยครับ
+      </p>
+    </div>
+
+    <!-- ── OPTION 1 ── -->
+    <div class="option-card">
+      <div class="option-meta">
+        <div class="option-title">
+          <span>แบบที่ 1 · Minimal Icon-Action Cluster (ปุ่มไอคอน 32px พร้อม Tooltip ภาษาไทย)</span>
+        </div>
+        <span class="tag tag-recommend">แนะนำสูงสุด ⭐</span>
+      </div>
+      <p class="option-desc">
+        <strong>คลีนตาที่สุด:</strong> เปลี่ยนปุ่มข้อความยาวๆ เป็นปุ่มไอคอนสี่เหลี่ยมขอบมน 8px กะทัดรัด เมื่อเอาเมาส์ชี้จะมี Tooltip ภาษาไทยแสดงชัดเจน ช่วยประหยัดพื้นที่แนวนอน ไม่ทำให้การ์ดแน่นหรือตัวหนังสือล้น
+      </p>
+
+      <div class="station-mock-card">
+        <div class="card-row-top">
+          <div class="station-identity">
+            <span class="st-code">ST-001</span>
+            <span class="st-name">สถาบันวิทยสิริเมธี (คลองหก)</span>
+          </div>
+          <div class="water-gauge-hero">
+            <span class="water-val">2.45</span>
+            <span class="water-unit">m</span>
+          </div>
+        </div>
+
+        <div class="card-row-bottom">
+          <!-- Status Switch -->
+          <div class="status-switch-bar">
+            <button class="status-switch-btn active-online" onclick="toggleStatus(this, 'online', 'feed-opt1')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
+              <span>ออนไลน์</span>
+            </button>
+            <button class="status-switch-btn" onclick="toggleStatus(this, 'offline', 'feed-opt1')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #64748B;"></span>
+              <span>ออฟไลน์</span>
+            </button>
+          </div>
+
+          <!-- Icon Cluster -->
+          <div class="icon-action-cluster">
+            <button class="btn-icon-tactile" data-tip="ตั้งค่าจุดอ้างอิง (Calibration)" onclick="clickAction('ตั้งค่าจุดอ้างอิง', 'feed-opt1')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+            </button>
+            <button class="btn-icon-tactile" data-tip="ตั้งเกณฑ์เตือนภัย (Thresholds)" onclick="clickAction('ตั้งเกณฑ์เตือนภัย', 'feed-opt1')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </button>
+            <button class="btn-icon-tactile" data-tip="แก้ไขข้อมูลสถานี" onclick="clickAction('แก้ไขข้อมูลสถานี', 'feed-opt1')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon-tactile danger" data-tip="ลบสถานี (Admin)" onclick="clickAction('ลบสถานี', 'feed-opt1')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="feedback-dock" id="feed-opt1">ลองเอาเมาส์ไปชี้ที่ไอคอนเพื่อดู Tooltip และกดคลิกเพื่อทดสอบ</div>
+    </div>
+
+
+    <!-- ── OPTION 2 ── -->
+    <div class="option-card">
+      <div class="option-meta">
+        <div class="option-title">
+          <span>แบบที่ 2 · Compact Text Badges (ปุ่มข้อความสั้น ขอบมน 6px แบบมินิมอล)</span>
+        </div>
+        <span class="tag" style="background: rgba(255,255,255,0.06); color: var(--text-muted);">คงข้อความเดิม</span>
+      </div>
+      <p class="option-desc">
+        <strong>อ่านเข้าใจง่ายโดยไม่ต้องชี้เมาส์:</strong> คงปุ่มข้อความภาษาไทยเดิมไว้ แต่ปรับความสูงให้บางลงเหลือ 30px และเปลี่ยนขอบมนเป็น 6px ให้เข้าชุดกับระบบใหม่ ไม่เทอะทะ
+      </p>
+
+      <div class="station-mock-card">
+        <div class="card-row-top">
+          <div class="station-identity">
+            <span class="st-code">ST-002</span>
+            <span class="st-name">สถานีคลองรังสิตประยูรศักดิ์</span>
+          </div>
+          <div class="water-gauge-hero">
+            <span class="water-val">1.80</span>
+            <span class="water-unit">m</span>
+          </div>
+        </div>
+
+        <div class="card-row-bottom">
+          <!-- Status Switch -->
+          <div class="status-switch-bar">
+            <button class="status-switch-btn active-online" onclick="toggleStatus(this, 'online', 'feed-opt2')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
+              <span>ออนไลน์</span>
+            </button>
+            <button class="status-switch-btn" onclick="toggleStatus(this, 'offline', 'feed-opt2')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #64748B;"></span>
+              <span>ออฟไลน์</span>
+            </button>
+          </div>
+
+          <!-- Text Badges -->
+          <div class="badge-action-cluster">
+            <button class="btn-badge-action" onclick="clickAction('ตั้งค่าจุดอ้างอิง', 'feed-opt2')">จุดอ้างอิง</button>
+            <button class="btn-badge-action" onclick="clickAction('ตั้งเกณฑ์เตือนภัย', 'feed-opt2')">เตือนภัย</button>
+            <button class="btn-badge-action" onclick="clickAction('แก้ไขข้อมูล', 'feed-opt2')">แก้ไข</button>
+            <button class="btn-badge-action danger" onclick="clickAction('ลบสถานี', 'feed-opt2')">ลบ</button>
+          </div>
+        </div>
+      </div>
+      <div class="feedback-dock" id="feed-opt2">คลิกเพื่อทดสอบปุ่มข้อความขนาดกะทัดรัด</div>
+    </div>
+
+
+    <!-- ── OPTION 3 ── -->
+    <div class="option-card">
+      <div class="option-meta">
+        <div class="option-title">
+          <span>แบบที่ 3 · Context Action Menu (ยุบรวมเข้าปุ่ม 3 จุด ⋯)</span>
+        </div>
+        <span class="tag" style="background: rgba(255,255,255,0.06); color: var(--text-muted);">โล่งตาที่สุด</span>
+      </div>
+      <p class="option-desc">
+        <strong>หน้าการ์ดโล่ง 100%:</strong> ซ่อนปุ่มคำสั่งทั้งหมดไว้หลังปุ่ม <code>⋯</code> เมื่อคลิกจึงจะเปิดเมนูกระจกดำลอยขึ้นมา เหมาะสำหรับคนที่ต้องการให้การ์ดดูเกลี้ยงเกลาที่สุด
+      </p>
+
+      <div class="station-mock-card">
+        <div class="card-row-top">
+          <div class="station-identity">
+            <span class="st-code">ST-003</span>
+            <span class="st-name">สถานีทดสอบ (Test Node)</span>
+          </div>
+          <div class="water-gauge-hero">
+            <span class="water-val" style="color: var(--text-dim);">--</span>
+            <span class="water-unit">off</span>
+          </div>
+        </div>
+
+        <div class="card-row-bottom">
+          <!-- Status Switch -->
+          <div class="status-switch-bar">
+            <button class="status-switch-btn" onclick="toggleStatus(this, 'online', 'feed-opt3')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #64748B;"></span>
+              <span>ออนไลน์</span>
+            </button>
+            <button class="status-switch-btn active-offline" onclick="toggleStatus(this, 'offline', 'feed-opt3')">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #F59E0B;"></span>
+              <span>ออฟไลน์</span>
+            </button>
+          </div>
+
+          <!-- 3-Dots Menu -->
+          <div class="menu-action-wrapper">
+            <button class="btn-dots-trigger" onclick="toggleMenu('opt3-menu')">⋯</button>
+            <div class="context-menu-pop" id="opt3-menu">
+              <button class="context-item" onclick="clickAction('ตั้งค่าจุดอ้างอิง', 'feed-opt3'); toggleMenu('opt3-menu');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                <span>ตั้งค่าจุดอ้างอิง</span>
+              </button>
+              <button class="context-item" onclick="clickAction('ตั้งเกณฑ์เตือนภัย', 'feed-opt3'); toggleMenu('opt3-menu');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <span>ตั้งเกณฑ์เตือนภัย</span>
+              </button>
+              <button class="context-item" onclick="clickAction('แก้ไขข้อมูลสถานี', 'feed-opt3'); toggleMenu('opt3-menu');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>แก้ไขข้อมูล</span>
+              </button>
+              <div style="height: 1px; background: rgba(255,255,255,0.08); margin: 2px 0;"></div>
+              <button class="context-item danger" onclick="clickAction('ลบสถานี', 'feed-opt3'); toggleMenu('opt3-menu');">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>ลบสถานี</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="feedback-dock" id="feed-opt3">คลิกปุ่ม ⋯ เพื่อเปิดเมนูคำสั่งลอย</div>
+    </div>
+
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playSnap() {
+      if (!audioCtx && AudioContext) audioCtx = new AudioContext();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1100, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.025);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.025);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.025);
+      } catch (e) {}
+    }
+
+    function toggleStatus(btn, status, feedId) {
+      playSnap();
+      const parent = btn.parentElement;
+      parent.querySelectorAll('.status-switch-btn').forEach(b => {
+        b.className = 'status-switch-btn';
+      });
+      if (status === 'online') {
+        btn.classList.add('active-online');
+        document.getElementById(feedId).innerHTML = '🟢 สลับสถานะสถานีเป็น <strong>ออนไลน์ (รับสัญญาณสด)</strong>';
+      } else {
+        btn.classList.add('active-offline');
+        document.getElementById(feedId).innerHTML = '🟡 สลับสถานะสถานีเป็น <strong>ออฟไลน์ (พักการส่งสัญญาณ)</strong>';
+      }
+    }
+
+    function clickAction(name, feedId) {
+      playSnap();
+      document.getElementById(feedId).innerHTML = `⚡ คลิกคำสั่ง: <strong>${name}</strong>`;
+    }
+
+    function toggleMenu(menuId) {
+      playSnap();
+      const menu = document.getElementById(menuId);
+      menu.classList.toggle('open');
+    }
+  </script>
+</body>
+</html>

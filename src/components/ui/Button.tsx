@@ -1,6 +1,6 @@
 import React, { forwardRef } from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success' | 'outline' | 'jewel-pink';
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   const isDisabled = disabled || isLoading;
 
-  // ── Style mappings aligned with Apple HIG & Cobalt-Cyan Theme ──
+  // ── Style mappings aligned with Apple HIG & Obsidian-Cyan Theme ──
   const sizeStyles: Record<ButtonSize, React.CSSProperties> = {
     xs: {
       padding: '4px 10px',
@@ -46,31 +46,39 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       padding: '6px 14px',
       fontSize: '0.8125rem',
       minHeight: '34px',
-      borderRadius: '8px',
+      borderRadius: '6px',
       gap: '6px',
     },
     md: {
-      padding: '8px 18px',
+      padding: '7px 16px',
       fontSize: '0.875rem',
-      minHeight: '40px',
-      borderRadius: '10px',
+      minHeight: '36px',
+      borderRadius: '6px',
       gap: '8px',
     },
     lg: {
-      padding: '12px 24px',
+      padding: '10px 20px',
       fontSize: '0.9375rem',
-      minHeight: '48px',
-      borderRadius: '12px',
+      minHeight: '44px',
+      borderRadius: '8px',
       gap: '10px',
     },
   };
 
   const variantStyles: Record<ButtonVariant, React.CSSProperties> = {
     primary: {
-      background: 'linear-gradient(135deg, #2563EB 0%, #0284C7 100%)',
+      background: '#0284C7',
       color: '#FFFFFF',
-      border: '1px solid rgba(56, 189, 248, 0.35)',
-      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+      border: '1px solid rgba(56, 189, 248, 0.45)',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+    },
+    'jewel-pink': {
+      background: 'var(--accent-pink-surface, #FFF0F2)',
+      color: 'var(--accent-pink-text, #382B22)',
+      border: '2px solid var(--accent-pink-border, #B18597)',
+      boxShadow: '0 4px 0 0 var(--accent-pink-bevel, #F9C4D2), 0 4px 12px rgba(0, 0, 0, 0.4)',
+      fontWeight: 700,
+      minHeight: '44px',
     },
     secondary: {
       background: 'rgba(255, 255, 255, 0.05)',

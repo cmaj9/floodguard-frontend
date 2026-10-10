@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FloodGuard — Bolder Minimal Top bar & Sidebar Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-canvas: #030712;
+      --bg-sidebar: #060E1E;
+      --bg-topbar: rgba(6, 14, 30, 0.85);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      --cyan-bright: #38BDF8;
+      --marine-blue: #0284C7;
+      --sonar-green: #10B981;
+      --text-primary: #F8FAFC;
+      --text-secondary: #94A3B8;
+      --text-muted: #64748B;
+      --font-main: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Noto Sans Thai", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Concept Selector Floating Bar */
+    .concept-switch-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(3, 7, 18, 0.92);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--cyan-bright);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 700;
+    }
+
+    .concept-pills {
+      display: inline-flex;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 4px;
+    }
+
+    .concept-pill-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+
+    .concept-pill-btn:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .concept-pill-btn.active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #FFFFFF;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+
+    .concept-pill-btn .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .concept-pill-btn.active .dot {
+      background: var(--cyan-bright);
+      box-shadow: 0 0 8px var(--cyan-bright);
+    }
+
+    /* Main App Layout Mockup Container */
+    .app-frame {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 61px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* =========================================================================
+       CONCEPT 1: LUMINOUS HAIRLINE (Precision Swiss Minimal)
+       ========================================================================= */
+    .theme-1 .c-sidebar {
+      width: 256px;
+      background: #040813;
+      border-right: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      z-index: 20;
+    }
+
+    .theme-1 .c-logo-zone {
+      padding: 24px 22px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .theme-1 .c-logo-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(56, 189, 248, 0.15) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+    }
+
+    .theme-1 .c-logo-text {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+
+    .theme-1 .c-nav {
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .theme-1 .c-nav-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #475569;
+      text-transform: uppercase;
+      padding: 8px 12px 6px;
+    }
+
+    .theme-1 .c-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #94A3B8;
+      background: transparent;
+      border: none;
+      border-left: 2.5px solid transparent;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-align: left;
+      position: relative;
+    }
+
+    .theme-1 .c-nav-item:hover {
+      color: #F1F5F9;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .theme-1 .c-nav-item.active {
+      color: #FFFFFF;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.04);
+      border-left-color: var(--cyan-bright);
+    }
+
+    .theme-1 .c-nav-item.active .c-icon {
+      color: var(--cyan-bright);
+      filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.5));
+    }
+
+    .theme-1 .c-user-card {
+      padding: 16px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #03060F;
+    }
+
+    .theme-1 .c-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #0B192E;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--cyan-bright);
+    }
+
+    /* Theme 1 Topbar */
+    .theme-1 .c-topbar {
+      height: 60px;
+      background: rgba(4, 8, 19, 0.88);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: relative;
+    }
+
+    /* Subtle hairline glow under topbar */
+    .theme-1 .c-topbar::after {
+      content: "";
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 140px;
+      height: 1px;
+      background: linear-gradient(90deg, var(--cyan-bright) 0%, transparent 100%);
+      opacity: 0.8;
+    }
+
+    .theme-1 .c-page-title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .theme-1 .c-page-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+
+    .theme-1 .c-live-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34D399;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      letter-spacing: 0.04em;
+    }
+
+    .theme-1 .c-live-chip .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+      animation: heartbeat 2s infinite ease-in-out;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+
+    .theme-1 .c-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-1 .c-ghost-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #94A3B8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .theme-1 .c-ghost-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .theme-1 .c-notif-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #EF4444;
+      box-shadow: 0 0 6px #EF4444;
+    }
+
+    /* =========================================================================
+       CONCEPT 2: HYDRO CAPSULE (Floating Glass & Tactical Accent)
+       ========================================================================= */
+    .theme-2 .c-sidebar {
+      width: 256px;
+      background: #060B17;
+      border-right: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      z-index: 20;
+    }
+
+    .theme-2 .c-logo-zone {
+      padding: 24px 20px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .theme-2 .c-logo-icon {
+      width: 36px;
+      height: 36px;
+      background: radial-gradient(circle at 30% 30%, #38BDF8 0%, #0284C7 60%, #034A72 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
+    }
+
+    .theme-2 .c-logo-text {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+
+    .theme-2 .c-nav {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .theme-2 .c-nav-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #64748B;
+      text-transform: uppercase;
+      padding: 6px 12px 4px;
+    }
+
+    .theme-2 .c-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #94A3B8;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-2 .c-nav-item-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .theme-2 .c-nav-item:hover {
+      color: #FFFFFF;
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.08);
+      transform: translateX(2px);
+    }
+
+    .theme-2 .c-nav-item.active {
+      background: rgba(2, 132, 199, 0.16);
+      border-color: rgba(56, 189, 248, 0.38);
+      color: #FFFFFF;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .theme-2 .c-nav-item.active .c-icon {
+      color: var(--cyan-bright);
+    }
+
+    .theme-2 .c-nav-item-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan-bright);
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-weight: 700;
+      position: relative;
+      z-index: 2;
+    }
+
+    .theme-2 .c-user-card {
+      margin: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.2s ease;
+      cursor: pointer;
+    }
+
+    .theme-2 .c-user-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .theme-2 .c-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0284C7, #0F172A);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #FFFFFF;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* Theme 2 Topbar */
+    .theme-2 .c-topbar {
+      height: 64px;
+      background: rgba(6, 11, 23, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+    }
+
+    .theme-2 .c-breadcrumb-dock {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 6px 14px;
+      border-radius: 10px;
+    }
+
+    .theme-2 .c-breadcrumb-root {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748B;
+    }
+
+    .theme-2 .c-breadcrumb-separator {
+      color: #475569;
+      font-size: 12px;
+    }
+
+    .theme-2 .c-breadcrumb-current {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+    }
+
+    .theme-2 .c-topbar-actions-dock {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .theme-2 .c-dock-btn {
+      background: transparent;
+      border: none;
+      color: #94A3B8;
+      padding: 7px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .theme-2 .c-dock-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #FFFFFF;
+    }
+
+    .theme-2 .c-dock-btn.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan-bright);
+    }
+
+    /* =========================================================================
+       CONCEPT 3: AVIATION HUD (Mission Control Monospace Cockpit)
+       ========================================================================= */
+    .theme-3 .c-sidebar {
+      width: 256px;
+      background: #020409;
+      border-right: 1px solid rgba(56, 189, 248, 0.15);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      z-index: 20;
+    }
+
+    .theme-3 .c-logo-zone {
+      padding: 22px 20px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .theme-3 .c-logo-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-3 .c-logo-icon {
+      width: 30px;
+      height: 30px;
+      background: #000000;
+      border: 1px solid var(--cyan-bright);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    }
+
+    .theme-3 .c-logo-text {
+      font-size: 15px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: #FFFFFF;
+      letter-spacing: 0.05em;
+    }
+
+    .theme-3 .c-hud-indicator {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #10B981;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .theme-3 .c-nav {
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .theme-3 .c-nav-section-title {
+      font-size: 10px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      letter-spacing: 0.12em;
+      color: #475569;
+      text-transform: uppercase;
+      padding: 6px 10px 6px;
+    }
+
+    .theme-3 .c-nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94A3B8;
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+
+    .theme-3 .c-nav-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-3 .c-nav-index {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .theme-3 .c-nav-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .theme-3 .c-nav-item.active {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #FFFFFF;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    }
+
+    .theme-3 .c-nav-item.active .c-nav-index {
+      color: var(--cyan-bright);
+    }
+
+    .theme-3 .c-nav-status-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 2px;
+      background: #475569;
+    }
+
+    .theme-3 .c-nav-item.active .c-nav-status-pip {
+      background: var(--cyan-bright);
+      box-shadow: 0 0 6px var(--cyan-bright);
+    }
+
+    .theme-3 .c-user-card {
+      padding: 14px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background: #010307;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .theme-3 .c-user-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-3 .c-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: #0B1322;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan-bright);
+    }
+
+    /* Theme 3 Topbar */
+    .theme-3 .c-topbar {
+      height: 56px;
+      background: #020409;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .theme-3 .c-page-title-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .theme-3 .c-page-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+    }
+
+    .theme-3 .c-telemetry-status-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 3px 10px;
+      border-radius: 4px;
+      color: #94A3B8;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .theme-3 .c-telemetry-status-pill strong {
+      color: var(--cyan-bright);
+    }
+
+    .theme-3 .c-topbar-hud-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .theme-3 .c-utc-clock {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan-bright);
+      background: rgba(2, 132, 199, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 4px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+
+    .theme-3 .c-square-btn {
+      width: 32px;
+      height: 32px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      color: #94A3B8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .theme-3 .c-square-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan-bright);
+      color: #FFFFFF;
+    }
+
+    /* Common Content Canvas */
+    .c-content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.06) 0%, transparent 60%), #030712;
+    }
+
+    .mockup-body {
+      padding: 28px 32px;
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .mockup-hub-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .mockup-hub-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .mockup-dock-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .mockup-station-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .mockup-station-box.active {
+      background: rgba(56, 189, 248, 0.05);
+      border-color: #38BDF8;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
+    }
+
+    .mockup-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .mockup-metric-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    /* Explanation Banner at Bottom */
+    .concept-explainer {
+      background: #060B17;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .explainer-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+
+    .explainer-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      max-width: 780px;
+      line-height: 1.5;
+    }
+
+    .explainer-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
+      color: #FFFFFF;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    .explainer-cta:hover {
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Concept Selector Switcher Bar -->
+  <header class="concept-switch-bar">
+    <div class="brand-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+      </svg>
+      <span>FloodGuard UI Architecture</span>
+      <span class="brand-badge">BOLDER MINIMAL</span>
+    </div>
+
+    <!-- 3 Interactive Tabs -->
+    <div class="concept-pills" role="tablist">
+      <button class="concept-pill-btn active" onclick="switchTheme(1)" id="btn-theme-1">
+        <span class="dot"></span>
+        <span>แบบที่ 1: Luminous Hairline (Swiss Minimal)</span>
+      </button>
+      <button class="concept-pill-btn" onclick="switchTheme(2)" id="btn-theme-2">
+        <span class="dot"></span>
+        <span>แบบที่ 2: Hydro Capsule (Modern Floating Glass)</span>
+      </button>
+      <button class="concept-pill-btn" onclick="switchTheme(3)" id="btn-theme-3">
+        <span class="dot"></span>
+        <span>แบบที่ 3: Aviation HUD (Tactical Monospace)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interactive Mockup Shell Frame -->
+  <main class="app-frame theme-1" id="app-frame">
+
+    <!-- SIDEBAR -->
+    <aside class="c-sidebar">
+      <div>
+        <!-- Brand Logo Zone -->
+        <div class="c-logo-zone">
+          <div class="c-logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+            </svg>
+          </div>
+          <div class="c-logo-brand">
+            <div class="c-logo-text">FloodGuard</div>
+          </div>
+          <div class="c-hud-indicator" style="display: none;" id="hud-indicator-badge">SYS:ONLINE</div>
+        </div>
+
+        <!-- Navigation Items -->
+        <nav class="c-nav" id="sidebar-nav">
+          <div class="c-nav-section-title">เมนูหลัก</div>
+
+          <button class="c-nav-item active" onclick="setActiveNav(this)">
+            <div class="c-nav-item-content c-nav-item-left">
+              <span class="c-nav-index" style="display: none;">01</span>
+              <svg class="c-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+              </svg>
+              <span>แดชบอร์ด</span>
+            </div>
+            <span class="c-nav-status-pip" style="display: none;"></span>
+          </button>
+
+          <button class="c-nav-item" onclick="setActiveNav(this)">
+            <div class="c-nav-item-content c-nav-item-left">
+              <span class="c-nav-index" style="display: none;">02</span>
+              <svg class="c-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"></path>
+                <path d="m19 9-5 5-4-4-3 3"></path>
+              </svg>
+              <span>กราฟระดับน้ำ</span>
+            </div>
+            <span class="c-nav-status-pip" style="display: none;"></span>
+          </button>
+
+          <button class="c-nav-item" onclick="setActiveNav(this)">
+            <div class="c-nav-item-content c-nav-item-left">
+              <span class="c-nav-index" style="display: none;">03</span>
+              <svg class="c-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                <path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"></path>
+              </svg>
+              <span>ประวัติข้อมูล</span>
+            </div>
+            <span class="c-nav-status-pip" style="display: none;"></span>
+          </button>
+
+          <button class="c-nav-item" onclick="setActiveNav(this)">
+            <div class="c-nav-item-content c-nav-item-left">
+              <span class="c-nav-index" style="display: none;">04</span>
+              <svg class="c-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
+                <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path>
+                <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path>
+              </svg>
+              <span>จัดการสถานี</span>
+            </div>
+            <span class="c-nav-item-badge" style="display: none;" id="badge-stations">3</span>
+            <span class="c-nav-status-pip" style="display: none;"></span>
+          </button>
+
+          <button class="c-nav-item" onclick="setActiveNav(this)">
+            <div class="c-nav-item-content c-nav-item-left">
+              <span class="c-nav-index" style="display: none;">05</span>
+              <svg class="c-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              <span>จัดการผู้ใช้</span>
+            </div>
+            <span class="c-nav-status-pip" style="display: none;"></span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- User Profile Footer -->
+      <div class="c-user-card">
+        <div class="c-user-left">
+          <div class="c-avatar">ส</div>
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: #FFFFFF;">สมชาย วงศ์วิจิตร</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 500;">เจ้าหน้าที่ตรวจการ</div>
+          </div>
+        </div>
+        <button style="background: none; border: none; color: #64748B; cursor: pointer; display: flex;" title="ออกจากระบบ">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN APP CANVAS WITH TOPBAR -->
+    <div class="c-content-area">
+
+      <!-- TOPBAR -->
+      <header class="c-topbar" id="c-topbar">
+
+        <!-- Left Zone (Varies by Concept) -->
+        <div class="c-page-title-group" id="topbar-left">
+          <h1 class="c-page-title" id="page-title-text">แดชบอร์ด</h1>
+          <div class="c-live-chip" id="live-chip">
+            <span class="pulse-dot"></span>
+            <span>เรียลไทม์</span>
+          </div>
+
+          <!-- Concept 2 Breadcrumb (hidden in 1 & 3) -->
+          <div class="c-breadcrumb-dock" id="breadcrumb-dock" style="display: none;">
+            <span class="c-breadcrumb-root">FloodGuard</span>
+            <span class="c-breadcrumb-separator">/</span>
+            <span class="c-breadcrumb-current" id="breadcrumb-current">แดชบอร์ด</span>
+          </div>
+
+          <!-- Concept 3 Telemetry Pill (hidden in 1 & 2) -->
+          <div class="c-telemetry-status-pill" id="telemetry-pill" style="display: none;">
+            <span>สถานะระบบ</span>
+            <strong>3 โหนดออนไลน์ (100%)</strong>
+          </div>
+        </div>
+
+        <!-- Right Zone (Varies by Concept) -->
+        <div class="c-topbar-actions" id="topbar-right">
+          <!-- Refresh Button -->
+          <button class="c-ghost-btn" id="btn-refresh" title="รีเฟรชข้อมูล">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+              <path d="M16 16h5v5"></path>
+            </svg>
+          </button>
+
+          <!-- Notification Button with Indicator -->
+          <button class="c-ghost-btn" id="btn-notif" title="การแจ้งเตือน">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+            </svg>
+            <span class="c-notif-badge"></span>
+          </button>
+
+          <!-- Concept 2 Unified Capsule Dock (injected dynamically) -->
+          <div class="c-topbar-actions-dock" id="capsule-dock" style="display: none;">
+            <button class="c-dock-btn" onclick="pulseAction(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                <path d="M16 16h5v5"></path>
+              </svg>
+              <span>รีเฟรช</span>
+            </button>
+            <button class="c-dock-btn" onclick="pulseAction(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+              </svg>
+              <span>เตือนภัย (2)</span>
+            </button>
+          </div>
+
+          <!-- Concept 3 Live UTC Clock & Square Buttons -->
+          <div class="c-topbar-hud-right" id="hud-right" style="display: none;">
+            <div class="c-utc-clock" id="live-clock">22:31:45 ICT</div>
+            <button class="c-square-btn" title="รีเฟรช">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                <path d="M16 16h5v5"></path>
+              </svg>
+            </button>
+            <button class="c-square-btn" title="การแจ้งเตือน">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- SAMPLE BODY (Simulating Current Telemetry Hub Dashboard) -->
+      <div class="mockup-body">
+        <div class="mockup-hub-card">
+          <div class="mockup-hub-header">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; color: #38BDF8; font-family: var(--font-mono); margin-bottom: 4px;">ST-001 · แม่น้ำเจ้าพระยา</div>
+              <h2 style="font-size: 22px; font-weight: 700; color: #FFFFFF;">สถานีตรวจวัดระดับน้ำสะพานพระราม 5</h2>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: #34D399; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;">สถานะ ปกติ</span>
+            </div>
+          </div>
+
+          <!-- Dock Preview -->
+          <div class="mockup-dock-row">
+            <div class="mockup-station-box active">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: #38BDF8; font-family: var(--font-mono); font-weight: 700; margin-bottom: 8px;">
+                <span>ST-001</span>
+                <span>•</span>
+              </div>
+              <div style="font-size: 17px; font-weight: 700; color: #FFFFFF; margin-bottom: 6px;">สถานีสะพานพระราม 5</div>
+              <div style="font-size: 18px; font-weight: 800; font-family: var(--font-mono); color: #FFFFFF;">+1.85 <span style="font-size: 12px; color: #38BDF8;">m</span></div>
+            </div>
+
+            <div class="mockup-station-box">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748B; font-family: var(--font-mono); font-weight: 700; margin-bottom: 8px;">
+                <span>ST-002</span>
+                <span style="color: #64748B;">•</span>
+              </div>
+              <div style="font-size: 17px; font-weight: 700; color: #CBD5E1; margin-bottom: 6px;">สถานีคลองรังสิต</div>
+              <div style="font-size: 13px; font-weight: 600; color: #64748B;">ออฟไลน์</div>
+            </div>
+
+            <div class="mockup-station-box">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748B; font-family: var(--font-mono); font-weight: 700; margin-bottom: 8px;">
+                <span>ST-003</span>
+                <span style="color: #10B981;">•</span>
+              </div>
+              <div style="font-size: 17px; font-weight: 700; color: #F1F5F9; margin-bottom: 6px;">สถานีปากเกร็ด</div>
+              <div style="font-size: 18px; font-weight: 800; font-family: var(--font-mono); color: #E2E8F0;">+0.72 <span style="font-size: 12px; color: #64748B;">m</span></div>
+            </div>
+          </div>
+
+          <!-- Telemetry 3-col preview -->
+          <div class="mockup-grid-3">
+            <div class="mockup-metric-card">
+              <div style="font-size: 12px; color: #94A3B8; margin-bottom: 6px;">อุณหภูมิ</div>
+              <div style="font-size: 24px; font-weight: 800; font-family: var(--font-mono); color: #38BDF8;">29.4 <span style="font-size: 13px;">°C</span></div>
+            </div>
+            <div class="mockup-metric-card">
+              <div style="font-size: 12px; color: #94A3B8; margin-bottom: 6px;">แบตเตอรี่สำรอง</div>
+              <div style="font-size: 24px; font-weight: 800; font-family: var(--font-mono); color: #10B981;">92 <span style="font-size: 13px;">%</span></div>
+            </div>
+            <div class="mockup-metric-card">
+              <div style="font-size: 12px; color: #94A3B8; margin-bottom: 6px;">สัญญาณเครือข่าย</div>
+              <div style="font-size: 24px; font-weight: 800; font-family: var(--font-mono); color: #10B981;">-74 <span style="font-size: 13px;">dBm</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Explainer Banner for Selected Theme -->
+      <footer class="concept-explainer" id="explainer-banner">
+        <div>
+          <div class="explainer-title" id="explainer-title">แบบที่ 1: Luminous Hairline (Swiss Minimal)</div>
+          <div class="explainer-desc" id="explainer-desc">
+            เน้นความสะอาด คมกริบ ไร้ขอบหนาเทอะทะ (Ultra-thin 1px Hairline) พร้อมจุดบ่งชี้สถานะสด (Live Pulse Chip) และแถบนำทางแนวตั้งด้านซ้ายแบบ 2.5px Precision Border ช่วยขับเน้นข้อมูลบนจอให้เด่นชัดที่สุดโดยไม่แย่งความสนใจ
+          </div>
+        </div>
+        <button class="explainer-cta" onclick="confirmChoice()">
+          <span>เลือกแบบนี้ลงโค้ด</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </button>
+      </footer>
+
+    </div>
+  </main>
+
+  <script>
+    // Audio feedback synth
+    function playTick() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1400, ctx.currentTime + 0.04);
+        gain.gain.setValueAtTime(0.06, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.05);
+      } catch (e) {}
+    }
+
+    const descriptions = {
+      1: {
+        title: "แบบที่ 1: Luminous Hairline (Swiss Precision Minimal)",
+        desc: "เน้นความสะอาด คมกริบ ไร้ขอบหนาเทอะทะ (Ultra-thin 1px Hairline) พร้อมจุดบ่งชี้สถานะสด (Live Pulse Chip) และแถบนำทางแนวตั้งด้านซ้ายแบบ 2.5px Precision Border ช่วยขับเน้นข้อมูลบนจอให้เด่นชัดที่สุดโดยไม่แย่งความสนใจ เหมาะสำหรับผู้ใช้ที่ต้องการความคลีนระดับสูงสุด"
+      },
+      2: {
+        title: "แบบที่ 2: Hydro Capsule (Modern Floating Glass)",
+        desc: "สไตล์ Linear / macOS ให้ความรู้สึกล้ำสมัยด้วย Floating Breadcrumb Capsule ใน Top bar, เมนู Sidebar มีพื้นหลังเฉดสี Hydro-cyan อ่อน ๆ คล้ายกับปุ่มในหน้า Dashboard พร้อม Badge แสดงจำนวนสถานี และเชื่อมปุ่ม Action ทางขวาเป็น Dock เดียวกัน สวยมีระดับและนุ่มนวล"
+      },
+      3: {
+        title: "แบบที่ 3: Aviation HUD (Tactical Monospace Cockpit)",
+        desc: "สไตล์ห้องควบคุมการบินและดาวเทียม (NASA / Aviation HUD) เสริมนาฬิกาดิจิทัลเรียลไทม์ (Live ICT Clock) บน Top bar พร้อมป้ายสถานะทั้งเครือข่าย และ Sidebar มีรหัสดัชนี [01]–[05] คู่กับไฟ LED จิ๋วแบบมินิมอล ให้ความรู้สึกพร้อมปฏิบัติการ 24 ชั่วโมงอย่างแม่นยำ"
+      }
+    };
+
+    let currentTheme = 1;
+
+    function switchTheme(themeId) {
+      currentTheme = themeId;
+      playTick();
+
+      // Update pills
+      document.querySelectorAll('.concept-pill-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`btn-theme-${themeId}`).classList.add('active');
+
+      const frame = document.getElementById('app-frame');
+      frame.className = `app-frame theme-${themeId}`;
+
+      // Elements to toggle
+      const liveChip = document.getElementById('live-chip');
+      const breadcrumbDock = document.getElementById('breadcrumb-dock');
+      const telemetryPill = document.getElementById('telemetry-pill');
+      const pageTitle = document.getElementById('page-title-text');
+
+      const ghostBtnRefresh = document.getElementById('btn-refresh');
+      const ghostBtnNotif = document.getElementById('btn-notif');
+      const capsuleDock = document.getElementById('capsule-dock');
+      const hudRight = document.getElementById('hud-right');
+
+      const hudBadge = document.getElementById('hud-indicator-badge');
+      const badgeStations = document.getElementById('badge-stations');
+      const navIndexes = document.querySelectorAll('.c-nav-index');
+      const statusPips = document.querySelectorAll('.c-nav-status-pip');
+
+      // Theme-specific visibility
+      if (themeId === 1) {
+        pageTitle.style.display = 'block';
+        liveChip.style.display = 'inline-flex';
+        breadcrumbDock.style.display = 'none';
+        telemetryPill.style.display = 'none';
+
+        ghostBtnRefresh.style.display = 'flex';
+        ghostBtnNotif.style.display = 'flex';
+        capsuleDock.style.display = 'none';
+        hudRight.style.display = 'none';
+
+        hudBadge.style.display = 'none';
+        badgeStations.style.display = 'none';
+        navIndexes.forEach(el => el.style.display = 'none');
+        statusPips.forEach(el => el.style.display = 'none');
+      } else if (themeId === 2) {
+        pageTitle.style.display = 'none';
+        liveChip.style.display = 'none';
+        breadcrumbDock.style.display = 'inline-flex';
+        telemetryPill.style.display = 'none';
+
+        ghostBtnRefresh.style.display = 'none';
+        ghostBtnNotif.style.display = 'none';
+        capsuleDock.style.display = 'inline-flex';
+        hudRight.style.display = 'none';
+
+        hudBadge.style.display = 'none';
+        badgeStations.style.display = 'inline-block';
+        navIndexes.forEach(el => el.style.display = 'none');
+        statusPips.forEach(el => el.style.display = 'none');
+      } else if (themeId === 3) {
+        pageTitle.style.display = 'block';
+        liveChip.style.display = 'none';
+        breadcrumbDock.style.display = 'none';
+        telemetryPill.style.display = 'inline-flex';
+
+        ghostBtnRefresh.style.display = 'none';
+        ghostBtnNotif.style.display = 'none';
+        capsuleDock.style.display = 'none';
+        hudRight.style.display = 'flex';
+
+        hudBadge.style.display = 'block';
+        badgeStations.style.display = 'none';
+        navIndexes.forEach(el => el.style.display = 'inline-block');
+        statusPips.forEach(el => el.style.display = 'block');
+      }
+
+      // Update description banner
+      document.getElementById('explainer-title').textContent = descriptions[themeId].title;
+      document.getElementById('explainer-desc').textContent = descriptions[themeId].desc;
+    }
+
+    function setActiveNav(btn) {
+      playTick();
+      document.querySelectorAll('.c-nav-item').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      const text = btn.querySelector('span:not(.c-nav-index)').textContent;
+      document.getElementById('page-title-text').textContent = text;
+      document.getElementById('breadcrumb-current').textContent = text;
+    }
+
+    function pulseAction(btn) {
+      playTick();
+      btn.classList.add('active');
+      setTimeout(() => btn.classList.remove('active'), 250);
+    }
+
+    function confirmChoice() {
+      alert(`คุณได้เลือก: ${descriptions[currentTheme].title}\nส่งข้อความในแชทว่า "แบบที่ ${currentTheme}" เพื่อให้ AI ดำเนินการเขียนโค้ดลงใน TopBar.tsx และ Sidebar.tsx ได้ทันทีครับ`);
+    }
+
+    // Live clock for Theme 3
+    setInterval(() => {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      const clockEl = document.getElementById('live-clock');
+      if (clockEl) clockEl.textContent = `${h}:${m}:${s} ICT`;
+    }, 1000);
+  </script>
+</body>
+</html>

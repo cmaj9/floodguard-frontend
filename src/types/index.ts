@@ -96,6 +96,7 @@ export interface AuthUser {
   isActive?: boolean;
   isCredentialsSet?: boolean;
   is_credentials_set?: boolean;
+  token?: string;
 }
 
 export interface User {

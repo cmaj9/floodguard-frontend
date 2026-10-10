@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import StationModal from '../components/stations/StationModal';
 import StationCalibrationModal from '../components/stations/StationCalibrationModal';
 import StationNotificationModal from '../components/stations/StationNotificationModal';
 import StationDeleteModal from '../components/stations/StationDeleteModal';
+import StationStatusConfirmModal from '../components/stations/StationStatusConfirmModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
 import {
   fetchStations,
@@ -31,9 +32,13 @@ import {
   BatteryChargingIcon,
   BatteryLowIcon,
   DropletsIcon,
+  ExternalLinkIcon,
+  SearchIcon,
+  XIcon,
+  WavesIcon,
 } from '../components/ui/Icons';
-import SegmentedControl from '../components/ui/SegmentedControl';
 import ManagementBackBar from '../components/ui/ManagementBackBar';
+import { Button } from '../components/ui/Button';
 
 const statusLabel: Record<WaterStatus, string> = {
   normal: 'ปกติ',
@@ -129,6 +134,11 @@ export default function StationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<Record<string, boolean>>({});
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'normal' | 'warning' | 'critical' | 'offline'>('all');
+  const [sortBy, setSortBy] = useState<'id' | 'level' | 'updated'>('id');
+
   // General Edit Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editStation, setEditStation] = useState<Station | null>(null);
@@ -148,32 +158,40 @@ export default function StationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'map'>('grid');
 
-  // Direct Inline Status Toggle (Optimistic Update)
-  const handleToggleOperatingStatus = async (station: Station, newStatus: 'active' | 'offline') => {
-    if (statusUpdating[station.id]) return;
+  // Status Change Confirmation Modal State
+  const [statusConfirmModalOpen, setStatusConfirmModalOpen] = useState(false);
+  const [statusConfirmStation, setStatusConfirmStation] = useState<Station | null>(null);
+  const [statusConfirmTarget, setStatusConfirmTarget] = useState<'active' | 'offline'>('offline');
+
+  // Trigger Confirmation Modal for Operating Status Change
+  const handleRequestStatusToggle = (station: Station, newStatus: 'active' | 'offline') => {
     const isTargetActive = newStatus === 'active';
     if (station.isActive === isTargetActive) return;
+    setStatusConfirmStation(station);
+    setStatusConfirmTarget(newStatus);
+    setStatusConfirmModalOpen(true);
+  };
 
-    // Optimistic update
-    setStations((prev) =>
-      prev.map((s) =>
-        s.id === station.id ? { ...s, isActive: isTargetActive, operatingStatus: newStatus } : s
-      )
-    );
-    setStatusUpdating((prev) => ({ ...prev, [station.id]: true }));
+  // Execute Status Toggle after Confirmation
+  const handleExecuteStatusToggle = async () => {
+    if (!statusConfirmStation) return;
+    const stationId = statusConfirmStation.id;
+    const targetStatus = statusConfirmTarget;
+    const isTargetActive = targetStatus === 'active';
 
+    setStatusUpdating((prev) => ({ ...prev, [stationId]: true }));
     try {
-      await updateStationStatus(station.id, newStatus);
-    } catch (err: any) {
-      // Revert on failure
+      await updateStationStatus(stationId, targetStatus);
       setStations((prev) =>
         prev.map((s) =>
-          s.id === station.id ? { ...s, isActive: station.isActive, operatingStatus: station.operatingStatus } : s
+          s.id === stationId ? { ...s, isActive: isTargetActive, operatingStatus: targetStatus } : s
         )
       );
+      window.dispatchEvent(new Event('app:refresh'));
+    } catch (err: any) {
       alert(err.message || 'ไม่สามารถเปลี่ยนสถานะการให้บริการได้');
     } finally {
-      setStatusUpdating((prev) => ({ ...prev, [station.id]: false }));
+      setStatusUpdating((prev) => ({ ...prev, [stationId]: false }));
     }
   };
 
@@ -209,6 +227,49 @@ export default function StationsPage() {
       };
     }
   }, [user, loadStations]);
+
+  // Fleet Statistics for Briefing & Delight
+  const stats = useMemo(() => {
+    const total = stations.length;
+    const active = stations.filter((s) => s.isActive).length;
+    const offline = total - active;
+    const normal = stations.filter((s) => s.isActive && s.status === 'normal').length;
+    const warning = stations.filter((s) => s.isActive && s.status === 'warning').length;
+    const critical = stations.filter((s) => s.isActive && s.status === 'critical').length;
+    return { total, active, offline, normal, warning, critical };
+  }, [stations]);
+
+  // Filtered & Sorted Stations List
+  const filteredStations = useMemo(() => {
+    return stations
+      .filter((s) => {
+        // Status filter
+        if (filterStatus === 'offline') {
+          if (s.isActive) return false;
+        } else if (filterStatus !== 'all') {
+          if (!s.isActive || s.status !== filterStatus) return false;
+        }
+
+        // Search query
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase().trim();
+        return (
+          s.id.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q) ||
+          (s.location && s.location.toLowerCase().includes(q)) ||
+          (s.gatewayName && s.gatewayName.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => {
+        if (sortBy === 'level') {
+          return (b.currentLevel ?? -999) - (a.currentLevel ?? -999);
+        }
+        if (sortBy === 'updated') {
+          return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+        }
+        return a.id.localeCompare(b.id);
+      });
+  }, [stations, filterStatus, searchQuery, sortBy]);
 
   if (user?.role !== 'admin' && user?.role !== 'staff') {
     return null;
@@ -303,80 +364,299 @@ export default function StationsPage() {
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {/* View toggle (การ์ดสถานี / แผนที่) */}
-            <SegmentedControl
-              options={[
-                { value: 'grid', label: 'การ์ดสถานี', icon: <LayoutGridIcon size={14} /> },
-                { value: 'map', label: 'แผนที่', icon: <MapIcon size={14} /> },
-              ]}
-              value={view}
-              onChange={(val) => setView(val as 'grid' | 'map')}
-              size="sm"
-              ariaLabel="สลับมุมมองสถานี"
-            />
+            <div className="btn-3d-toggle-group" role="tablist" aria-label="สลับมุมมองสถานี">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'grid'}
+                className={`btn-3d-toggle tactile-press ${view === 'grid' ? 'active' : ''}`}
+                onClick={() => setView('grid')}
+                title="มุมมองการ์ดสถานี"
+              >
+                <LayoutGridIcon size={14} />
+                <span>การ์ดสถานี</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'map'}
+                className={`btn-3d-toggle tactile-press ${view === 'map' ? 'active' : ''}`}
+                onClick={() => setView('map')}
+                title="มุมมองแผนที่"
+              >
+                <MapIcon size={14} />
+                <span>แผนที่</span>
+              </button>
+            </div>
 
             {/* Global notification settings */}
             <button
               id="global-notification-btn"
               type="button"
+              className="btn-3d-dark tactile-press"
               onClick={() => {
                 setNotifyingStation(null);
                 setNotificationModalOpen(true);
               }}
-              style={{
-                color: '#FFFFFF',
-                backgroundColor: '#222222',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '0.5rem',
-                fontSize: '0.8125rem',
-                fontWeight: 600,
-                height: 38,
-                padding: '0 14px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'background-color 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#333333')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#222222')}
               title="ตั้งค่าเกณฑ์การแจ้งเตือนส่วนกลาง"
             >
               <BellIcon size={15} />
               <span>เกณฑ์แจ้งเตือนส่วนกลาง</span>
             </button>
 
-            {/* Add station button (Admin only) */}
+            {/* Add station button (Admin only) · The Rarity Rule (Pastel Pink Jewel) */}
             {isAdmin && (
-              <button
+              <Button
                 id="add-station-btn"
-                type="button"
+                variant="jewel-pink"
+                className="tactile-press"
                 onClick={handleAdd}
-                style={{
-                  color: '#FFFFFF',
-                  backgroundColor: '#0284C7',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  height: 38,
-                  padding: '0 16px',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
-                  transition: 'background-color 0.15s ease',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#0369A1')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0284C7')}
+                leftIcon={<PlusIcon size={15} />}
+                title="เพิ่มสถานีตรวจวัดใหม่"
               >
-                <PlusIcon size={15} />
-                <span>เพิ่มสถานี</span>
-              </button>
+                เพิ่มสถานี
+              </Button>
             )}
           </div>
         }
       />
+
+      {/* ── 1. FLEET SITUATIONAL TELEMETRY COCKPIT STRIP (DELIGHT AXIS) ── */}
+      <div
+        style={{
+          background: 'var(--card-surface, #0C0E12)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: 14,
+          padding: '14px 18px',
+          margin: '16px 0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        {/* Left: Summary Insight */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: stats.critical > 0 ? '#EF4444' : stats.warning > 0 ? '#F59E0B' : '#10B981',
+              flexShrink: 0,
+            }}
+            className="heartbeat-dot"
+          />
+          <span style={{ fontSize: 13, color: '#F1F5F9', fontWeight: 600 }}>
+            {stats.critical > 0
+              ? `ตรวจพบ ${stats.critical} สถานีในเกณฑ์วิกฤต โปรดติดตามสถานการณ์อย่างใกล้ชิด`
+              : stats.warning > 0
+              ? `มี ${stats.warning} สถานีอยู่ในเกณฑ์เฝ้าระวัง อัตราการไหลของน้ำยังปกติ`
+              : `สถานีตรวจวัดทั้งหมด ${stats.total} สถานี พร้อมใช้งานและออนไลน์ ${stats.active} สถานี`}
+          </span>
+        </div>
+
+        {/* Right: Quick Telemetry Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setFilterStatus('all')}
+            className="tactile-press"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: filterStatus === 'all' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: filterStatus === 'all' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: filterStatus === 'all' ? '#38BDF8' : '#94A3B8',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            ทั้งหมด {stats.total}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('normal')}
+            className="tactile-press"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: filterStatus === 'normal' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: filterStatus === 'normal' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: filterStatus === 'normal' ? '#10B981' : '#94A3B8',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+            <span>ปกติ {stats.normal}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('warning')}
+            className="tactile-press"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: filterStatus === 'warning' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: filterStatus === 'warning' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: filterStatus === 'warning' ? '#F59E0B' : '#94A3B8',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
+            <span>เฝ้าระวัง {stats.warning}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('critical')}
+            className="tactile-press"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: filterStatus === 'critical' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: filterStatus === 'critical' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: filterStatus === 'critical' ? '#EF4444' : '#94A3B8',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />
+            <span>วิกฤต {stats.critical}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterStatus('offline')}
+            className="tactile-press"
+            style={{
+              padding: '4px 10px',
+              borderRadius: 6,
+              border: filterStatus === 'offline' ? '1px solid rgba(148, 163, 184, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+              background: filterStatus === 'offline' ? 'rgba(148, 163, 184, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+              color: filterStatus === 'offline' ? '#CBD5E1' : '#64748B',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748B' }} />
+            <span>ออฟไลน์ {stats.offline}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. SEARCH & CONTROLS DOCK ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        {/* Search input with Tactical Glass */}
+        <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: 440 }}>
+          <SearchIcon
+            size={15}
+            style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#64748B',
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ค้นหาตามรหัส, ชื่อสถานี, ตำแหน่ง หรือเกตเวย์..."
+            className="input"
+            style={{
+              paddingLeft: 36,
+              paddingRight: searchQuery ? 36 : 14,
+              height: 38,
+              fontSize: 13,
+              background: '#0C0E12',
+              borderColor: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: 10,
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="tactile-press"
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                padding: 4,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="ล้างคำค้นหา"
+            >
+              <XIcon size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Sort selector */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: '#64748B' }}>เรียงลำดับ</span>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="input"
+            style={{
+              height: 38,
+              padding: '0 12px',
+              fontSize: 12.5,
+              background: '#0C0E12',
+              borderColor: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: 10,
+              color: '#F8FAFC',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="id">ตามรหัสสถานี (ST-01, ST-02)</option>
+            <option value="level">ระดับน้ำสูงสุดก่อน</option>
+            <option value="updated">อัปเดตล่าสุด</option>
+          </select>
+        </div>
+      </div>
 
       {loading && (
         <div style={{ padding: '80px 20px', textAlign: 'center', color: '#94A3B8' }}>
@@ -415,594 +695,561 @@ export default function StationsPage() {
         </div>
       )}
 
-      {/* ── MAIN CONTENT (NO DUPLICATION) ── */}
+      {/* ── 3. MAIN CONTENT (GRID VS MAP) ── */}
       {!loading && !error && (
         <>
           {view === 'grid' ? (
-            /* ─────────────────────────────────────────────────────────────
-               TACTICAL STATION COCKPIT GRID
-               1 col on mobile, 2 cols on tablet/laptop, 3 cols on wide screens
-               ───────────────────────────────────────────────────────────── */
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px), 1fr))',
-                gap: 18,
-              }}
-            >
-              {stations.map((s) => {
-                const refName = s.referencePointName || 'จุดอ้างอิง';
-                const level = s.currentLevel;
-                const levelFormatted = level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2);
-                const isUpdating = statusUpdating[s.id];
-
-                // Progress math for water level gauge
-                const maxRange = Math.max(Math.abs(s.sensorToRefDistance || 2.0), 3.0);
-                const gaugePct = Math.max(
-                  0,
-                  Math.min(100, (((level + maxRange / 2) / maxRange) * 100))
-                );
-
-                const warnLevel = s.warningLevel ?? -0.5;
-                const critLevel = s.criticalLevel ?? 0.0;
-                const warnPct = Math.max(0, Math.min(100, (((warnLevel + maxRange / 2) / maxRange) * 100)));
-                const critPct = Math.max(0, Math.min(100, (((critLevel + maxRange / 2) / maxRange) * 100)));
-
-                return (
-                  <div
-                    key={s.id}
-                    style={{
-                      background: 'linear-gradient(180deg, #0F172A 0%, #0B131B 100%)',
-                      border: s.isActive ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid rgba(255, 255, 255, 0.08)',
-                      borderRadius: 16,
-                      padding: '18px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 16,
-                      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
-                      position: 'relative',
-                      overflow: 'hidden',
-                      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+            filteredStations.length === 0 ? (
+              /* Empty Search / Filter State */
+              <div
+                style={{
+                  padding: '60px 20px',
+                  textAlign: 'center',
+                  background: 'var(--card-surface, #0C0E12)',
+                  border: '1px dashed rgba(255, 255, 255, 0.1)',
+                  borderRadius: 16,
+                }}
+              >
+                <WavesIcon size={36} style={{ color: '#64748B', margin: '0 auto 12px' }} />
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+                  ไม่พบสถานีที่ตรงกับเงื่อนไขการค้นหา
+                </div>
+                <div style={{ fontSize: 13, color: '#64748B', marginTop: 4 }}>
+                  ลองปรับเปลี่ยนคำค้นหา หรือเลือกตัวกรองสถานะเป็น "ทั้งหมด"
+                </div>
+                {(searchQuery || filterStatus !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setFilterStatus('all');
                     }}
+                    className="btn btn-secondary btn-sm tactile-press"
+                    style={{ marginTop: 16 }}
                   >
-                    {/* Top Corner Decorative Station Accent Bar */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 3,
-                        background: !s.isActive
-                          ? '#475569'
-                          : s.status === 'critical'
-                          ? '#EF4444'
-                          : s.status === 'warning'
-                          ? '#F59E0B'
-                          : '#0EA5E9',
-                      }}
-                    />
+                    ล้างตัวกรองทั้งหมด
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* ── TACTICAL STATION COCKPIT GRID ── */
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px), 1fr))',
+                  gap: 18,
+                }}
+              >
+                {filteredStations.map((s) => {
+                  const refName = s.referencePointName || 'จุดอ้างอิง';
+                  const level = s.currentLevel;
+                  const isUpdating = statusUpdating[s.id];
 
-                    {/* ── 1. STATION HEADER ── */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span
-                            className="tabular-nums font-mono"
+                  // Progress math for water level gauge
+                  const sToRef = s.sensorToRefDistance ?? 2.0;
+                  const warnLevel = s.warningLevel ?? -0.5;
+                  const critLevel = s.criticalLevel ?? 0.0;
+                  const rawDist = s.rawDistance ?? Number((sToRef - level).toFixed(3));
+
+                  const minExpected = -Math.max(1.5, sToRef * 0.85);
+                  const maxExpected = Math.max(0.8, critLevel + 0.6);
+                  const span = maxExpected - minExpected;
+                  const currentRatio = Math.max(0.04, Math.min(0.98, (level - minExpected) / (span || 1)));
+                  const gaugePct = Math.round(currentRatio * 100);
+                  const datumPct = Math.max(12, Math.min(88, Math.round(((0 - minExpected) / (span || 1)) * 100)));
+                  const warnPct = Math.max(15, Math.min(94, Math.round(((warnLevel - minExpected) / (span || 1)) * 100)));
+                  const critPct = Math.max(18, Math.min(96, Math.round(((critLevel - minExpected) / (span || 1)) * 100)));
+
+                  return (
+                    <div
+                      key={s.id}
+                      className="tactical-station-card"
+                      onClick={() => navigate(`/stations/${s.id}`)}
+                      title="คลิกเพื่อดูข้อมูลเชิงลึกและกราฟเซนเซอร์"
+                      style={{
+                        background: 'var(--card-surface, #0C0E12)',
+                        border: s.isActive ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: 16,
+                        padding: '18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 14,
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {/* Top Accent Strip */}
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 3,
+                          background: !s.isActive
+                            ? '#475569'
+                            : s.status === 'critical'
+                            ? '#EF4444'
+                            : s.status === 'warning'
+                            ? '#F59E0B'
+                            : '#0EA5E9',
+                        }}
+                      />
+
+                      {/* ── CARD HEADER ── */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span
+                              className="tabular-nums font-mono"
+                              style={{
+                                fontSize: 11.5,
+                                fontWeight: 800,
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                background: s.isActive ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.1)',
+                                border: s.isActive ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.2)',
+                                color: s.isActive ? '#38BDF8' : '#94A3B8',
+                                letterSpacing: '0.04em',
+                              }}
+                            >
+                              {s.deviceId}
+                            </span>
+                            <h2
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 800,
+                                color: '#F8FAFC',
+                                margin: 0,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {s.name}
+                            </h2>
+                            <ExternalLinkIcon
+                              size={14}
+                              className="station-card-explore-icon"
+                              style={{ color: '#64748B', flexShrink: 0 }}
+                            />
+                          </div>
+
+                          {/* Location Subtext */}
+                          <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <MapPinIcon size={13} style={{ color: '#64748B', flexShrink: 0 }} />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {s.location || `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div style={{ flexShrink: 0 }}>
+                          {s.isActive ? (
+                            <span className={`badge ${statusClass[s.status]}`} style={{ fontSize: 11.5, padding: '3px 10px' }}>
+                              <span className="badge-dot" style={{ width: 6, height: 6 }} />
+                              {statusLabel[s.status]}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                padding: '3px 9px',
+                                borderRadius: 6,
+                                background: 'rgba(148, 163, 184, 0.1)',
+                                border: '1px solid rgba(148, 163, 184, 0.2)',
+                                color: '#94A3B8',
+                                fontSize: 11.5,
+                                fontWeight: 500,
+                              }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748B' }} />
+                              <span>ออฟไลน์</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── WATER LEVEL COCKPIT POD (32PX MONO + GAUGE) ── */}
+                      <div
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          borderRadius: 12,
+                          padding: '12px 14px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 10,
+                        }}
+                      >
+                        {/* Readout Header */}
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>
+                              ระดับน้ำเทียบ{refName}
+                            </div>
+                            {s.isActive ? (
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+                                <span
+                                  className="tabular-nums font-mono"
+                                  style={{
+                                    fontSize: 32,
+                                    fontWeight: 900,
+                                    color:
+                                      s.status === 'critical'
+                                        ? '#EF4444'
+                                        : s.status === 'warning'
+                                        ? '#F59E0B'
+                                        : '#10B981',
+                                    letterSpacing: '-0.03em',
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  {level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2)}
+                                </span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8' }}>เมตร</span>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 24, fontWeight: 700, color: '#64748B', marginTop: 2 }}>-</div>
+                            )}
+                          </div>
+
+                          {/* Reference Datum Chip */}
+                          <div style={{ textAlign: 'right' }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                color: '#38BDF8',
+                                fontWeight: 700,
+                              }}
+                            >
+                              {refName}
+                            </span>
+                            <div className="tabular-nums font-mono" style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                              ระยะติดตั้ง {sToRef.toFixed(2)} ม.
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Hydro-Tactical Water Depth Gauge */}
+                        <div style={{ position: 'relative', marginTop: 2 }}>
+                          <div
                             style={{
-                              fontSize: 11.5,
-                              fontWeight: 800,
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              background: s.isActive ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.1)',
-                              border: s.isActive ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.2)',
-                              color: s.isActive ? '#38BDF8' : '#94A3B8',
-                              letterSpacing: '0.04em',
+                              height: 12,
+                              borderRadius: 999,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              overflow: 'hidden',
+                              position: 'relative',
                             }}
                           >
-                            {s.deviceId}
-                          </span>
-                          <h2
+                            <div
+                              style={{
+                                height: '100%',
+                                width: '100%',
+                                transform: `scaleX(${s.isActive ? gaugePct / 100 : 0})`,
+                                transformOrigin: 'left',
+                                background:
+                                  s.status === 'critical'
+                                    ? 'linear-gradient(90deg, #F59E0B 0%, #EF4444 100%)'
+                                    : s.status === 'warning'
+                                    ? 'linear-gradient(90deg, #0284C7 0%, #F59E0B 100%)'
+                                    : 'linear-gradient(90deg, #0284C7 0%, #38BDF8 60%, #10B981 100%)',
+                                transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                                borderRadius: 999,
+                              }}
+                            />
+                          </div>
+
+                          {/* Datum Marker (0.00m) */}
+                          <div
                             style={{
-                              fontSize: 16,
-                              fontWeight: 800,
-                              color: '#F8FAFC',
-                              margin: 0,
+                              position: 'absolute',
+                              left: `${datumPct}%`,
+                              top: -2,
+                              bottom: -2,
+                              width: 2,
+                              background: 'rgba(255, 255, 255, 0.8)',
+                              borderRadius: 1,
+                              zIndex: 2,
+                            }}
+                            title={`จุดอ้างอิง 0.00 ม. (${refName})`}
+                          />
+
+                          {/* Warning Marker Line */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${warnPct}%`,
+                              top: -2,
+                              bottom: -2,
+                              width: 2,
+                              background: '#F59E0B',
+                              borderRadius: 1,
+                              zIndex: 2,
+                            }}
+                            title={`เกณฑ์เฝ้าระวัง ${warnLevel.toFixed(2)} ม.`}
+                          />
+
+                          {/* Critical Marker Line */}
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${critPct}%`,
+                              top: -2,
+                              bottom: -2,
+                              width: 2,
+                              background: '#EF4444',
+                              borderRadius: 1,
+                              zIndex: 2,
+                            }}
+                            title={`เกณฑ์วิกฤต ${critLevel.toFixed(2)} ม.`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* ── 4 HARDWARE TELEMETRY PODS ── */}
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(2, 1fr)',
+                          gap: 8,
+                        }}
+                      >
+                        {/* Pod 1: Ultrasonic Distance */}
+                        <div
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: 10,
+                            padding: '8px 10px',
+                          }}
+                        >
+                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                            <DropletsIcon size={12} style={{ color: '#38BDF8' }} />
+                            <span>ระยะเซนเซอร์วัดได้</span>
+                          </div>
+                          {s.isActive ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: '#F1F5F9' }}>
+                                {rawDist.toFixed(3)}
+                              </span>
+                              <span style={{ fontSize: 11, color: '#64748B' }}>ม.</span>
+                              {s.isBlindZone && (
+                                <span
+                                  style={{
+                                    fontSize: 9.5,
+                                    fontWeight: 700,
+                                    color: '#EF4444',
+                                    padding: '1px 4px',
+                                    borderRadius: 4,
+                                    background: 'rgba(239, 68, 68, 0.15)',
+                                  }}
+                                >
+                                  Blind
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: 13, color: '#64748B' }}>-</span>
+                          )}
+                        </div>
+
+                        {/* Pod 2: Pole Tilt (ADXL345) */}
+                        <div
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: 10,
+                            padding: '8px 10px',
+                          }}
+                        >
+                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                            <CompassIcon size={12} style={{ color: '#38BDF8' }} />
+                            <span>ความเอียงเสา</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.isPoleTilted ? '#EF4444' : '#F1F5F9' }}>
+                              {s.relativeTotalTilt != null ? `${s.relativeTotalTilt.toFixed(1)}°` : '0.0°'}
+                            </span>
+                            {s.isPoleTilted && (
+                              <span style={{ fontSize: 9.5, fontWeight: 700, color: '#EF4444' }}>เอียง</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Pod 3: Battery Level */}
+                        <div
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: 10,
+                            padding: '8px 10px',
+                          }}
+                        >
+                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                            {s.batteryPercent != null && s.batteryPercent < 20 ? (
+                              <BatteryLowIcon size={12} style={{ color: '#EF4444' }} />
+                            ) : (
+                              <BatteryChargingIcon size={12} style={{ color: '#10B981' }} />
+                            )}
+                            <span>แบตเตอรี่</span>
+                          </div>
+                          <div className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.batteryPercent != null && s.batteryPercent < 20 ? '#EF4444' : '#F1F5F9' }}>
+                            {s.batteryPercent != null ? `${s.batteryPercent}%` : '100%'}
+                          </div>
+                        </div>
+
+                        {/* Pod 4: Gateway & LoRa Signal */}
+                        <div
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: 10,
+                            padding: '8px 10px',
+                          }}
+                        >
+                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                            <RadioIcon size={12} style={{ color: '#A855F7' }} />
+                            <span>เกตเวย์</span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: '#CBD5E1',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {s.name}
-                          </h2>
-                        </div>
-
-                        {/* Location Subtext */}
-                        <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <MapPinIcon size={13} style={{ color: '#64748B', flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {s.location || `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}`}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Station Water Status Badge */}
-                      <div style={{ flexShrink: 0 }}>
-                        {s.isActive ? (
-                          <span className={`badge ${statusClass[s.status]}`} style={{ fontSize: 11.5, padding: '3px 10px' }}>
-                            <span className="badge-dot" style={{ width: 6, height: 6 }} />
-                            {statusLabel[s.status]}
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              padding: '3px 9px',
-                              borderRadius: 6,
-                              background: 'rgba(148, 163, 184, 0.1)',
-                              border: '1px solid rgba(148, 163, 184, 0.2)',
-                              color: '#94A3B8',
-                              fontSize: 11.5,
-                              fontWeight: 500,
-                            }}
-                          >
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748B' }} />
-                            <span>ออฟไลน์</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ── 2. WATER LEVEL GAUGE & METRIC COCKPIT ── */}
-                    <div
-                      style={{
-                        background: '#090E17',
-                        border: '1px solid rgba(255, 255, 255, 0.06)',
-                        borderRadius: 12,
-                        padding: '12px 14px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 10,
-                      }}
-                    >
-                      {/* Readout Header */}
-                      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                        <div>
-                          <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>ระดับน้ำเทียบ{refName}</div>
-                          {s.isActive ? (
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
-                              <span
-                                className="tabular-nums font-mono"
-                                style={{
-                                  fontSize: 26,
-                                  fontWeight: 800,
-                                  color: level >= 0 ? '#F87171' : '#34D399',
-                                  letterSpacing: '-0.02em',
-                                }}
-                              >
-                                {levelFormatted}
-                              </span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8' }}>เมตร</span>
-                            </div>
-                          ) : (
-                            <div style={{ fontSize: 20, fontWeight: 700, color: '#64748B', marginTop: 2 }}>-</div>
-                          )}
-                        </div>
-
-                        {/* Reference Datum Chip */}
-                        <div style={{ textAlign: 'right' }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              padding: '2px 8px',
-                              borderRadius: 6,
-                              background: 'rgba(56, 189, 248, 0.1)',
-                              border: '1px solid rgba(56, 189, 248, 0.25)',
-                              color: '#38BDF8',
-                              fontWeight: 700,
-                            }}
-                          >
-                            {refName}
-                          </span>
-                          <div className="tabular-nums font-mono" style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                            ระยะติดตั้ง {s.sensorToRefDistance?.toFixed(2) ?? '2.00'} ม.
+                            {s.gatewayName || 'Gateway_01'}
                           </div>
                         </div>
                       </div>
 
-                      {/* Visual Water Depth Progress Track */}
-                      <div style={{ position: 'relative', marginTop: 4 }}>
-                        <div
-                          style={{
-                            height: 10,
-                            borderRadius: 999,
-                            background: '#1E293B',
-                            overflow: 'hidden',
-                            position: 'relative',
-                          }}
-                        >
-                          <div
-                            style={{
-                              height: '100%',
-                              width: s.isActive ? `${gaugePct}%` : '0%',
-                              background:
-                                s.status === 'critical'
-                                  ? 'linear-gradient(90deg, #F59E0B, #EF4444)'
-                                  : s.status === 'warning'
-                                  ? 'linear-gradient(90deg, #10B981, #F59E0B)'
-                                  : 'linear-gradient(90deg, #0284C7, #38BDF8)',
-                              transition: 'width 0.4s ease',
-                              borderRadius: 999,
-                            }}
-                          />
-                        </div>
-
-                        {/* Warning Marker Line */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${warnPct}%`,
-                            top: -2,
-                            bottom: -2,
-                            width: 2,
-                            background: '#F59E0B',
-                            borderRadius: 1,
-                          }}
-                          title={`เกณฑ์เฝ้าระวัง ${warnLevel.toFixed(2)} ม.`}
-                        />
-
-                        {/* Critical Marker Line */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: `${critPct}%`,
-                            top: -2,
-                            bottom: -2,
-                            width: 2,
-                            background: '#EF4444',
-                            borderRadius: 1,
-                          }}
-                          title={`เกณฑ์วิกฤต ${critLevel.toFixed(2)} ม.`}
-                        />
-                      </div>
-                    </div>
-
-                    {/* ── 3. FOUR HARDWARE TELEMETRY PODS ── */}
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(2, 1fr)',
-                        gap: 8,
-                      }}
-                    >
-                      {/* Pod 1: Ultrasonic Distance */}
+                      {/* ── TACTICAL CONTROL DOCK (SWITCH + ACTION BUTTONS) ── */}
                       <div
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
-                          borderRadius: 10,
-                          padding: '8px 10px',
-                        }}
-                      >
-                        <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                          <DropletsIcon size={12} style={{ color: '#38BDF8' }} />
-                          <span>ระยะเซนเซอร์วัดได้</span>
-                        </div>
-                        {s.isActive && s.rawDistance !== null && s.rawDistance !== undefined ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: '#F1F5F9' }}>
-                              {s.rawDistance.toFixed(3)}
-                            </span>
-                            <span style={{ fontSize: 11, color: '#64748B' }}>ม.</span>
-                            {s.isBlindZone && (
-                              <span
-                                style={{
-                                  fontSize: 9.5,
-                                  fontWeight: 700,
-                                  color: '#EF4444',
-                                  padding: '1px 4px',
-                                  borderRadius: 4,
-                                  background: 'rgba(239, 68, 68, 0.15)',
-                                }}
-                              >
-                                Blind
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 13, color: '#64748B' }}>-</span>
-                        )}
-                      </div>
-
-                      {/* Pod 2: Pole Tilt (ADXL345) */}
-                      <div
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
-                          borderRadius: 10,
-                          padding: '8px 10px',
-                        }}
-                      >
-                        <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                          <CompassIcon size={12} style={{ color: '#38BDF8' }} />
-                          <span>ความเอียงเสา</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.isPoleTilted ? '#EF4444' : '#F1F5F9' }}>
-                            {s.relativeTotalTilt != null ? `${s.relativeTotalTilt.toFixed(1)}°` : '0.0°'}
-                          </span>
-                          {s.isPoleTilted && (
-                            <span style={{ fontSize: 9.5, fontWeight: 700, color: '#EF4444' }}>เอียง</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Pod 3: Battery Level */}
-                      <div
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
-                          borderRadius: 10,
-                          padding: '8px 10px',
-                        }}
-                      >
-                        <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                          {s.batteryPercent != null && s.batteryPercent < 20 ? (
-                            <BatteryLowIcon size={12} style={{ color: '#EF4444' }} />
-                          ) : (
-                            <BatteryChargingIcon size={12} style={{ color: '#10B981' }} />
-                          )}
-                          <span>แบตเตอรี่</span>
-                        </div>
-                        <div className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: '#F1F5F9' }}>
-                          {s.batteryPercent != null ? `${s.batteryPercent}%` : '100%'}
-                        </div>
-                      </div>
-
-                      {/* Pod 4: Gateway & LoRa Signal */}
-                      <div
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
-                          borderRadius: 10,
-                          padding: '8px 10px',
-                        }}
-                      >
-                        <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                          <RadioIcon size={12} style={{ color: '#A855F7' }} />
-                          <span>เกตเวย์</span>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: '#CBD5E1',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {s.gatewayName || 'Gateway_01'}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── 4. TACTICAL CONTROL DOCK (SPLIT DOCK: SWITCH + 36PX BUTTONS) ── */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: 10,
-                        paddingTop: 12,
-                        borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                      }}
-                    >
-                      {/* Left: Prominent 36px Operating Status Switch */}
-                      <div
-                        style={{
-                          display: 'inline-flex',
+                          display: 'flex',
                           alignItems: 'center',
-                          background: '#090E17',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          borderRadius: 999,
-                          padding: 3,
-                          gap: 3,
-                          height: 36,
-                          boxSizing: 'border-box',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 10,
+                          paddingTop: 12,
+                          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
                         }}
                       >
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() => handleToggleOperatingStatus(s, 'active')}
-                          style={{
-                            height: 28,
-                            padding: '0 12px',
-                            borderRadius: 999,
-                            border: 'none',
-                            background: s.isActive ? 'rgba(16, 185, 129, 0.22)' : 'transparent',
-                            color: s.isActive ? '#10B981' : '#64748B',
-                            fontSize: 12,
-                            fontWeight: s.isActive ? 700 : 500,
-                            cursor: isUpdating ? 'wait' : 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            transition: 'all 0.15s ease',
-                          }}
-                          title="เปิดให้บริการออนไลน์"
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.isActive ? '#10B981' : '#475569' }} />
-                          <span>ออนไลน์</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isUpdating}
-                          onClick={() => handleToggleOperatingStatus(s, 'offline')}
-                          style={{
-                            height: 28,
-                            padding: '0 12px',
-                            borderRadius: 999,
-                            border: 'none',
-                            background: !s.isActive ? 'rgba(245, 158, 11, 0.22)' : 'transparent',
-                            color: !s.isActive ? '#F59E0B' : '#64748B',
-                            fontSize: 12,
-                            fontWeight: !s.isActive ? 700 : 500,
-                            cursor: isUpdating ? 'wait' : 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            transition: 'all 0.15s ease',
-                          }}
-                          title="ปิดบริการชั่วคราว"
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: !s.isActive ? '#F59E0B' : '#475569' }} />
-                          <span>ออฟไลน์</span>
-                        </button>
-                      </div>
-
-                      {/* Right: Tactile 36px Action Buttons */}
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {/* Button 1: จุดอ้างอิง */}
-                        <button
-                          type="button"
-                          onClick={() => handleCalibrate(s)}
-                          style={{
-                            height: 36,
-                            padding: '0 12px',
-                            fontSize: 12.5,
-                            fontWeight: 600,
-                            borderRadius: 8,
-                            background: '#1E293B',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            color: '#38BDF8',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1E293B')}
-                          title="ตั้งค่าจุดอ้างอิงและระนาบเสา"
-                        >
-                          <SlidersIcon size={14} />
-                          <span>จุดอ้างอิง</span>
-                        </button>
-
-                        {/* Button 2: เตือนภัย */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotifyingStation(s);
-                            setNotificationModalOpen(true);
-                          }}
-                          style={{
-                            height: 36,
-                            padding: '0 12px',
-                            fontSize: 12.5,
-                            fontWeight: 600,
-                            borderRadius: 8,
-                            background: '#1E293B',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            color: '#E2E8F0',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 5,
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1E293B')}
-                          title="ตั้งค่าเกณฑ์การแจ้งเตือนสำหรับสถานีนี้"
-                        >
-                          <BellIcon size={14} />
-                          <span>เตือนภัย</span>
-                        </button>
-
-                        {/* Button 3: แก้ไขข้อมูล */}
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(s)}
-                          style={{
-                            height: 36,
-                            width: 36,
-                            padding: 0,
-                            borderRadius: 8,
-                            background: '#1E293B',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            color: '#94A3B8',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#334155')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1E293B')}
-                          aria-label={`แก้ไขสถานี ${s.name}`}
-                          title="แก้ไขข้อมูลสถานี"
-                        >
-                          <Edit3Icon size={15} />
-                        </button>
-
-                        {/* Button 4: ลบสถานี (Admin only) */}
-                        {isAdmin && (
+                        {/* Operating Status Switch */}
+                        {/* Status Switch (6px Segmented Switch) */}
+                        <div className="status-switch-bar">
                           <button
                             type="button"
-                            onClick={() => handleRequestDelete(s)}
-                            style={{
-                              height: 36,
-                              width: 36,
-                              padding: 0,
-                              borderRadius: 8,
-                              background: 'rgba(239, 68, 68, 0.12)',
-                              border: '1px solid rgba(239, 68, 68, 0.35)',
-                              color: '#EF4444',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'background-color 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)')}
-                            aria-label={`ลบสถานี ${s.name}`}
-                            title="ลบสถานี"
+                            disabled={isUpdating}
+                            onClick={() => handleRequestStatusToggle(s, 'active')}
+                            className={`status-switch-btn tactile-press ${s.isActive ? 'active-online' : ''}`}
+                            title="เปิดให้บริการออนไลน์"
                           >
-                            <Trash2Icon size={15} />
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.isActive ? '#10B981' : '#475569' }} />
+                            <span>ออนไลน์</span>
                           </button>
-                        )}
+
+                          <button
+                            type="button"
+                            disabled={isUpdating}
+                            onClick={() => handleRequestStatusToggle(s, 'offline')}
+                            className={`status-switch-btn tactile-press ${!s.isActive ? 'active-offline' : ''}`}
+                            title="ปิดบริการชั่วคราว"
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: !s.isActive ? '#F59E0B' : '#475569' }} />
+                            <span>ออฟไลน์</span>
+                          </button>
+                        </div>
+
+                        {/* Action Buttons: Compact Text Badges */}
+                        <div className="badge-action-cluster">
+                          {/* จุดอ้างอิง */}
+                          <button
+                            type="button"
+                            onClick={() => handleCalibrate(s)}
+                            className="btn-badge-action calibrate tactile-press"
+                            title="ตั้งค่าจุดอ้างอิงและระนาบเสา"
+                          >
+                            <SlidersIcon size={13} />
+                            <span>จุดอ้างอิง</span>
+                          </button>
+
+                          {/* เตือนภัย */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNotifyingStation(s);
+                              setNotificationModalOpen(true);
+                            }}
+                            className="btn-badge-action alert tactile-press"
+                            title="ตั้งค่าเกณฑ์การแจ้งเตือนสำหรับสถานีนี้"
+                          >
+                            <BellIcon size={13} />
+                            <span>เตือนภัย</span>
+                          </button>
+
+                          {/* แก้ไขข้อมูล */}
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(s)}
+                            className="btn-badge-action tactile-press"
+                            aria-label={`แก้ไขสถานี ${s.name}`}
+                            title="แก้ไขข้อมูลสถานี"
+                          >
+                            <Edit3Icon size={13} />
+                            <span>แก้ไข</span>
+                          </button>
+
+                          {/* ลบสถานี (Admin only) */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleRequestDelete(s)}
+                              className="btn-badge-action danger tactile-press"
+                              aria-label={`ลบสถานี ${s.name}`}
+                              title="ลบสถานี"
+                            >
+                              <Trash2Icon size={13} />
+                              <span>ลบ</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            /* ─────────────────────────────────────────────────────────────
-               MAP VIEW
-               ───────────────────────────────────────────────────────────── */
+            /* ── MAP VIEW ── */
             <div
               className="card"
               style={{
                 padding: 0,
                 overflow: 'hidden',
-                background: '#0B131B',
+                background: 'var(--card-surface, #0C0E12)',
                 border: '1px solid rgba(255, 255, 255, 0.08)',
                 borderRadius: 16,
               }}
             >
               <StationMap
-                stations={stations}
+                stations={filteredStations}
                 selectedStation={selectedId}
                 onSelectStation={setSelectedId}
-                height="620px"
+                height="640px"
               />
             </div>
           )}
@@ -1042,6 +1289,20 @@ export default function StationsPage() {
         station={deletingStation}
         onConfirm={handleExecuteDelete}
       />
+
+      {/* Dedicated Operating Status Change Confirmation Modal */}
+      {statusConfirmModalOpen && (
+        <StationStatusConfirmModal
+          isOpen={statusConfirmModalOpen}
+          onClose={() => {
+            setStatusConfirmModalOpen(false);
+            setStatusConfirmStation(null);
+          }}
+          station={statusConfirmStation}
+          targetStatus={statusConfirmTarget}
+          onConfirm={handleExecuteStatusToggle}
+        />
+      )}
     </div>
   );
 }

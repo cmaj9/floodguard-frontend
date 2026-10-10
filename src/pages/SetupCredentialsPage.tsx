@@ -159,7 +159,7 @@ export default function SetupCredentialsPage() {
         <div
           className="login-card"
           style={{
-            background: "linear-gradient(180deg, rgba(17, 24, 39, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%)",
+            background: "var(--card-surface, #0C0E12)",
             border: "1px solid rgba(255, 255, 255, 0.1)",
             borderRadius: 20,
             padding: "32px 28px",
@@ -198,7 +198,7 @@ export default function SetupCredentialsPage() {
               {/* Credential summary box */}
               <div
                 style={{
-                  backgroundColor: "rgba(15, 23, 42, 0.7)",
+                  backgroundColor: "rgba(255, 255, 255, 0.04)",
                   border: "1px solid rgba(0, 212, 255, 0.2)",
                   borderRadius: 12,
                   padding: "16px",
@@ -213,18 +213,18 @@ export default function SetupCredentialsPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: 14, color: "#F8FAFC", wordBreak: "break-all" }}>
-                  <span style={{ color: "#94A3B8" }}>อีเมล: </span>
-                  <strong style={{ color: "#38BDF8" }}>{savedEmail}</strong>
+                  <span style={{ color: "#94A3B8" }}>อีเมล</span>
+                  <strong className="font-mono" style={{ color: "#38BDF8", marginLeft: 8 }}>{savedEmail}</strong>
                 </div>
                 <div style={{ fontSize: 12, color: "#64748B", marginTop: 6 }}>
-                  รหัสผ่าน: ตามที่ท่านได้กำหนดไว้ (กรุณาจดจำรหัสผ่านของท่าน)
+                  รหัสผ่านตามที่ท่านได้กำหนดไว้ (กรุณาจดจำรหัสผ่านของท่าน)
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleProceedToDashboard}
-                className="btn btn-primary"
+                className="btn btn-primary tactile-press"
                 style={{
                   width: "100%",
                   height: 46,
@@ -266,7 +266,7 @@ export default function SetupCredentialsPage() {
                     }}
                   />
                   <span style={{ fontSize: 12, color: "#4ADE80", fontWeight: 500 }}>
-                    เชื่อมต่อกับ LINE: {user.name || "ประชาชนผู้ใช้งาน"}
+                    เชื่อมต่อกับ LINE ({user.name || "ประชาชนผู้ใช้งาน"})
                   </span>
                 </div>
               )}
@@ -344,7 +344,7 @@ export default function SetupCredentialsPage() {
                       width: "100%",
                       height: 44,
                       fontSize: 14,
-                      backgroundColor: "rgba(15, 23, 42, 0.7)",
+                      backgroundColor: "rgba(255, 255, 255, 0.04)",
                       border: "1px solid rgba(255, 255, 255, 0.12)",
                       borderRadius: 10,
                       padding: "0 14px",
@@ -388,7 +388,7 @@ export default function SetupCredentialsPage() {
                         width: "100%",
                         height: 44,
                         fontSize: 14,
-                        backgroundColor: "rgba(15, 23, 42, 0.7)",
+                        backgroundColor: "rgba(255, 255, 255, 0.04)",
                         border: "1px solid rgba(255, 255, 255, 0.12)",
                         borderRadius: 10,
                         padding: "0 44px 0 14px",
@@ -399,7 +399,9 @@ export default function SetupCredentialsPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      className="tactile-press"
                       aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                      title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                       style={{
                         position: "absolute",
                         right: 0,
@@ -414,6 +416,7 @@ export default function SetupCredentialsPage() {
                         border: "none",
                         cursor: "pointer",
                         color: "#94A3B8",
+                        borderRadius: 10,
                       }}
                     >
                       {showPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
@@ -455,7 +458,7 @@ export default function SetupCredentialsPage() {
                         width: "100%",
                         height: 44,
                         fontSize: 14,
-                        backgroundColor: "rgba(15, 23, 42, 0.7)",
+                        backgroundColor: "rgba(255, 255, 255, 0.04)",
                         border: "1px solid rgba(255, 255, 255, 0.12)",
                         borderRadius: 10,
                         padding: "0 44px 0 14px",
@@ -466,7 +469,9 @@ export default function SetupCredentialsPage() {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="tactile-press"
                       aria-label={showConfirmPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                      title={showConfirmPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                       style={{
                         position: "absolute",
                         right: 0,
@@ -481,6 +486,7 @@ export default function SetupCredentialsPage() {
                         border: "none",
                         cursor: "pointer",
                         color: "#94A3B8",
+                        borderRadius: 10,
                       }}
                     >
                       {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
@@ -492,7 +498,7 @@ export default function SetupCredentialsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="btn btn-primary"
+                  className="btn btn-primary tactile-press"
                   style={{
                     width: "100%",
                     height: 46,

@@ -79,6 +79,7 @@ export default function SubscribePage() {
         });
 
         let activeUid = initialUid;
+        let resolvedDisplayName = '';
 
         // Auto-fetch LINE profile if not provided in URL
         if (!activeUid) {
@@ -86,7 +87,10 @@ export default function SubscribePage() {
             const profile = await getLiffProfile();
             if (profile?.userId) {
               activeUid = profile.userId;
-              if (profile.displayName) setDisplayName(profile.displayName);
+              if (profile.displayName) {
+                resolvedDisplayName = profile.displayName;
+                setDisplayName(profile.displayName);
+              }
               if (profile.pictureUrl) setAvatarUrl(profile.pictureUrl);
               setInLine(true);
             }
@@ -105,7 +109,10 @@ export default function SubscribePage() {
               const parsed = JSON.parse(savedAuth);
               if (parsed?.line_user_id) {
                 activeUid = parsed.line_user_id;
-                if (parsed.name && !displayName) setDisplayName(parsed.name);
+                if (parsed.name && !resolvedDisplayName) {
+                  resolvedDisplayName = parsed.name;
+                  setDisplayName(parsed.name);
+                }
               }
             } catch {}
           }
@@ -131,7 +138,10 @@ export default function SubscribePage() {
             const matchedUser = statusRes.data;
             setUserRole(matchedUser.role);
             setUserData(matchedUser);
-            if (matchedUser.name && !displayName) setDisplayName(matchedUser.name);
+            if (matchedUser.name && !resolvedDisplayName) {
+              resolvedDisplayName = matchedUser.name;
+              setDisplayName(matchedUser.name);
+            }
             localStorage.setItem('wl_auth_user', JSON.stringify(matchedUser));
             if (updateProfile) updateProfile(matchedUser);
           } else {
@@ -149,7 +159,10 @@ export default function SubscribePage() {
         try {
           const prefs = await fetchSubscriberPreferences(activeUid);
           if (prefs) {
-            if (prefs.display_name && !displayName) setDisplayName(prefs.display_name);
+            if (prefs.display_name && !resolvedDisplayName) {
+              resolvedDisplayName = prefs.display_name;
+              setDisplayName(prefs.display_name);
+            }
             if (Array.isArray(prefs.station_ids) && prefs.station_ids.length > 0) {
               setSelectedStationIds(prefs.station_ids);
             } else {
@@ -258,7 +271,7 @@ export default function SubscribePage() {
       <div
         style={{
           minHeight: '100vh',
-          background: 'radial-gradient(ellipse at top, #0d1a33 0%, #080C14 70%)',
+          background: 'var(--canvas-background, #000000)',
           color: 'var(--text-primary)',
           display: 'flex',
           flexDirection: 'column',
@@ -297,7 +310,7 @@ export default function SubscribePage() {
       <div
         style={{
           minHeight: '100vh',
-          background: 'radial-gradient(ellipse at top, #0d1a33 0%, #080C14 70%)',
+          background: 'var(--canvas-background, #000000)',
           color: 'var(--text-primary)',
           display: 'flex',
           flexDirection: 'column',
@@ -336,6 +349,7 @@ export default function SubscribePage() {
           <button
             type="button"
             onClick={handleRetry}
+            className="tactile-press"
             style={{
               width: '100%',
               padding: '12px 18px',
@@ -360,6 +374,7 @@ export default function SubscribePage() {
           <button
             type="button"
             onClick={() => closeLiffWindow()}
+            className="tactile-press"
             style={{
               width: '100%',
               padding: '10px 18px',
@@ -379,6 +394,7 @@ export default function SubscribePage() {
             <button
               type="button"
               onClick={() => loginWithLiff('/subscribe')}
+              className="tactile-press"
               style={{
                 width: '100%',
                 padding: '10px 18px',
@@ -406,7 +422,7 @@ export default function SubscribePage() {
       <div
         style={{
           minHeight: '100vh',
-          background: 'radial-gradient(ellipse at top, #0d1a33 0%, #080C14 70%)',
+          background: 'var(--canvas-background, #000000)',
           color: 'var(--text-primary)',
           display: 'flex',
           alignItems: 'center',
@@ -419,7 +435,7 @@ export default function SubscribePage() {
           style={{
             width: '100%',
             maxWidth: 400,
-            background: '#0F172A',
+            background: 'var(--card-surface, #0C0E12)',
             border:
               userRole === 'admin'
                 ? '1px solid rgba(168, 85, 247, 0.35)'
@@ -574,6 +590,7 @@ export default function SubscribePage() {
                   navigate('/stations');
                 }
               }}
+              className="tactile-press"
               style={{
                 width: '100%',
                 padding: '12px 18px',
@@ -608,6 +625,7 @@ export default function SubscribePage() {
             <button
               type="button"
               onClick={() => closeLiffWindow()}
+              className="tactile-press"
               style={{
                 width: '100%',
                 padding: '10px 18px',
@@ -638,7 +656,7 @@ export default function SubscribePage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, #0d1a33 0%, #080C14 70%)',
+        background: 'var(--canvas-background, #000000)',
         color: 'var(--text-primary)',
         padding: '24px 16px calc(32px + env(safe-area-inset-bottom, 0px))',
         boxSizing: 'border-box',
@@ -760,7 +778,7 @@ export default function SubscribePage() {
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '12px 14px',
-              background: 'rgba(17, 24, 39, 0.7)',
+              background: 'var(--card-surface, #0C0E12)',
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: 14,
@@ -840,7 +858,7 @@ export default function SubscribePage() {
           {/* Station Selection Card */}
           <div
             style={{
-              background: 'rgba(17, 24, 39, 0.7)',
+              background: 'var(--card-surface, #0C0E12)',
               backdropFilter: 'blur(12px)',
               border: '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: 14,
@@ -863,6 +881,7 @@ export default function SubscribePage() {
                   สถานีเฝ้าระวัง
                 </span>
                 <span
+                  className="font-mono tabular-nums"
                   style={{
                     fontSize: 11,
                     fontWeight: 700,
@@ -870,6 +889,7 @@ export default function SubscribePage() {
                     borderRadius: 9999,
                     background: 'rgba(56, 189, 248, 0.15)',
                     color: '#38BDF8',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
                   }}
                 >
                   {selectedStationIds.length}/{stations.length}
@@ -880,6 +900,7 @@ export default function SubscribePage() {
                 <button
                   type="button"
                   onClick={handleSelectAll}
+                  className="tactile-press"
                   style={{
                     background: 'rgba(255, 255, 255, 0.06)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -895,6 +916,7 @@ export default function SubscribePage() {
                 <button
                   type="button"
                   onClick={handleDeselectAll}
+                  className="tactile-press"
                   style={{
                     background: 'transparent',
                     border: '1px solid rgba(255, 255, 255, 0.08)',
@@ -931,7 +953,17 @@ export default function SubscribePage() {
                   return (
                     <div
                       key={st.station_id}
+                      role="checkbox"
+                      aria-checked={isChecked}
+                      tabIndex={0}
                       onClick={() => handleToggleStation(st.station_id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleToggleStation(st.station_id);
+                        }
+                      }}
+                      className="tactile-press"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -971,12 +1003,12 @@ export default function SubscribePage() {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#080C14',
+                            color: '#000000',
                             flexShrink: 0,
                           }}
                         >
                           {isChecked && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#080C14" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           )}
@@ -984,17 +1016,33 @@ export default function SubscribePage() {
 
                         {/* Station Name & Location */}
                         <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 14,
-                              color: '#FFFFFF',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {st.station_name || st.station_id}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span
+                              className="font-mono"
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                                background: 'rgba(56, 189, 248, 0.15)',
+                                color: '#38BDF8',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                              }}
+                            >
+                              {st.station_id}
+                            </span>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                fontSize: 14,
+                                color: '#FFFFFF',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              {st.station_name || st.station_id}
+                            </span>
                           </div>
                           {st.location_name && (
                             <div
@@ -1070,7 +1118,7 @@ export default function SubscribePage() {
             <button
               type="submit"
               disabled={submitting || selectedStationIds.length === 0}
-              className="btn btn-primary"
+              className="btn btn-primary tactile-press"
               style={{
                 width: '100%',
                 padding: '13px 20px',
@@ -1088,9 +1136,13 @@ export default function SubscribePage() {
             >
               <BellIcon size={16} />
               <span>
-                {submitting
-                  ? 'กำลังบันทึก...'
-                  : `บันทึกการติดตาม (${selectedStationIds.length} สถานี)`}
+                {submitting ? (
+                  'กำลังบันทึก...'
+                ) : (
+                  <>
+                    บันทึกการติดตาม (<span className="font-mono tabular-nums">{selectedStationIds.length}</span> สถานี)
+                  </>
+                )}
               </span>
             </button>
           </div>

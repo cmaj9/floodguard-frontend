@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,17 +6,48 @@ import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './context/ToastContext';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/ui/ErrorBoundary';
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import ChartPage from './pages/ChartPage';
-import UsersPage from './pages/UsersPage';
-import StationsPage from './pages/StationsPage';
-import ProfilePage from './pages/ProfilePage';
-import DataHistoryPage from './pages/DataHistoryPage';
-import SubscribePage from './pages/SubscribePage';
-import CitizenRegisterPage from './pages/CitizenRegisterPage';
-import ManagementHubPage from './pages/ManagementHubPage';
-import SetupCredentialsPage from './pages/SetupCredentialsPage';
+
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ChartPage = lazy(() => import('./pages/ChartPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const StationsPage = lazy(() => import('./pages/StationsPage'));
+const StationDetailPage = lazy(() => import('./pages/StationDetailPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const DataHistoryPage = lazy(() => import('./pages/DataHistoryPage'));
+const SubscribePage = lazy(() => import('./pages/SubscribePage'));
+const CitizenRegisterPage = lazy(() => import('./pages/CitizenRegisterPage'));
+const ManagementHubPage = lazy(() => import('./pages/ManagementHubPage'));
+const SetupCredentialsPage = lazy(() => import('./pages/SetupCredentialsPage'));
+const NotificationHubPage = lazy(() => import('./pages/NotificationHubPage'));
+
+function PageFallback() {
+  return (
+    <div
+      style={{
+        minHeight: '60vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'column',
+        gap: 14,
+        color: 'var(--text-secondary, #94A3B8)',
+      }}
+    >
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          border: '3px solid rgba(14, 165, 233, 0.2)',
+          borderTopColor: 'var(--color-primary, #0284C7)',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }}
+      />
+      <div style={{ fontSize: 13, fontWeight: 500 }}>กำลังโหลดข้อมูลหน้าจอ...</div>
+    </div>
+  );
+}
 
 /**
  * Automatically handle LINE LIFF deep-link forwarding (?liff.state=/path)
@@ -91,13 +122,13 @@ function ProtectedRoute({
             fontSize: 28,
             fontWeight: 800,
             letterSpacing: '-0.02em',
-            background: 'linear-gradient(135deg, #38BDF8 0%, #0EA5E9 45%, #818CF8 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
           }}
         >
-          FloodGuard
+          <span style={{ color: '#FFFFFF' }}>Flood</span>
+          <span style={{ color: '#38BDF8' }}>Guard</span>
         </div>
         <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>กำลังเชื่อมต่อระบบเตือนภัยน้ำ FloodGuard...</div>
         <div
@@ -213,6 +244,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/stations/:stationId"
+        element={
+          <ProtectedRoute requiredRoles={['staff', 'admin']}>
+            <Layout>
+              <StationDetailPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <ProtectedRoute>
@@ -232,6 +273,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute allowGuest>
+            <Layout>
+              <NotificationHubPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
       <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
@@ -247,7 +298,9 @@ export default function App() {
           <NotificationProvider>
             <ToastProvider>
               <ErrorBoundary>
-                <AppRoutes />
+                <Suspense fallback={<PageFallback />}>
+                  <AppRoutes />
+                </Suspense>
               </ErrorBoundary>
             </ToastProvider>
           </NotificationProvider>

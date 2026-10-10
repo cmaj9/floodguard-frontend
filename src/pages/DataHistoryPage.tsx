@@ -21,8 +21,12 @@ import {
   ChevronDownIcon,
   CpuIcon,
   ActivityIcon,
+  RefreshCwIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "../components/ui/Icons";
 import Papa from "papaparse";
+import ManagementBackBar from "../components/ui/ManagementBackBar";
 import { CompactFilterDropdown, type DropdownOption } from "../components/ui/CompactFilterDropdown";
 import { SkeletonCard, SkeletonTable } from "../components/ui/Skeleton";
 import {
@@ -65,7 +69,7 @@ function getReadingWaterStatus(
   station?: StationWithReading
 ): { status: WaterStatus; label: string; color: string; bg: string; dot: string } {
   if (r.water_level == null) {
-    return { status: "unknown", label: "ไม่มีข้อมูล", color: "#6ba3c4", bg: "rgba(107,163,196,0.12)", dot: "#6ba3c4" };
+    return { status: "unknown", label: "ไม่มีข้อมูล", color: "#94A3B8", bg: "rgba(148, 163, 184, 0.12)", dot: "#94A3B8" };
   }
 
   // 1. Primary: Use water_status computed by Backend SQL (Single Source of Truth)
@@ -94,21 +98,23 @@ function getReadingWaterStatus(
 }
 
 function BatteryBar({ pct }: { pct: number | null }) {
-  if (pct == null) return <span style={{ color: "#6ba3c4", fontSize: 12 }}>—</span>;
+  if (pct == null) return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
   const color = pct > 50 ? "#10B981" : pct > 20 ? "#F59E0B" : "#EF4444";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color, fontVariantNumeric: "tabular-nums" }}>
+      <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 700, color }}>
         {pct.toFixed(0)}%
       </span>
-      <div style={{ width: 44, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
+      <div style={{ width: 48, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
         <div
           style={{
-            width: `${Math.min(100, Math.max(0, pct))}%`,
+            width: "100%",
             height: "100%",
+            transform: `scaleX(${Math.min(1, Math.max(0, pct / 100))})`,
+            transformOrigin: "left",
             background: color,
             borderRadius: 2,
-            transition: "width 0.4s ease",
+            transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         />
       </div>
@@ -130,6 +136,7 @@ export default function DataHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [isExported, setIsExported] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [stations, setStations] = useState<StationWithReading[]>([]);
   const [filterStation, setFilterStation] = useState("");
@@ -328,6 +335,12 @@ export default function DataHistoryPage() {
     }
   }, [filterStation, filterStart, filterEnd]);
 
+  const handleManualRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await loadReadings(page, false);
+    setTimeout(() => setIsRefreshing(false), 500);
+  }, [loadReadings, page]);
+
   useEffect(() => { setPage(0); loadReadings(0); }, [filterStation, filterStart, filterEnd]); // eslint-disable-line
   useEffect(() => { loadReadings(page); }, [page]); // eslint-disable-line
 
@@ -468,6 +481,55 @@ export default function DataHistoryPage() {
 
   return (
     <div className="page-container" style={{ paddingBottom: 60 }}>
+      {/* ── TOP MANAGEMENT BAR ── */}
+      <ManagementBackBar
+        title="ประวัติข้อมูลโทรมาตร"
+        actions={
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {/* Live Auto-sync heartbeat beacon */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "4px 12px",
+                borderRadius: "9999px",
+                background: "rgba(16, 185, 129, 0.08)",
+                border: "1px solid rgba(16, 185, 129, 0.2)",
+                fontSize: 11,
+                color: "#34D399",
+                fontWeight: 600,
+              }}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "#10B981",
+                  boxShadow: "0 0 8px rgba(16, 185, 129, 0.6)",
+                }}
+                className="heartbeat-dot"
+              />
+              <span>ซิงค์สดอัตโนมัติ 30 วินาที</span>
+            </div>
+
+            {/* Manual refresh button */}
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={loading || isRefreshing}
+              className="btn btn-secondary btn-sm tactile-press"
+              style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, gap: 5 }}
+              title="ดึงข้อมูลล่าสุดเดี๋ยวนี้"
+            >
+              <RefreshCwIcon size={13} className={isRefreshing || loading ? "spin-animate" : ""} />
+              <span>รีเฟรช</span>
+            </button>
+          </div>
+        }
+      />
+
       {/* ══ 1. CONNECTED TACTICAL CONTROL BAR (ZERO-GLOW & ZERO-COLON) ════════ */}
       <div className="history-toolbar-tactical">
         {/* Left: Station Selector & Reset Button */}
@@ -484,7 +546,7 @@ export default function DataHistoryPage() {
           {(filterStation || filterStart || filterEnd || statusFilter !== "all") && (
             <button
               type="button"
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm tactile-press"
               onClick={() => {
                 setFilterStation("");
                 setTimePreset("all");
@@ -518,7 +580,7 @@ export default function DataHistoryPage() {
                 type="button"
                 role="tab"
                 aria-selected={timePreset === opt.value}
-                className={`tactical-btn-item ${timePreset === opt.value ? "active" : ""}`}
+                className={`tactical-btn-item tactile-press ${timePreset === opt.value ? "active" : ""}`}
                 onClick={() => handleTimePresetChange(opt.value)}
               >
                 {opt.label}
@@ -537,7 +599,7 @@ export default function DataHistoryPage() {
                   type="button"
                   role="tab"
                   aria-selected={viewMode === opt.value}
-                  className={`tactical-btn-item ${viewMode === opt.value ? "active" : ""}`}
+                  className={`tactical-btn-item tactile-press ${viewMode === opt.value ? "active" : ""}`}
                   onClick={() => setViewMode(opt.value)}
                 >
                   {opt.icon}
@@ -552,7 +614,7 @@ export default function DataHistoryPage() {
               type="button"
               onClick={handleExportCSV}
               disabled={readings.length === 0 || loading}
-              className={`csv-flight-button ${isExported ? "success" : ""}`}
+              className={`csv-flight-button tactile-press ${isExported ? "success" : ""}`}
               title={
                 readings.length === 0
                   ? "ไม่มีข้อมูลสำหรับส่งออก"
@@ -596,7 +658,7 @@ export default function DataHistoryPage() {
             gap: 12,
             marginBottom: 14,
             padding: "10px 16px",
-            background: "rgba(15, 23, 42, 0.75)",
+            background: "rgba(255, 255, 255, 0.04)",
             border: "1px solid rgba(255, 255, 255, 0.08)",
             borderRadius: 8,
             flexWrap: "wrap",
@@ -604,68 +666,128 @@ export default function DataHistoryPage() {
         >
           <span style={{ fontSize: 12, color: "#38bdf8", fontWeight: 600 }}>กำหนดช่วงวันเวลา</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>ตั้งแต่</span>
+            <label htmlFor="history-filter-start" style={{ fontSize: 11, color: "var(--text-muted)" }}>ตั้งแต่</label>
             <input
+              id="history-filter-start"
               type="datetime-local"
               className="input"
               value={filterStart}
               onChange={(e) => setFilterStart(e.target.value)}
+              aria-label="ตั้งแต่วันที่และเวลา"
               style={{ fontSize: 12, padding: "4px 8px", width: "auto" }}
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>ถึง</span>
+            <label htmlFor="history-filter-end" style={{ fontSize: 11, color: "var(--text-muted)" }}>ถึง</label>
             <input
+              id="history-filter-end"
               type="datetime-local"
               className="input"
               value={filterEnd}
               onChange={(e) => setFilterEnd(e.target.value)}
+              aria-label="ถึงวันที่และเวลา"
               style={{ fontSize: 12, padding: "4px 8px", width: "auto" }}
             />
           </div>
         </div>
       )}
 
-      {/* ══ 2. 4-COLUMN INDEPENDENT KPI METRIC CARDS ══ */}
+      {/* ══ 2. 4-COLUMN INDEPENDENT KPI BENTO METRIC CARDS ══ */}
       <div className="history-kpi-grid">
+        {/* Card 1: Total Records */}
         <div className="history-kpi-card">
-          <div className="history-kpi-card-left">
-            <BarChart3Icon size={15} style={{ color: "#38bdf8" }} />
-            <span className="history-kpi-card-title">บันทึกในระบบ</span>
+          <div className="history-kpi-card-header">
+            <div className="history-kpi-card-left">
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(56, 189, 248, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BarChart3Icon size={14} style={{ color: "#38bdf8" }} />
+              </div>
+              <span className="history-kpi-card-title">บันทึกในระบบ</span>
+            </div>
+            <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace", padding: "1px 6px", background: "rgba(255,255,255,0.04)", borderRadius: 4 }}>
+              TOTAL
+            </span>
           </div>
-          <span className="history-kpi-card-val" style={{ color: "var(--text-primary)" }}>
-            {total.toLocaleString()} รายการ
-          </span>
+          <div className="history-kpi-card-val-row">
+            <span className="history-kpi-card-val" style={{ color: "#ffffff" }}>
+              {total.toLocaleString()}
+            </span>
+            <span className="history-kpi-card-unit">รายการ</span>
+          </div>
+          <div className="history-kpi-card-subtitle">
+            <span>แสดงผลหน้าละ 50 รายการ</span>
+          </div>
         </div>
 
+        {/* Card 2: Max Water Level */}
         <div className="history-kpi-card">
-          <div className="history-kpi-card-left">
-            <TrendingUpIcon size={15} style={{ color: "#EF4444" }} />
-            <span className="history-kpi-card-title">ระดับสูงสุด</span>
+          <div className="history-kpi-card-header">
+            <div className="history-kpi-card-left">
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(248, 113, 113, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingUpIcon size={14} style={{ color: "#F87171" }} />
+              </div>
+              <span className="history-kpi-card-title">ระดับสูงสุด</span>
+            </div>
+            <span style={{ fontSize: 10, color: "#F87171", fontFamily: "monospace", padding: "1px 6px", background: "rgba(248, 113, 113, 0.1)", borderRadius: 4 }}>
+              MAX
+            </span>
           </div>
-          <span className="history-kpi-card-val" style={{ color: "#EF4444" }}>
-            {stats.maxLevel != null ? `${stats.maxLevel > 0 ? "+" : ""}${stats.maxLevel.toFixed(2)} ม.` : "—"}
-          </span>
+          <div className="history-kpi-card-val-row">
+            <span className="history-kpi-card-val" style={{ color: "#F87171" }}>
+              {stats.maxLevel != null ? `${stats.maxLevel > 0 ? "+" : ""}${stats.maxLevel.toFixed(2)}` : "—"}
+            </span>
+            <span className="history-kpi-card-unit">ม.</span>
+          </div>
+          <div className="history-kpi-card-subtitle">
+            <span>จุดสูงสุดในหน้านี้</span>
+          </div>
         </div>
 
+        {/* Card 3: Min Water Level */}
         <div className="history-kpi-card">
-          <div className="history-kpi-card-left">
-            <TrendingDownIcon size={15} style={{ color: "#10B981" }} />
-            <span className="history-kpi-card-title">ระดับต่ำสุด</span>
+          <div className="history-kpi-card-header">
+            <div className="history-kpi-card-left">
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(52, 211, 153, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingDownIcon size={14} style={{ color: "#34D399" }} />
+              </div>
+              <span className="history-kpi-card-title">ระดับต่ำสุด</span>
+            </div>
+            <span style={{ fontSize: 10, color: "#34D399", fontFamily: "monospace", padding: "1px 6px", background: "rgba(52, 211, 153, 0.1)", borderRadius: 4 }}>
+              MIN
+            </span>
           </div>
-          <span className="history-kpi-card-val" style={{ color: "#10B981" }}>
-            {stats.minLevel != null ? `${stats.minLevel > 0 ? "+" : ""}${stats.minLevel.toFixed(2)} ม.` : "—"}
-          </span>
+          <div className="history-kpi-card-val-row">
+            <span className="history-kpi-card-val" style={{ color: "#34D399" }}>
+              {stats.minLevel != null ? `${stats.minLevel > 0 ? "+" : ""}${stats.minLevel.toFixed(2)}` : "—"}
+            </span>
+            <span className="history-kpi-card-unit">ม.</span>
+          </div>
+          <div className="history-kpi-card-subtitle">
+            <span>จุดต่ำสุดในหน้านี้</span>
+          </div>
         </div>
 
+        {/* Card 4: Avg Water Level */}
         <div className="history-kpi-card">
-          <div className="history-kpi-card-left">
-            <DropletsIcon size={15} style={{ color: "#818cf8" }} />
-            <span className="history-kpi-card-title">ระดับเฉลี่ย</span>
+          <div className="history-kpi-card-header">
+            <div className="history-kpi-card-left">
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(129, 140, 248, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <DropletsIcon size={14} style={{ color: "#818cf8" }} />
+              </div>
+              <span className="history-kpi-card-title">ระดับเฉลี่ย</span>
+            </div>
+            <span style={{ fontSize: 10, color: "#818cf8", fontFamily: "monospace", padding: "1px 6px", background: "rgba(129, 140, 248, 0.1)", borderRadius: 4 }}>
+              AVG
+            </span>
           </div>
-          <span className="history-kpi-card-val" style={{ color: "#818cf8" }}>
-            {stats.avgLevel != null ? `${stats.avgLevel > 0 ? "+" : ""}${stats.avgLevel.toFixed(2)} ม.` : "—"}
-          </span>
+          <div className="history-kpi-card-val-row">
+            <span className="history-kpi-card-val" style={{ color: "#818cf8" }}>
+              {stats.avgLevel != null ? `${stats.avgLevel > 0 ? "+" : ""}${stats.avgLevel.toFixed(2)}` : "—"}
+            </span>
+            <span className="history-kpi-card-unit">ม.</span>
+          </div>
+          <div className="history-kpi-card-subtitle">
+            <span>เฉลี่ยจากข้อมูลที่แสดงผล</span>
+          </div>
         </div>
       </div>
 
@@ -680,7 +802,7 @@ export default function DataHistoryPage() {
       {/* ══ 3. MAIN AUDIT LOG CONTENT (TABLE OR CHART) ═══════════════════════ */}
       <div
         style={{
-          background: "rgba(15, 23, 42, 0.85)",
+          background: "var(--card-surface, #0C0E12)",
           border: "1px solid rgba(255, 255, 255, 0.08)",
           borderRadius: 14,
           boxShadow: "0 1px 3px rgba(0, 0, 0, 0.4)",
@@ -695,7 +817,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "all"}
-              className={`table-tab-item ${statusFilter === "all" ? "active" : ""}`}
+              className={`table-tab-item tactile-press ${statusFilter === "all" ? "active" : ""}`}
               onClick={() => setStatusFilter("all")}
             >
               <span>ทั้งหมด</span>
@@ -708,7 +830,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "normal"}
-              className={`table-tab-item ${statusFilter === "normal" ? "active" : ""}`}
+              className={`table-tab-item tactile-press ${statusFilter === "normal" ? "active" : ""}`}
               onClick={() => setStatusFilter("normal")}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", flexShrink: 0 }} />
@@ -722,7 +844,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "warning"}
-              className={`table-tab-item ${statusFilter === "warning" ? "active" : ""}`}
+              className={`table-tab-item tactile-press ${statusFilter === "warning" ? "active" : ""}`}
               onClick={() => setStatusFilter("warning")}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#F59E0B", flexShrink: 0 }} />
@@ -736,7 +858,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "critical"}
-              className={`table-tab-item ${statusFilter === "critical" ? "active" : ""}`}
+              className={`table-tab-item tactile-press ${statusFilter === "critical" ? "active" : ""}`}
               onClick={() => setStatusFilter("critical")}
             >
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF4444", flexShrink: 0 }} />
@@ -750,7 +872,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "anomaly"}
-              className={`table-tab-item ${statusFilter === "anomaly" ? "active" : ""}`}
+              className={`table-tab-item tactile-press ${statusFilter === "anomaly" ? "active" : ""}`}
               onClick={() => setStatusFilter("anomaly")}
               title="บันทึกที่พบจุดบอด Blind Zone หรือเสาเอียง หรือแบตเตอรี่วิกฤต"
             >
@@ -913,24 +1035,27 @@ export default function DataHistoryPage() {
                                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                     <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
                                       <span
+                                        className="font-mono tabular-nums"
                                         style={{
                                           fontSize: 14,
                                           fontWeight: 700,
                                           color: r.water_level != null
                                             ? (status.status === "critical" ? "#EF4444" : status.status === "warning" ? "#F59E0B" : "var(--text-primary)")
                                             : "var(--text-muted)",
-                                          fontVariantNumeric: "tabular-nums",
                                         }}
                                       >
-                                        {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)} m` : "—"}
+                                        {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)}` : "—"}
                                       </span>
+                                      {r.water_level != null && (
+                                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>ม.</span>
+                                      )}
                                       {r.is_blind_zone && (
                                         <span
                                           style={{
                                             fontSize: 9,
                                             fontWeight: 700,
-                                            padding: "1px 4px",
-                                            borderRadius: 3,
+                                            padding: "1px 5px",
+                                            borderRadius: 4,
                                             background: "rgba(239, 68, 68, 0.15)",
                                             border: "1px solid rgba(239, 68, 68, 0.3)",
                                             color: "#EF4444",
@@ -1032,8 +1157,8 @@ export default function DataHistoryPage() {
                                 <td style={{ textAlign: "center" }}>
                                   <button
                                     type="button"
-                                    className="btn btn-ghost"
-                                    style={{ padding: 4, color: "var(--text-muted)", cursor: "pointer" }}
+                                    className="btn btn-ghost tactile-press"
+                                    style={{ padding: "4px 6px", color: "var(--text-muted)", cursor: "pointer", borderRadius: 6 }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleRowExpand(r.reading_id);
@@ -1044,7 +1169,7 @@ export default function DataHistoryPage() {
                                       size={14}
                                       style={{
                                         transform: isExpanded ? "rotate(180deg)" : "none",
-                                        transition: "transform 0.2s ease",
+                                        transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                                       }}
                                     />
                                   </button>
@@ -1223,7 +1348,7 @@ export default function DataHistoryPage() {
                             gridTemplateColumns: "repeat(3, 1fr)",
                             gap: 8,
                             padding: "10px",
-                            background: "rgba(17, 24, 39, 0.6)",
+                            background: "rgba(255, 255, 255, 0.03)",
                             border: "1px solid rgba(255, 255, 255, 0.05)",
                             borderRadius: 8,
                             marginBottom: 10,
@@ -1231,16 +1356,21 @@ export default function DataHistoryPage() {
                         >
                           <div>
                             <span style={{ fontSize: 10, color: "var(--text-muted)", display: "block" }}>ระดับน้ำ</span>
-                            <span
-                              style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                color: r.water_level != null ? status.color : "var(--text-muted)",
-                                fontVariantNumeric: "tabular-nums",
-                              }}
-                            >
-                              {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)}m` : "—"}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                              <span
+                                className="font-mono tabular-nums"
+                                style={{
+                                  fontSize: 15,
+                                  fontWeight: 700,
+                                  color: r.water_level != null ? status.color : "var(--text-muted)",
+                                }}
+                              >
+                                {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)}` : "—"}
+                              </span>
+                              {r.water_level != null && (
+                                <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500 }}>ม.</span>
+                              )}
+                            </div>
                           </div>
 
                           <div>
@@ -1250,7 +1380,7 @@ export default function DataHistoryPage() {
 
                           <div>
                             <span style={{ fontSize: 10, color: "var(--text-muted)", display: "block" }}>สัญญาณ LoRa</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                            <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
                               {r.rssi != null ? `${r.rssi.toFixed(0)} dBm` : "—"}
                             </span>
                           </div>
@@ -1259,19 +1389,19 @@ export default function DataHistoryPage() {
                         {/* Accordion Toggle Action */}
                         <button
                           type="button"
-                          className="btn btn-ghost"
+                          className="btn btn-ghost tactile-press"
                           onClick={() => toggleRowExpand(r.reading_id)}
                           style={{
                             width: "100%",
                             justifyContent: "space-between",
                             fontSize: 12,
-                            padding: "6px 8px",
-                            borderRadius: 6,
+                            padding: "7px 10px",
+                            borderRadius: 8,
                             color: "var(--text-secondary)",
-                            background: "rgba(255, 255, 255, 0.02)",
+                            background: "rgba(255, 255, 255, 0.03)",
                           }}
                         >
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                             <CpuIcon size={13} style={{ color: "#38bdf8" }} />
                             <span>{isExpanded ? "ซ่อนข้อมูลเซนเซอร์เชิงลึก" : "ดูข้อมูลเซนเซอร์เชิงลึก"}</span>
                           </span>
@@ -1279,7 +1409,7 @@ export default function DataHistoryPage() {
                             size={14}
                             style={{
                               transform: isExpanded ? "rotate(180deg)" : "none",
-                              transition: "transform 0.2s ease",
+                              transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
                             }}
                           />
                         </button>
@@ -1388,7 +1518,7 @@ export default function DataHistoryPage() {
                   <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} domain={["dataMin - 0.2", "dataMax + 0.2"]} />
                   <Tooltip
                     contentStyle={{
-                      background: "rgba(15, 23, 42, 0.95)",
+                      background: "rgba(12, 14, 18, 0.95)",
                       border: "1px solid rgba(255, 255, 255, 0.1)",
                       borderRadius: "0.5rem",
                       fontSize: "0.75rem",
@@ -1410,41 +1540,41 @@ export default function DataHistoryPage() {
           </div>
         )}
 
-        {/* Tactical Footer / Pagination */}
-        <div
-          style={{
-            padding: "10px 18px",
-            borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "rgba(15, 23, 42, 0.7)",
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          <div style={{ display: "flex", gap: 8 }}>
+        {/* Tactical Streamlined Pagination Strip (Option A) */}
+        <div className="tactical-pagination-strip">
+          <div className="tactical-page-controls">
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="tactical-page-btn tactile-press"
               disabled={page === 0 || loading}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
-              style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6 }}
+              title="หน้าก่อนหน้า"
+              aria-label="หน้าก่อนหน้า"
             >
-              ← ก่อนหน้า
+              <ChevronLeftIcon size={14} />
             </button>
+
+            <div className="tactical-page-indicator">
+              <span className="page-label">หน้า</span>
+              <span className="page-num-cur">{totalPages === 0 ? 0 : page + 1}</span>
+              <span className="page-sep">/</span>
+              <span className="page-num-total">{totalPages}</span>
+            </div>
+
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="tactical-page-btn tactile-press"
               disabled={page >= totalPages - 1 || loading}
               onClick={() => setPage((p) => p + 1)}
-              style={{ fontSize: 12, padding: "5px 12px", borderRadius: 6 }}
+              title="หน้าถัดไป"
+              aria-label="หน้าถัดไป"
             >
-              ถัดไป →
+              <ChevronRightIcon size={14} />
             </button>
           </div>
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            แสดงผล {PAGE_SIZE} รายการต่อหน้า · ดึงข้อมูลจากฐานข้อมูล FloodGuard
+
+          <span className="tactical-page-meta">
+            แสดงผล {PAGE_SIZE} รายการต่อหน้า · ทั้งหมด {total.toLocaleString()} รายการ
           </span>
         </div>
       </div>
@@ -1460,8 +1590,8 @@ export default function DataHistoryPage() {
               </h3>
               <button
                 type="button"
-                className="btn btn-ghost"
-                style={{ padding: 4, color: "var(--text-muted)" }}
+                className="btn btn-ghost tactile-press"
+                style={{ padding: 4, color: "var(--text-muted)", borderRadius: 6 }}
                 onClick={() => !exportLoading && setIsExportModalOpen(false)}
                 disabled={exportLoading}
               >
@@ -1473,7 +1603,7 @@ export default function DataHistoryPage() {
             <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8 }}>
               {/* Option 1: All Filtered */}
               <div
-                className={`export-option-card ${exportScope === "all_filtered" ? "selected" : ""}`}
+                className={`export-option-card tactile-press ${exportScope === "all_filtered" ? "selected" : ""}`}
                 onClick={() => setExportScope("all_filtered")}
               >
                 <input
@@ -1494,7 +1624,7 @@ export default function DataHistoryPage() {
 
               {/* Option 2: Current Page Only */}
               <div
-                className={`export-option-card ${exportScope === "current_page" ? "selected" : ""}`}
+                className={`export-option-card tactile-press ${exportScope === "current_page" ? "selected" : ""}`}
                 onClick={() => setExportScope("current_page")}
               >
                 <input
@@ -1515,22 +1645,22 @@ export default function DataHistoryPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: "12px 18px", background: "rgba(11, 19, 27, 0.7)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div style={{ padding: "12px 18px", background: "var(--card-surface, #0C0E12)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm tactile-press"
                 onClick={() => setIsExportModalOpen(false)}
                 disabled={exportLoading}
-                style={{ fontSize: 12 }}
+                style={{ fontSize: 12, borderRadius: 8 }}
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm tactile-press"
                 onClick={handleConfirmExport}
                 disabled={exportLoading || (exportScope === "current_page" ? filteredReadings.length === 0 : total === 0)}
-                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8 }}
               >
                 {exportLoading ? (
                   <>

@@ -206,7 +206,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             zIndex: 99999,
             width: 'calc(100% - 32px)',
             maxWidth: 740,
-            background: 'rgba(15, 23, 42, 0.94)',
+            background: 'rgba(12, 14, 18, 0.94)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
             border: theme.border,

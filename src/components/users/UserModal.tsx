@@ -191,12 +191,12 @@ export default function UserModal({
       }
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, width: "100%" }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary tactile-press" onClick={onClose}>
             ยกเลิก
           </button>
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary tactile-press"
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
             onClick={() => {
               if (validate()) {
@@ -315,6 +315,7 @@ export default function UserModal({
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
+                  className="tactile-press"
                   style={{
                     position: "absolute",
                     right: 8,
@@ -328,6 +329,7 @@ export default function UserModal({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    borderRadius: 4,
                   }}
                   title={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
                   aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
@@ -495,7 +497,17 @@ export default function UserModal({
 
           {/* Active status toggle switch card */}
           <div
+            role="switch"
+            aria-checked={form.is_active}
+            tabIndex={0}
             onClick={() => set("is_active", !form.is_active)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                set("is_active", !form.is_active);
+              }
+            }}
+            className="tactile-press"
             style={{
               display: "flex",
               alignItems: "center",
@@ -574,7 +586,7 @@ export default function UserModal({
                 <button
                   type="button"
                   onClick={handleSelectAllStations}
-                  className="btn btn-secondary"
+                  className="btn btn-secondary tactile-press"
                   style={{ fontSize: 11, padding: "4px 8px", height: "auto" }}
                 >
                   {form.station_ids.length === stations.length ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
@@ -607,7 +619,17 @@ export default function UserModal({
                   return (
                     <div
                       key={st.station_id}
+                      role="checkbox"
+                      aria-checked={isSelected}
+                      tabIndex={0}
                       onClick={() => toggleStation(st.station_id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleStation(st.station_id);
+                        }
+                      }}
+                      className="tactile-press"
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -647,10 +669,10 @@ export default function UserModal({
                         <div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span
+                              className="font-mono"
                               style={{
                                 fontSize: 11,
                                 fontWeight: 700,
-                                fontFamily: "monospace",
                                 padding: "1px 6px",
                                 borderRadius: 4,
                                 backgroundColor: "rgba(14, 165, 233, 0.15)",

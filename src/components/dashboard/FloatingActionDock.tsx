@@ -41,7 +41,7 @@ export const FloatingActionDock = memo(function FloatingActionDock({
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 1000,
-        background: 'rgba(15, 23, 42, 0.88)',
+        background: 'rgba(12, 14, 18, 0.92)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         border: '1px solid rgba(255, 255, 255, 0.14)',

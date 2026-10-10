@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FloodGuard · Out-of-the-Box Bolder UI (หลุดจากกรอบเดิมๆ)</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #090B0E;
+      --surface-card: #0F1318;
+      --surface-hover: #161B22;
+      --border: rgba(255, 255, 255, 0.07);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #475569;
+      --cyan: #38BDF8;
+      --cyan-glow: rgba(56, 189, 248, 0.25);
+      --amber: #F59E0B;
+      --amber-glow: rgba(245, 158, 11, 0.25);
+      --rose: #F43F5E;
+      --emerald: #10B981;
+      --font: -apple-system, BlinkMacSystemFont, "Noto Sans Thai", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 40px 20px 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 920px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #FB7185;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .title {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 660px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .audio-notice {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.08);
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    .concept-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      margin-bottom: 36px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+      transition: border-color 0.2s ease;
+    }
+
+    .concept-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .concept-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+    }
+
+    .concept-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .concept-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: 0.05em;
+    }
+
+    .concept-headline {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+    }
+
+    .tag-bold {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--cyan);
+    }
+
+    .concept-pitch {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .stage-canvas {
+      background: #050608;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 36px 24px;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .feedback-dock {
+      margin-top: 24px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+      min-height: 20px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    /* ═════════════════════════════════════════════════════════════
+       RADICAL CONCEPT A: THE RIVER STREAM (Topo-Stream Node Ribbon)
+       หลุดจากปุ่มกล่อง: เป็นเส้นสายน้ำไหลแนวนอน มี Node เซนเซอร์ตามลำน้ำ
+       ═════════════════════════════════════════════════════════════ */
+    .river-stream-wrapper {
+      width: 100%;
+      max-width: 680px;
+      position: relative;
+      padding: 28px 20px 20px;
+    }
+
+    /* เส้นแม่น้ำลากผ่าน */
+    .river-bed-line {
+      position: absolute;
+      top: 52px;
+      left: 30px;
+      right: 30px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      z-index: 1;
+    }
+
+    .river-bed-active-trace {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      box-shadow: 0 0 12px var(--cyan);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .river-nodes-row {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      z-index: 2;
+    }
+
+    .river-node-trigger {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-dim);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      padding: 0 10px;
+    }
+
+    .river-node-station {
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .river-node-station .st-code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      opacity: 0.6;
+    }
+
+    /* วงล้อจุดเชื่อมต่อเซนเซอร์กลางสายน้ำ */
+    .river-node-pin {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #090B0E;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .river-node-pin::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    /* ระดับน้ำปัจจุบันใต้โหนด */
+    .river-node-level {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    /* Active State */
+    .river-node-trigger:hover {
+      color: var(--text);
+    }
+    .river-node-trigger:hover .river-node-pin {
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.1);
+    }
+
+    .river-node-trigger.active {
+      color: #FFFFFF;
+    }
+    .river-node-trigger.active .river-node-station {
+      color: #FFFFFF;
+      font-weight: 800;
+    }
+    .river-node-trigger.active .river-node-station .st-code {
+      color: var(--cyan);
+      opacity: 1;
+    }
+    .river-node-trigger.active .river-node-pin {
+      border-color: var(--cyan);
+      background: #050608;
+      box-shadow: 0 0 16px var(--cyan-glow), inset 0 0 8px var(--cyan-glow);
+      transform: scale(1.3);
+    }
+    .river-node-trigger.active .river-node-pin::before {
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+    }
+    .river-node-trigger.active .river-node-level {
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    /* Ripple Wave Effect on click */
+    .ripple-ring {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--cyan);
+      opacity: 0;
+      pointer-events: none;
+    }
+    @keyframes hydroPulse {
+      0% { transform: scale(1); opacity: 0.9; }
+      100% { transform: scale(3.5); opacity: 0; }
+    }
+    .ripple-ring.pulse {
+      animation: hydroPulse 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════
+       RADICAL CONCEPT B: THE HYDRO-EQUALIZER (แท่งวัดมวลน้ำเสมือน)
+       ปุ่ม = ตัววัดน้ำจริงในตัว เห็นระดับน้ำครบทุกสถานีพร้อมกันก่อนคลิก!
+       ═════════════════════════════════════════════════════════════ */
+    .hydro-eq-dock {
+      display: flex;
+      align-items: stretch;
+      gap: 14px;
+      width: 100%;
+      max-width: 680px;
+    }
+
+    .hydro-eq-tube {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 12px;
+      padding: 16px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 120px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+
+    .hydro-eq-tube:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .hydro-eq-tube:active {
+      transform: translateY(0px) scale(0.98);
+    }
+
+    /* น้ำในหลอด (Fluid Fill) */
+    .tube-water-level {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.25) 0%, rgba(56, 189, 248, 0.05) 100%);
+      border-top: 2px solid var(--cyan);
+      transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .tube-water-level.amber {
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.25) 0%, rgba(245, 158, 11, 0.05) 100%);
+      border-top: 2px solid var(--amber);
+    }
+
+    .tube-water-level.offline {
+      background: transparent;
+      border-top: 1px dashed rgba(255, 255, 255, 0.2);
+    }
+
+    /* Wave meniscus animation */
+    .tube-water-meniscus {
+      position: absolute;
+      top: -3px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: #FFFFFF;
+      opacity: 0.5;
+      filter: blur(1px);
+    }
+
+    .tube-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: space-between;
+    }
+
+    .tube-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tube-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .tube-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .tube-bottom {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .tube-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tube-val {
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+    }
+
+    .tube-val-unit {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-left: 2px;
+    }
+
+    /* Active Tube */
+    .hydro-eq-tube.active {
+      background: rgba(56, 189, 248, 0.05);
+      border-color: var(--cyan);
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.15), inset 0 0 16px rgba(56, 189, 248, 0.08);
+    }
+
+    .hydro-eq-tube.active .tube-id {
+      color: var(--cyan);
+    }
+    .hydro-eq-tube.active .tube-name {
+      color: #FFFFFF;
+      font-weight: 700;
+    }
+    .hydro-eq-tube.active .tube-val {
+      color: #FFFFFF;
+      text-shadow: 0 0 12px var(--cyan);
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════
+       RADICAL CONCEPT C: THE MECHANICAL APERTURE DIAL (วงล้อปรับเข็มคลื่น)
+       สไตล์เครื่องวัดความเที่ยงตรงสูง สวิส / Leica / Teenage Engineering
+       ═════════════════════════════════════════════════════════════ */
+    .tactical-bezel-dock {
+      width: 100%;
+      max-width: 640px;
+      background: #080A0D;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .bezel-top-readout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .bezel-reticle-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bezel-reticle-label::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      background: var(--cyan);
+      border-radius: 1px;
+    }
+
+    .bezel-active-station-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+
+    /* รางขีดสเกลแบบ Micrometer */
+    .dial-track-container {
+      position: relative;
+      height: 52px;
+      background: #030405;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* เส้นศูนย์กลาง (Center Aim Reticle) */
+    .center-aim-reticle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      transform: translateX(-50%);
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .center-aim-reticle::before,
+    .center-aim-reticle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+    }
+    .center-aim-reticle::before {
+      top: 0;
+      border-top: 5px solid var(--cyan);
+    }
+    .center-aim-reticle::after {
+      bottom: 0;
+      border-bottom: 5px solid var(--cyan);
+    }
+
+    .dial-items-slider {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      justify-content: space-around;
+      position: relative;
+      z-index: 2;
+    }
+
+    .dial-tick-item {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 16px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+
+    .dial-subticks {
+      display: flex;
+      gap: 3px;
+      height: 8px;
+      align-items: flex-end;
+    }
+    .subtick {
+      width: 1px;
+      background: rgba(255, 255, 255, 0.15);
+      height: 4px;
+    }
+    .subtick.tall {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .dial-tick-item:hover {
+      color: var(--text);
+    }
+
+    .dial-tick-item.active {
+      color: var(--cyan);
+      font-size: 14px;
+      font-weight: 800;
+      text-shadow: 0 0 10px var(--cyan);
+    }
+    .dial-tick-item.active .subtick {
+      background: var(--cyan);
+    }
+
+
+    /* ═════════════════════════════════════════════════════════════
+       RADICAL CONCEPT D: THE HYDRO-PILL GLIDER (สนามแม่เหล็กไร้ขอบ)
+       แท่นสไลด์แบบ Kinetic Magnetic Glide สัมผัสหรูหราแบบสัมผัสกระจก
+       ═════════════════════════════════════════════════════════════ */
+    .magnetic-track {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      position: relative;
+      width: 100%;
+      max-width: 660px;
+    }
+
+    .magnetic-item {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 12px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      z-index: 2;
+      transition: color 0.2s ease;
+      user-select: none;
+    }
+
+    .magnetic-item:hover {
+      color: var(--text);
+    }
+
+    .magnetic-item.active {
+      color: #FFFFFF;
+      font-weight: 800;
+    }
+
+    /* แผ่นเลื่อนแม่เหล็กด้านหลัง (Kinetic Magnetic Backdrop) */
+    .magnetic-glider {
+      position: absolute;
+      top: 6px;
+      bottom: 6px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+      transition: all 0.35s cubic-bezier(0.34, 1.3, 0.64, 1);
+      z-index: 1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-badge">✦ OUT-OF-THE-BOX · RADICAL EXPLORATION</div>
+      <h1 class="title">4 ดีไซน์ใหม่ล่าสุด ฉีกกรอบปุ่มแบบเดิม</h1>
+      <p class="subtitle">
+        ไม่ใช่แค่การเปลี่ยนรูปทรงปุ่มธรรมดา แต่เปลี่ยน <strong>"วิธีคิดและ Interaction"</strong> ให้กลายเป็นแผงควบคุมระดับวิศวกรรมน้ำชั้นสูง (Tactical Water Cockpit) ลองคลิกสัมผัสเสียงและฟิสิกส์ด้านล่างได้ทันทีครับ
+      </p>
+      <div class="audio-notice">
+        <span>🔊 มีระบบจำลองเสียงคลิก Micro-haptic & Water Droplet ในตัว (คลิกเพื่อฟังเสียงได้เลย)</span>
+      </div>
+    </div>
+
+    <!-- ── RADICAL CONCEPT A: THE RIVER STREAM ── -->
+    <div class="concept-card">
+      <div class="concept-meta">
+        <div>
+          <span class="concept-num">01 / KINETIC FLOW</span>
+          <h2 class="concept-headline">The River Stream (สายน้ำจำลองและจุดเชื่อมต่อเซนเซอร์)</h2>
+        </div>
+        <span class="tag-bold">ฉีกกรอบที่สุด 🌊</span>
+      </div>
+      <p class="concept-pitch">
+        <strong>ลืมคำว่า "ปุ่มกล่อง" ไปได้เลย:</strong> หน้าจอไม่มีกล่องปุ่ม แต่แสดงเป็น "เส้นสายน้ำแนวนอน" ที่ไหลผ่านลุ่มน้ำจริง แต่ละสถานีคือ "จุดรับสัญญาณเซนเซอร์ (Hydro-Node)" ลอยอยู่บนสายน้ำ มีระดับน้ำกำกับใต้จุด เมื่อคลิกจุดไหน จะเกิดคลื่นระลอกน้ำ (Water Ripple) ขยายออกพร้อมเสียงหยดน้ำสัมผัสผิวน้ำ
+      </p>
+
+      <div class="stage-canvas">
+        <div class="river-stream-wrapper">
+          <div class="river-bed-line">
+            <div class="river-bed-active-trace" id="river-trace" style="left: 0%; width: 33%;"></div>
+          </div>
+          
+          <div class="river-nodes-row">
+            <!-- Node 1 -->
+            <button class="river-node-trigger active" onclick="selectRiverNode(this, 0, 'ST-001', 'คลองหก มทร.ธัญบุรี', '2.45 ม.', '#38BDF8')">
+              <div class="river-node-station">
+                <span class="st-code">ST-001</span>
+                <span>คลองหก มทร.</span>
+              </div>
+              <div class="river-node-pin">
+                <div class="ripple-ring"></div>
+              </div>
+              <div class="river-node-level">
+                <span>2.45 m</span>
+                <span style="font-size: 10px; color: var(--amber);">▲</span>
+              </div>
+            </button>
+
+            <!-- Node 2 -->
+            <button class="river-node-trigger" onclick="selectRiverNode(this, 1, 'ST-002', 'สถานีคลองรังสิต', '1.80 ม.', '#10B981')">
+              <div class="river-node-station">
+                <span class="st-code">ST-002</span>
+                <span>คลองรังสิตฯ</span>
+              </div>
+              <div class="river-node-pin">
+                <div class="ripple-ring"></div>
+              </div>
+              <div class="river-node-level">
+                <span>1.80 m</span>
+                <span style="font-size: 10px; color: var(--emerald);">●</span>
+              </div>
+            </button>
+
+            <!-- Node 3 -->
+            <button class="river-node-trigger" onclick="selectRiverNode(this, 2, 'ST-003', 'สถานีทดสอบ (Test)', '0.00 ม.', '#64748B')">
+              <div class="river-node-station">
+                <span class="st-code">ST-003</span>
+                <span>ทดสอบ (Test)</span>
+              </div>
+              <div class="river-node-pin">
+                <div class="ripple-ring"></div>
+              </div>
+              <div class="river-node-level">
+                <span style="color: var(--text-dim);">ออฟไลน์</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="feedback-dock" id="feed-river">✦ คลิกโหนดเซนเซอร์บนสายน้ำเพื่อจำลองระลอกคลื่น</div>
+      </div>
+    </div>
+
+
+    <!-- ── RADICAL CONCEPT B: THE HYDRO-EQUALIZER ── -->
+    <div class="concept-card">
+      <div class="concept-meta">
+        <div>
+          <span class="concept-num">02 / DATA AS INTERFACE</span>
+          <h2 class="concept-headline">The Hydro-Equalizer (หลอดวัดระดับน้ำจำลอง 3 มิติ)</h2>
+        </div>
+        <span class="tag-bold">เห็นภาพรวมทั้งระบบ 📊</span>
+      </div>
+      <p class="concept-pitch">
+        <strong>ปุ่มไม่ได้มีไว้แค่กด แต่บอกข้อมูลจริงได้ทันที:</strong> แต่ละสถานีถูกออกแบบเป็น "หลอดแก้วบรรจุมวลน้ำ" สูง-ต่ำตามระดับน้ำจริงในแม่น้ำ คุณไม่ต้องกดสลับทีละสถานีก็รู้ได้ทันทีว่าสถานีไหนน้ำกำลังท่วม! เมื่อคลิกเลือก หลอดนั้นจะเรืองแสงพุ่งขึ้นพร้อมเสียงคลิกแน่นกระชับ
+      </p>
+
+      <div class="stage-canvas">
+        <div class="hydro-eq-dock">
+          <!-- Tube 1 -->
+          <div class="hydro-eq-tube active" onclick="selectTube(this, 'ST-001', 'คลองหก มทร.ธัญบุรี', '2.45', 'เฝ้าระวัง (เตือนภัย)')">
+            <div class="tube-water-level amber" style="height: 64%;">
+              <div class="tube-water-meniscus"></div>
+            </div>
+            <div class="tube-content">
+              <div class="tube-top">
+                <span class="tube-id">ST-001</span>
+                <span class="tube-status-dot" style="background: var(--amber); box-shadow: 0 0 6px var(--amber);"></span>
+              </div>
+              <div class="tube-bottom">
+                <span class="tube-name">คลองหก มทร.</span>
+                <div class="tube-val">2.45<span class="tube-val-unit">m</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tube 2 -->
+          <div class="hydro-eq-tube" onclick="selectTube(this, 'ST-002', 'คลองรังสิตฯ', '1.80', 'ระดับปกติ')">
+            <div class="tube-water-level" style="height: 42%; border-top-color: var(--emerald);">
+              <div class="tube-water-meniscus"></div>
+            </div>
+            <div class="tube-content">
+              <div class="tube-top">
+                <span class="tube-id">ST-002</span>
+                <span class="tube-status-dot" style="background: var(--emerald);"></span>
+              </div>
+              <div class="tube-bottom">
+                <span class="tube-name">คลองรังสิตฯ</span>
+                <div class="tube-val">1.80<span class="tube-val-unit">m</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tube 3 -->
+          <div class="hydro-eq-tube" onclick="selectTube(this, 'ST-003', 'สถานีทดสอบ Test', '--', 'ออฟไลน์')">
+            <div class="tube-water-level offline" style="height: 15%;"></div>
+            <div class="tube-content">
+              <div class="tube-top">
+                <span class="tube-id">ST-003</span>
+                <span class="tube-status-dot" style="background: #64748B;"></span>
+              </div>
+              <div class="tube-bottom">
+                <span class="tube-name">ทดสอบ Test</span>
+                <div class="tube-val" style="color: var(--text-dim);">--<span class="tube-val-unit">off</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-dock" id="feed-tube">✦ คลิกหลอดมวลน้ำเพื่อสลับการอ่านค่า</div>
+      </div>
+    </div>
+
+
+    <!-- ── RADICAL CONCEPT C: TACTICAL APERTURE DIAL ── -->
+    <div class="concept-card">
+      <div class="concept-meta">
+        <div>
+          <span class="concept-num">03 / PRECISION COCKPIT</span>
+          <h2 class="concept-headline">Tactical Aperture Dial (หน้าปัดคาลิเปอร์และสเกลความเที่ยงตรงสูง)</h2>
+        </div>
+        <span class="tag-bold">สไตล์วิศวกรรมสวิส ⚙️</span>
+      </div>
+      <p class="concept-pitch">
+        <strong>ฟีลลิ่งเครื่องมือวัดระดับโปร (Instrument-Grade Precision):</strong> เหมือนวงล้อปรับเลนส์กล้อง Leica หรือหน้าปัดเครื่องบินรบ มีขีดสเกลมิลลิเมตร (Subticks) และเส้นเป้าเล็งตรงกลาง (Laser Aim Reticle) เมื่อคลิกจะเลื่อนหมุนเข้าสู่ศูนย์กลางพร้อมเสียง "แกร๊ก" (Mechanical Snap Click) สุดแน่น
+      </p>
+
+      <div class="stage-canvas">
+        <div class="tactical-bezel-dock">
+          <div class="bezel-top-readout">
+            <div class="bezel-reticle-label">LOCKED TELEMETRY CHANNEL</div>
+            <div class="bezel-active-station-name" id="bezel-name">ST-001 · คลองหก มทร.ธัญบุรี</div>
+          </div>
+
+          <div class="dial-track-container">
+            <div class="center-aim-reticle"></div>
+            
+            <div class="dial-items-slider">
+              <button class="dial-tick-item active" onclick="selectDial(this, 'ST-001 · คลองหก มทร.ธัญบุรี', 'CH 01')">
+                <span>ST-001</span>
+                <div class="dial-subticks">
+                  <div class="subtick"></div>
+                  <div class="subtick tall"></div>
+                  <div class="subtick"></div>
+                </div>
+              </button>
+
+              <button class="dial-tick-item" onclick="selectDial(this, 'ST-002 · สถานีคลองรังสิต', 'CH 02')">
+                <span>ST-002</span>
+                <div class="dial-subticks">
+                  <div class="subtick"></div>
+                  <div class="subtick tall"></div>
+                  <div class="subtick"></div>
+                </div>
+              </button>
+
+              <button class="dial-tick-item" onclick="selectDial(this, 'ST-003 · สถานีทดสอบ Test', 'CH 03')">
+                <span>ST-003</span>
+                <div class="dial-subticks">
+                  <div class="subtick"></div>
+                  <div class="subtick tall"></div>
+                  <div class="subtick"></div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-dock" id="feed-dial">✦ คลิกตำแหน่งบนสเกลเพื่อล็อกช่องสัญญาณ</div>
+      </div>
+    </div>
+
+
+    <!-- ── RADICAL CONCEPT D: KINETIC MAGNETIC GLIDER ── -->
+    <div class="concept-card">
+      <div class="concept-meta">
+        <div>
+          <span class="concept-num">04 / ARCHITECTURAL GLASS</span>
+          <h2 class="concept-headline">Kinetic Magnetic Glider (แผ่นสไลด์กระจกฟิสิกส์แม่เหล็ก)</h2>
+        </div>
+        <span class="tag-bold">หรูหรา นุ่มนวล 🧲</span>
+      </div>
+      <p class="concept-pitch">
+        <strong>มินิมอลแบบสถาปัตยกรรมกระจกควันดำ:</strong> ตัวรางบางเพียง 1px แทบมองไม่เห็น แต่มี "แผ่นกระจกฟรอสต์โปร่งแสง (Frosted Glass)" เลื่อนตามตำแหน่งที่คลิกด้วยฟิสิกส์สปริง (Spring Physics) ลื่นไหลและนุ่มนวลที่สุด
+      </p>
+
+      <div class="stage-canvas">
+        <div class="magnetic-track" id="mag-track">
+          <div class="magnetic-glider" id="mag-glider" style="left: 6px; width: calc(33.333% - 8px);"></div>
+          
+          <button class="magnetic-item active" onclick="selectMag(this, 0, 'ST-001 คลองหก มทร.ธัญบุรี')">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--amber);"></span>
+            <span>ST-001 คลองหก</span>
+          </button>
+          <button class="magnetic-item" onclick="selectMag(this, 1, 'ST-002 สถานีคลองรังสิต')">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--emerald);"></span>
+            <span>ST-002 คลองรังสิต</span>
+          </button>
+          <button class="magnetic-item" onclick="selectMag(this, 2, 'ST-003 Test')">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #64748B;"></span>
+            <span>ST-003 Test</span>
+          </button>
+        </div>
+
+        <div class="feedback-dock" id="feed-mag">✦ สัมผัสความสมูทของการเคลื่อนที่แบบ Magnetic Spring</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ═════════════════════════════════════════════════════════════
+    // SYNTHESIZER: REALISTIC MICRO-HAPTIC AUDIO EFFECTS
+    // ═════════════════════════════════════════════════════════════
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx && AudioContext) {
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // 1. Water Plop Drop sound for Concept A
+    function playWaterPlop() {
+      initAudio();
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.12);
+        
+        gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+      } catch (e) {}
+    }
+
+    // 2. Liquid Bubble Resonance for Concept B
+    function playFluidResonance() {
+      initAudio();
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.08);
+        
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch (e) {}
+    }
+
+    // 3. Mechanical Snap Click for Concept C
+    function playMechanicalSnap() {
+      initAudio();
+      if (!audioCtx) return;
+      try {
+        // High click
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.025);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.025);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.025);
+      } catch (e) {}
+    }
+
+    // 4. Subtle Velvet Thud for Concept D
+    function playVelvetThud() {
+      initAudio();
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(90, audioCtx.currentTime + 0.04);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+      } catch (e) {}
+    }
+
+
+    // ═════════════════════════════════════════════════════════════
+    // CONCEPT A LOGIC
+    // ═════════════════════════════════════════════════════════════
+    function selectRiverNode(btn, index, id, name, level, color) {
+      playWaterPlop();
+      
+      const allBtns = document.querySelectorAll('.river-node-trigger');
+      allBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Trigger ripple
+      const ring = btn.querySelector('.ripple-ring');
+      if (ring) {
+        ring.classList.remove('pulse');
+        void ring.offsetWidth;
+        ring.classList.add('pulse');
+      }
+
+      // Move river trace
+      const trace = document.getElementById('river-trace');
+      const step = 100 / 3;
+      trace.style.left = (index * step) + '%';
+      trace.style.width = step + '%';
+
+      document.getElementById('feed-river').innerHTML = `🌊 ล็อกสัญญาณโหนด <strong>${id} (${name})</strong> · ผิวน้ำปัจจุบัน: <strong>${level}</strong>`;
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // CONCEPT B LOGIC
+    // ═════════════════════════════════════════════════════════════
+    function selectTube(card, id, name, val, status) {
+      playFluidResonance();
+
+      const tubes = document.querySelectorAll('.hydro-eq-tube');
+      tubes.forEach(t => t.classList.remove('active'));
+      card.classList.add('active');
+
+      document.getElementById('feed-tube').innerHTML = `📊 สลับอ่านค่าระดับน้ำ <strong>${id} ${name}</strong> · สถานะ: <strong>${status}</strong> (${val} m)`;
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // CONCEPT C LOGIC
+    // ═════════════════════════════════════════════════════════════
+    function selectDial(btn, fullName, ch) {
+      playMechanicalSnap();
+
+      const items = document.querySelectorAll('.dial-tick-item');
+      items.forEach(it => it.classList.remove('active'));
+      btn.classList.add('active');
+
+      document.getElementById('bezel-name').textContent = fullName;
+      document.getElementById('feed-dial').innerHTML = `⚙️ หมุนสเกลล็อกช่องสัญญาณ <strong>${ch}</strong> (${fullName}) เรียบร้อย`;
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // CONCEPT D LOGIC
+    // ═════════════════════════════════════════════════════════════
+    function selectMag(btn, index, fullName) {
+      playVelvetThud();
+
+      const items = document.querySelectorAll('.magnetic-item');
+      items.forEach(it => it.classList.remove('active'));
+      btn.classList.add('active');
+
+      const glider = document.getElementById('mag-glider');
+      const step = 100 / 3;
+      glider.style.left = `calc(${index * step}% + 6px)`;
+
+      document.getElementById('feed-mag').innerHTML = `🧲 เลื่อนแผ่นสไลด์แม่เหล็กไปที่ <strong>${fullName}</strong>`;
+    }
+  </script>
+</body>
+</html>

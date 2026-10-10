@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FloodGuard • Minimal Pure White Logo Concepts</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #070A0F;
+      --card-bg: #0D131F;
+      --card-hover: #121A2B;
+      --card-selected: #162035;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.25);
+      --border-selected: #FFFFFF;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --cyan: #38BDF8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      padding: 32px 24px 60px;
+    }
+    .wrapper {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #E2E8F0;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #FFFFFF;
+      margin-bottom: 10px;
+    }
+    .header p {
+      font-size: 15.5px;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .tabs {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 30px;
+    }
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #FFFFFF;
+    }
+    .tab-btn.active {
+      background: #FFFFFF;
+      color: #070A0F;
+      border-color: #FFFFFF;
+    }
+
+    /* Grid of logo cards */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 22px;
+      margin-bottom: 40px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 20px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card:hover {
+      background: var(--card-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-3px);
+    }
+    .card.active {
+      background: var(--card-selected);
+      border-color: var(--border-selected);
+      box-shadow: 0 0 0 2px #FFFFFF, 0 16px 36px rgba(0, 0, 0, 0.6);
+    }
+    .card-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tag-bolder {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .stage {
+      width: 130px;
+      height: 130px;
+      margin: 12px 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* No background, pure transparent */
+    }
+    .stage svg {
+      filter: drop-shadow(0 4px 14px rgba(255, 255, 255, 0.18));
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .card:hover .stage svg {
+      transform: scale(1.1);
+    }
+    .info h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+    .info .sub-th {
+      font-size: 13px;
+      font-weight: 500;
+      color: #CBD5E1;
+      margin-bottom: 8px;
+    }
+    .info p {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+
+    /* Live Simulator Section */
+    .simulator {
+      background: #0B0F17;
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 28px;
+    }
+    .sim-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .sim-topbar-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sim-topbar-tip {
+      font-size: 12.5px;
+      color: var(--cyan);
+    }
+    .sim-layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 24px;
+      background: #070A0F;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 20px;
+      min-height: 240px;
+    }
+    /* Simulated Sidebar */
+    .sim-sidebar {
+      background: #0B0F17;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .traffic-dots {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .traffic-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .traffic-dot.red { background: #EF4444; }
+    .traffic-dot.yellow { background: #F59E0B; }
+    .traffic-dot.green { background: #10B981; }
+
+    .sidebar-brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 4px;
+    }
+    .sim-logo-view {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Pure white, NO background box! */
+    }
+    .sim-logo-view svg {
+      width: 26px;
+      height: 26px;
+    }
+    .brand-meta {
+      display: flex;
+      flex-direction: column;
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      display: flex;
+      gap: 1px;
+    }
+    .brand-sub {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* Dummy Nav items */
+    .dummy-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .dummy-item {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: transparent;
+    }
+    .dummy-item.active {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38BDF8;
+      font-weight: 600;
+    }
+
+    /* Main preview area */
+    .sim-main {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: #0D131F;
+      border-radius: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+      padding: 24px;
+      text-align: center;
+    }
+    .sim-large-stage {
+      width: 100px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .sim-selected-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+    }
+    .sim-selected-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 480px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  
+  <header class="header">
+    <div class="header-badge">FloodGuard Brand Identity • Obsidian Cockpit</div>
+    <h1>แบบจำลองสัญลักษณ์ Logo (Minimal Pure White)</h1>
+    <p>ดีไซน์สีขาวล้วน 100% ไร้กรอบและไร้พื้นหลัง (Less Is More) พร้อมตัวเลือกแนว Bolder ฉีกกรอบเดิมๆ<br><strong>คลิกที่การ์ดเพื่อดูการแสดงผลจริงบนแถบ Sidebar แบบเรียลไทม์</strong></p>
+  </header>
+
+  <!-- Section 1: Bolder / Out-of-the-box Designs -->
+  <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+    <span style="font-size: 13px; font-weight: 700; color: #38BDF8; letter-spacing: 0.05em; text-transform: uppercase;">ชุดที่ 1 • ฉีกกรอบเดิมๆ (Impeccable Bolder - High Identity)</span>
+  </div>
+
+  <div class="grid" id="grid-bolder">
+
+    <!-- Bolder 1: Hydro-Fold -->
+    <div class="card active" onclick="selectLogo('bolder-1')">
+      <div class="card-badge">1</div>
+      <div class="tag-bolder">Bolder</div>
+      <div class="stage">
+        <svg width="78" height="78" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 12L18 24L30 12" stroke-width="2.6" />
+          <path d="M11 7L18 14L25 7" stroke-width="2.6" />
+          <circle cx="18" cy="29" r="1.8" fill="#FFFFFF" stroke="none" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>The Hydro-Fold</h3>
+        <div class="sub-th">ทวิคลื่นเร่งไดนามิก</div>
+        <p>Chevron คู่อวกาศมุม 45° ผสานจุดระดับน้ำ สื่อถึงกระแสน้ำและการดักจับอย่างเฉียบคม สไตล์ Polestar จดจำได้ทันที</p>
+      </div>
+    </div>
+
+    <!-- Bolder 2: Sluice Monolith -->
+    <div class="card" onclick="selectLogo('bolder-2')">
+      <div class="card-badge">2</div>
+      <div class="tag-bolder">Bolder</div>
+      <div class="stage">
+        <svg width="78" height="78" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 5V31" stroke-width="2.8" />
+          <path d="M28 5V31" stroke-width="2.8" />
+          <path d="M8 18L18 26L28 18" stroke-width="2.6" />
+          <path d="M14 11H22" stroke-width="2.4" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>Sluice Monolith</h3>
+        <div class="sub-th">เขื่อนโมโนลิธมินิมอล</div>
+        <p>เสากำแพงเขื่อนคู่แนวตั้งสไตล์ Brutalist ตัดทะลุด้วยลิ่มระบายน้ำมุมเฉียง แข็งแกร่ง ดิบ คม ไม่ซ้ำใคร</p>
+      </div>
+    </div>
+
+    <!-- Bolder 3: Sentinel Iris -->
+    <div class="card" onclick="selectLogo('bolder-3')">
+      <div class="card-badge">3</div>
+      <div class="tag-bolder">Bolder</div>
+      <div class="stage">
+        <svg width="78" height="78" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 18C7.5 9 13.5 5 18 5C22.5 5 28.5 9 31 18" stroke-width="2.6" />
+          <path d="M3 18H33" stroke-width="2.6" />
+          <path d="M10 24C13.5 28.5 16 30 18 30C20 30 22.5 28.5 26 24" stroke-width="2.6" />
+          <circle cx="18" cy="18" r="3" fill="#FFFFFF" stroke="none" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>Sentinel Iris</h3>
+        <div class="sub-th">ดวงตาพิทักษ์ผิวน้ำ</div>
+        <p>วงโค้งอัจฉริยะตัดด้วยระนาบผิวน้ำราบเรียบกึ่งกลาง สื่อถึงดวงตาที่จับตาเฝ้าระวังภัยน้ำ 24 ชม. สไตล์ Cybernetics</p>
+      </div>
+    </div>
+
+    <!-- Bolder 4: Kinetic Vortex -->
+    <div class="card" onclick="selectLogo('bolder-4')">
+      <div class="card-badge">4</div>
+      <div class="tag-bolder">Bolder</div>
+      <div class="stage">
+        <svg width="78" height="78" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 4V18L6 25" stroke-width="2.8" />
+          <path d="M32 17L18 18L18 32" stroke-width="2.8" />
+          <path d="M7 11L18 18L29 27" stroke-width="2.8" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>Kinetic Vortex</h3>
+        <div class="sub-th">กังหันน้ำจลศาสตร์</div>
+        <p>แกนหมุน 3 ทิศทางสไตล์ Isometric สื่อถึงสมดุล 3 ด้าน: ตรวจวัด-ประมวลผล-ปกป้อง เรียบ นิ่ง ทรงพลัง</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Section 2: Pure Minimalist Refined -->
+  <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+    <span style="font-size: 13px; font-weight: 700; color: #94A3B8; letter-spacing: 0.05em; text-transform: uppercase;">ชุดที่ 2 • เรขาคณิตมินิมอลบริสุทธิ์ (Pure Monoline)</span>
+  </div>
+
+  <div class="grid" id="grid-refined">
+
+    <!-- Refined A: The Shield Horizon -->
+    <div class="card" onclick="selectLogo('refined-a')">
+      <div class="card-badge">A</div>
+      <div class="stage">
+        <svg width="74" height="74" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 3L6 7.5V15.5C6 22 10.5 27.5 16 29C21.5 27.5 26 22 26 15.5V7.5L16 3Z" stroke-width="1.8" />
+          <path d="M10 16.5H22" stroke-width="1.8" />
+          <path d="M12.5 20.5H19.5" stroke-width="1.8" />
+          <circle cx="16" cy="11.5" r="1.5" fill="#FFFFFF" stroke="none" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>The Shield Horizon</h3>
+        <div class="sub-th">โล่เรขาคณิตผสานระดับน้ำ</div>
+        <p>เส้นโครงร่างโล่บางเฉียบ ตัดด้วยเส้นระดับน้ำระนาบคู่และจุดเซนเซอร์ เรียบนิ่ง สงบ มั่นคง</p>
+      </div>
+    </div>
+
+    <!-- Refined B: Telemetry Drop -->
+    <div class="card" onclick="selectLogo('refined-b')">
+      <div class="card-badge">B</div>
+      <div class="stage">
+        <svg width="74" height="74" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 4C16 4 8 13.5 8 19.5C8 23.9 11.6 27.5 16 27.5C20.4 27.5 24 23.9 24 19.5C24 13.5 16 4 16 4Z" stroke-width="1.8" />
+          <path d="M12 17.5H20" stroke-width="1.8" />
+          <path d="M13.5 21H18.5" stroke-width="1.8" />
+          <path d="M15 24.5H17" stroke-width="1.8" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>The Telemetry Drop</h3>
+        <div class="sub-th">หยดน้ำตัดขีดเรดาร์เซนเซอร์</div>
+        <p>หยดน้ำเพรียวมินิมอล ด้านในเป็นเส้นขีดสัญญาณเรดาร์ 3 ระดับ สื่อถึงคลื่นอัลตราโซนิกวัดระดับน้ำ</p>
+      </div>
+    </div>
+
+    <!-- Refined C: FG Monogram -->
+    <div class="card" onclick="selectLogo('refined-c')">
+      <div class="card-badge">C</div>
+      <div class="stage">
+        <svg width="74" height="74" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 7H23" stroke-width="2" />
+          <path d="M9 7V25" stroke-width="2" />
+          <path d="M9 15H19" stroke-width="2" />
+          <path d="M15 21H21C22.65 21 24 22.35 24 24C24 25.65 22.65 27 21 27H13" stroke-width="2" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>FG Horizon Monogram</h3>
+        <div class="sub-th">อักษรย่อ F+G คลื่นระดับน้ำ</div>
+        <p>ตัวอักษร F และ G ผสานรวมกันเป็นเส้นระดับน้ำเรขาคณิต สไตล์ High-Tech Modernism</p>
+      </div>
+    </div>
+
+    <!-- Refined D: Tactical Node -->
+    <div class="card" onclick="selectLogo('refined-d')">
+      <div class="card-badge">D</div>
+      <div class="stage">
+        <svg width="74" height="74" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 3.5L25.5 9V20L16 25.5L6.5 20V9L16 3.5Z" stroke-width="1.8" />
+          <path d="M10 14.5C12 13 14 16 16 14.5C18 13 20 16 22 14.5" stroke-width="1.8" />
+          <circle cx="16" cy="9.5" r="1.4" fill="#FFFFFF" stroke="none" />
+        </svg>
+      </div>
+      <div class="info">
+        <h3>The Tactical Node</h3>
+        <div class="sub-th">โหนดหกเหลี่ยมผสานคลื่นน้ำ</div>
+        <p>กรอบหกเหลี่ยมตัวแทนโครงข่าย IoT Sensor โอบอุ้มเส้นคลื่นน้ำและจุดส่งสัญญาณ เชิงวิศวกรรม</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Live Simulation Section -->
+  <div class="simulator">
+    <div class="sim-topbar">
+      <div class="sim-topbar-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <path d="M9 3v18"/>
+        </svg>
+        Live Sidebar Simulator • จำลองตำแหน่งจริงบน Sidebar (ใต้จุด 3 สี, สีขาวล้วน, ไร้กล่องฟ้า)
+      </div>
+      <div class="sim-topbar-tip">คลิกเลือกการ์ดด้านบนเพื่อเปลี่ยน Logo ตรงนี้ทันที ↗</div>
+    </div>
+
+    <div class="sim-layout">
+      <!-- Simulated Sidebar -->
+      <div class="sim-sidebar">
+        <div class="traffic-dots">
+          <div class="traffic-dot red"></div>
+          <div class="traffic-dot yellow"></div>
+          <div class="traffic-dot green"></div>
+        </div>
+
+        <div class="sidebar-brand-row">
+          <div class="sim-logo-view" id="sim-logo-container">
+            <!-- Injected dynamically -->
+          </div>
+          <div class="brand-meta">
+            <div class="brand-name">
+              <span style="color:#FFFFFF;">Flood</span><span style="color:#38BDF8;">Guard</span>
+            </div>
+            <div class="brand-sub">ระบบเตือนภัยน้ำอัจฉริยะ</div>
+          </div>
+        </div>
+
+        <div class="dummy-nav">
+          <div class="dummy-item active">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            แดชบอร์ดหลัก
+          </div>
+          <div class="dummy-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            สถานีตรวจวัด
+          </div>
+          <div class="dummy-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+            ศูนย์การแจ้งเตือน
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail Card of selected -->
+      <div class="sim-main">
+        <div class="sim-large-stage" id="sim-large-stage"></div>
+        <div class="sim-selected-name" id="sim-selected-name">The Hydro-Fold</div>
+        <div class="sim-selected-desc" id="sim-selected-desc">สถาปัตยกรรมเส้นพับคู่มุม 45° สื่อถึงการไหลของกระแสน้ำที่ถูกดักจับและเปลี่ยนทิศทางอย่างเด็ดขาด สไตล์ Polestar & Aerospace เท่ เฉียบคม จดจำได้ในเสี้ยววินาที</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const logos = {
+    'bolder-1': {
+      name: 'The Hydro-Fold (ทวิคลื่นเร่งไดนามิก)',
+      desc: 'Chevron คู่อวกาศมุม 45° ผสานจุดระดับน้ำ สื่อถึงกระแสน้ำและการดักจับอย่างเด็ดขาด สไตล์ Polestar & Aerospace เท่ เฉียบคม จดจำได้ในเสี้ยววินาที',
+      svgSidebar: `<svg viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 12L18 24L30 12" stroke-width="3" />
+        <path d="M11 7L18 14L25 7" stroke-width="3" />
+        <circle cx="18" cy="29" r="2" fill="#FFFFFF" stroke="none" />
+      </svg>`,
+      svgLarge: `<svg width="84" height="84" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 12L18 24L30 12" stroke-width="2.6" />
+        <path d="M11 7L18 14L25 7" stroke-width="2.6" />
+        <circle cx="18" cy="29" r="1.8" fill="#FFFFFF" stroke="none" />
+      </svg>`
+    },
+    'bolder-2': {
+      name: 'Sluice Monolith (เขื่อนโมโนลิธมินิมอล)',
+      desc: 'เสากำแพงเขื่อนคู่แนวตั้งสไตล์ Brutalist ตัดทะลุด้วยลิ่มระบายน้ำมุมเฉียง แข็งแกร่ง ดิบ คม ป้องกันน้ำท่วมอย่างแท้จริง ไม่ซ้ำใครแน่นอน',
+      svgSidebar: `<svg viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 5V31" stroke-width="3.2" />
+        <path d="M28 5V31" stroke-width="3.2" />
+        <path d="M8 18L18 26L28 18" stroke-width="3" />
+        <path d="M14 11H22" stroke-width="2.6" />
+      </svg>`,
+      svgLarge: `<svg width="84" height="84" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 5V31" stroke-width="2.8" />
+        <path d="M28 5V31" stroke-width="2.8" />
+        <path d="M8 18L18 26L28 18" stroke-width="2.6" />
+        <path d="M14 11H22" stroke-width="2.4" />
+      </svg>`
+    },
+    'bolder-3': {
+      name: 'Sentinel Iris (ดวงตาพิทักษ์ผิวน้ำ)',
+      desc: 'วงโค้งอัจฉริยะตัดด้วยระนาบผิวน้ำราบเรียบกึ่งกลาง สื่อถึงดวงตาที่จับตาเฝ้าระวังภัยน้ำ 24 ชม. สไตล์ Cybernetics & Tactical Cockpit',
+      svgSidebar: `<svg viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 18C7.5 9 13.5 5 18 5C22.5 5 28.5 9 31 18" stroke-width="3" />
+        <path d="M3 18H33" stroke-width="3" />
+        <path d="M10 24C13.5 28.5 16 30 18 30C20 30 22.5 28.5 26 24" stroke-width="3" />
+        <circle cx="18" cy="18" r="3.2" fill="#FFFFFF" stroke="none" />
+      </svg>`,
+      svgLarge: `<svg width="84" height="84" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 18C7.5 9 13.5 5 18 5C22.5 5 28.5 9 31 18" stroke-width="2.6" />
+        <path d="M3 18H33" stroke-width="2.6" />
+        <path d="M10 24C13.5 28.5 16 30 18 30C20 30 22.5 28.5 26 24" stroke-width="2.6" />
+        <circle cx="18" cy="18" r="3" fill="#FFFFFF" stroke="none" />
+      </svg>`
+    },
+    'bolder-4': {
+      name: 'Kinetic Vortex (กังหันน้ำจลศาสตร์)',
+      desc: 'แกนหมุน 3 ทิศทางสไตล์ Isometric สื่อถึงสมดุล 3 ด้าน: ตรวจวัด-ประมวลผล-ปกป้อง เรียบ นิ่ง ทรงพลัง ไร้กาลเวลา',
+      svgSidebar: `<svg viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 4V18L6 25" stroke-width="3.2" />
+        <path d="M32 17L18 18L18 32" stroke-width="3.2" />
+        <path d="M7 11L18 18L29 27" stroke-width="3.2" />
+      </svg>`,
+      svgLarge: `<svg width="84" height="84" viewBox="0 0 36 36" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 4V18L6 25" stroke-width="2.8" />
+        <path d="M32 17L18 18L18 32" stroke-width="2.8" />
+        <path d="M7 11L18 18L29 27" stroke-width="2.8" />
+      </svg>`
+    },
+    'refined-a': {
+      name: 'The Shield Horizon (โล่เรขาคณิตผสานระดับน้ำ)',
+      desc: 'เส้นโครงร่างโล่บางเฉียบ ตัดด้วยเส้นระดับน้ำระนาบคู่และจุดเซนเซอร์ เรียบนิ่ง สงบ มั่นคง',
+      svgSidebar: `<svg viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 3L6 7.5V15.5C6 22 10.5 27.5 16 29C21.5 27.5 26 22 26 15.5V7.5L16 3Z" stroke-width="2" />
+        <path d="M10 16.5H22" stroke-width="2" />
+        <path d="M12.5 20.5H19.5" stroke-width="2" />
+        <circle cx="16" cy="11.5" r="1.5" fill="#FFFFFF" stroke="none" />
+      </svg>`,
+      svgLarge: `<svg width="80" height="80" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 3L6 7.5V15.5C6 22 10.5 27.5 16 29C21.5 27.5 26 22 26 15.5V7.5L16 3Z" stroke-width="1.8" />
+        <path d="M10 16.5H22" stroke-width="1.8" />
+        <path d="M12.5 20.5H19.5" stroke-width="1.8" />
+        <circle cx="16" cy="11.5" r="1.5" fill="#FFFFFF" stroke="none" />
+      </svg>`
+    },
+    'refined-b': {
+      name: 'The Telemetry Drop (หยดน้ำตัดขีดเรดาร์เซนเซอร์)',
+      desc: 'หยดน้ำเพรียวมินิมอล ด้านในเป็นเส้นขีดสัญญาณเรดาร์ 3 ระดับ สื่อถึงคลื่นอัลตราโซนิกวัดระดับน้ำ',
+      svgSidebar: `<svg viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4C16 4 8 13.5 8 19.5C8 23.9 11.6 27.5 16 27.5C20.4 27.5 24 23.9 24 19.5C24 13.5 16 4 16 4Z" stroke-width="2" />
+        <path d="M12 17.5H20" stroke-width="2" />
+        <path d="M13.5 21H18.5" stroke-width="2" />
+        <path d="M15 24.5H17" stroke-width="2" />
+      </svg>`,
+      svgLarge: `<svg width="80" height="80" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4C16 4 8 13.5 8 19.5C8 23.9 11.6 27.5 16 27.5C20.4 27.5 24 23.9 24 19.5C24 13.5 16 4 16 4Z" stroke-width="1.8" />
+        <path d="M12 17.5H20" stroke-width="1.8" />
+        <path d="M13.5 21H18.5" stroke-width="1.8" />
+        <path d="M15 24.5H17" stroke-width="1.8" />
+      </svg>`
+    },
+    'refined-c': {
+      name: 'FG Horizon Monogram (อักษรย่อ F+G คลื่นระดับน้ำ)',
+      desc: 'ตัวอักษร F และ G ผสานรวมกันเป็นเส้นระดับน้ำเรขาคณิต สไตล์ High-Tech Modernism',
+      svgSidebar: `<svg viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 7H23" stroke-width="2.4" />
+        <path d="M9 7V25" stroke-width="2.4" />
+        <path d="M9 15H19" stroke-width="2.4" />
+        <path d="M15 21H21C22.65 21 24 22.35 24 24C24 25.65 22.65 27 21 27H13" stroke-width="2.4" />
+      </svg>`,
+      svgLarge: `<svg width="80" height="80" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 7H23" stroke-width="2" />
+        <path d="M9 7V25" stroke-width="2" />
+        <path d="M9 15H19" stroke-width="2" />
+        <path d="M15 21H21C22.65 21 24 22.35 24 24C24 25.65 22.65 27 21 27H13" stroke-width="2" />
+      </svg>`
+    },
+    'refined-d': {
+      name: 'The Tactical Node (โหนดหกเหลี่ยมผสานคลื่นน้ำ)',
+      desc: 'กรอบหกเหลี่ยมตัวแทนโครงข่าย IoT Sensor โอบอุ้มเส้นคลื่นน้ำและจุดส่งสัญญาณ เชิงวิศวกรรม',
+      svgSidebar: `<svg viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 3.5L25.5 9V20L16 25.5L6.5 20V9L16 3.5Z" stroke-width="2.2" />
+        <path d="M10 14.5C12 13 14 16 16 14.5C18 13 20 16 22 14.5" stroke-width="2.2" />
+        <circle cx="16" cy="9.5" r="1.6" fill="#FFFFFF" stroke="none" />
+      </svg>`,
+      svgLarge: `<svg width="80" height="80" viewBox="0 0 32 32" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 3.5L25.5 9V20L16 25.5L6.5 20V9L16 3.5Z" stroke-width="1.8" />
+        <path d="M10 14.5C12 13 14 16 16 14.5C18 13 20 16 22 14.5" stroke-width="1.8" />
+        <circle cx="16" cy="9.5" r="1.4" fill="#FFFFFF" stroke="none" />
+      </svg>`
+    }
+  };
+
+  function selectLogo(key) {
+    document.querySelectorAll('.card').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    const data = logos[key];
+    if (!data) return;
+
+    document.getElementById('sim-logo-container').innerHTML = data.svgSidebar;
+    document.getElementById('sim-large-stage').innerHTML = data.svgLarge;
+    document.getElementById('sim-selected-name').textContent = data.name;
+    document.getElementById('sim-selected-desc').textContent = data.desc;
+  }
+
+  // Init with Bolder 1
+  selectLogo('bolder-1');
+</script>
+
+</body>
+</html>

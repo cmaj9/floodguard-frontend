@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -18,25 +18,23 @@ export default function ManagementHubPage() {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  // Desktop Guard: Management Hub is dedicated to mobile/tablet responsive viewports
-  useEffect(() => {
-    const checkDesktop = () => {
-      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-        navigate('/dashboard', { replace: true });
-      }
-    };
-    checkDesktop();
-    window.addEventListener('resize', checkDesktop);
-    return () => window.removeEventListener('resize', checkDesktop);
-  }, [navigate]);
-
   const role = user?.role || 'citizen';
   const isAdmin = role === 'admin';
   const isStaff = role === 'staff';
   const isCitizen = !isGuest && role === 'citizen';
 
-  const roleLabel = isAdmin ? 'ผู้ดูแลระบบ (Admin)' : isStaff ? 'เจ้าหน้าที่ส่วนท้องถิ่น (Local Staff)' : isGuest ? 'ผู้เยี่ยมชม (Guest)' : 'ประชาชนทั่วไป (Citizen)';
-  const roleBadgeClass = isAdmin ? 'badge-role-admin' : isStaff ? 'badge-role-staff' : 'badge-role-citizen';
+  const roleLabel = isAdmin
+    ? 'ผู้ดูแลระบบ (Admin)'
+    : isStaff
+    ? 'เจ้าหน้าที่ส่วนท้องถิ่น (Local Staff)'
+    : isGuest
+    ? 'ผู้เยี่ยมชม (Guest)'
+    : 'ประชาชนทั่วไป (Citizen)';
+  const roleBadgeClass = isAdmin
+    ? 'badge-role-admin'
+    : isStaff
+    ? 'badge-role-staff'
+    : 'badge-role-citizen';
 
   const handleLogout = () => {
     logout();
@@ -48,7 +46,7 @@ export default function ManagementHubPage() {
     <div
       className="page-container"
       style={{
-        maxWidth: 1000,
+        maxWidth: 1200,
         margin: '0 auto',
         padding: '1.25rem 1rem 6rem 1rem',
         boxSizing: 'border-box',
@@ -63,11 +61,10 @@ export default function ManagementHubPage() {
           flexWrap: 'wrap',
           gap: 12,
           padding: '16px 20px',
-          background: 'rgba(17, 24, 39, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'var(--card-surface, #0C0E12)',
+          border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
           borderRadius: 16,
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
           marginBottom: '1.5rem',
         }}
       >
@@ -113,23 +110,53 @@ export default function ManagementHubPage() {
           </div>
         </div>
 
-        {/* Quick Back to Dashboard Button */}
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="btn btn-secondary btn-sm"
-          style={{
-            fontSize: 12,
-            padding: '6px 14px',
-            borderRadius: 999,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <span>ดูแดชบอร์ดหลัก</span>
-          <ArrowRightIcon size={14} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Live system status beacon */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 7,
+              padding: '4px 12px',
+              borderRadius: 999,
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              fontSize: 11,
+              color: '#34D399',
+              fontWeight: 600,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#10B981',
+                boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)',
+              }}
+              className="heartbeat-dot"
+            />
+            <span>ระบบพร้อมปฏิบัติการ</span>
+          </div>
+
+          {/* Quick Back to Dashboard Button */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="btn btn-secondary btn-sm tactile-press"
+            style={{
+              fontSize: 12,
+              padding: '6px 14px',
+              borderRadius: 999,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>ดูแดชบอร์ดหลัก</span>
+            <ArrowRightIcon size={14} />
+          </button>
+        </div>
       </div>
 
       {/* ── 2. ACTION TILES GRID (Categorized Colors, No Glowing Blurs) ── */}
@@ -137,7 +164,7 @@ export default function ManagementHubPage() {
         className="management-tiles-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
           gap: '1rem',
           marginBottom: '2rem',
         }}
@@ -146,21 +173,25 @@ export default function ManagementHubPage() {
         {(isAdmin || isStaff) && (
           <div
             onClick={() => navigate('/stations')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/stations');
+              }
+            }}
             role="button"
             tabIndex={0}
-            className="management-tile tile-cyan"
+            className="management-tile tile-cyan tactile-press"
             style={{
               padding: '1.25rem',
-              background: '#111827',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-              borderLeft: '4px solid #0EA5E9',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
               borderRadius: 16,
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 140,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div>
@@ -203,7 +234,9 @@ export default function ManagementHubPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#38BDF8', fontSize: 13, fontWeight: 600 }}>
               <span>เข้าสู่หน้าจัดการสถานี</span>
-              <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+              <span className="tile-arrow" style={{ marginLeft: 6 }}>
+                <ArrowRightIcon size={14} />
+              </span>
             </div>
           </div>
         )}
@@ -212,21 +245,25 @@ export default function ManagementHubPage() {
         {isAdmin && (
           <div
             onClick={() => navigate('/users')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/users');
+              }
+            }}
             role="button"
             tabIndex={0}
-            className="management-tile tile-blue"
+            className="management-tile tile-blue tactile-press"
             style={{
               padding: '1.25rem',
-              background: '#111827',
-              border: '1px solid rgba(59, 130, 246, 0.22)',
-              borderLeft: '4px solid #3B82F6',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
               borderRadius: 16,
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 140,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div>
@@ -269,7 +306,9 @@ export default function ManagementHubPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#60A5FA', fontSize: 13, fontWeight: 600 }}>
               <span>เข้าสู่หน้าจัดการผู้ใช้</span>
-              <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+              <span className="tile-arrow" style={{ marginLeft: 6 }}>
+                <ArrowRightIcon size={14} />
+              </span>
             </div>
           </div>
         )}
@@ -278,21 +317,25 @@ export default function ManagementHubPage() {
         {(isAdmin || isStaff) && (
           <div
             onClick={() => navigate('/history')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/history');
+              }
+            }}
             role="button"
             tabIndex={0}
-            className="management-tile tile-emerald"
+            className="management-tile tile-emerald tactile-press"
             style={{
               padding: '1.25rem',
-              background: '#111827',
-              border: '1px solid rgba(16, 185, 129, 0.22)',
-              borderLeft: '4px solid #10B981',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               borderRadius: 16,
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 140,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div>
@@ -335,7 +378,9 @@ export default function ManagementHubPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#34D399', fontSize: 13, fontWeight: 600 }}>
               <span>ดูประวัติและดาวน์โหลด CSV</span>
-              <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+              <span className="tile-arrow" style={{ marginLeft: 6 }}>
+                <ArrowRightIcon size={14} />
+              </span>
             </div>
           </div>
         )}
@@ -343,21 +388,25 @@ export default function ManagementHubPage() {
         {/* TILE 4: LINE ALERTS SUBSCRIPTION (All users) */}
         <div
           onClick={() => navigate('/subscribe')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate('/subscribe');
+            }
+          }}
           role="button"
           tabIndex={0}
-          className="management-tile tile-violet"
+          className="management-tile tile-violet tactile-press"
           style={{
             padding: '1.25rem',
-            background: '#111827',
-            border: '1px solid rgba(139, 92, 246, 0.22)',
-            borderLeft: '4px solid #8B5CF6',
+            background: 'var(--card-surface, #0C0E12)',
+            border: '1px solid rgba(139, 92, 246, 0.25)',
             borderRadius: 16,
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
             minHeight: 140,
-            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
           <div>
@@ -400,7 +449,9 @@ export default function ManagementHubPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#A78BFA', fontSize: 13, fontWeight: 600 }}>
             <span>ตั้งค่ารับแจ้งเตือน LINE</span>
-            <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+            <span className="tile-arrow" style={{ marginLeft: 6 }}>
+              <ArrowRightIcon size={14} />
+            </span>
           </div>
         </div>
 
@@ -408,21 +459,25 @@ export default function ManagementHubPage() {
         {(isAdmin || isGuest || isCitizen) && (
           <div
             onClick={() => navigate('/register')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/register');
+              }
+            }}
             role="button"
             tabIndex={0}
-            className="management-tile tile-amber"
+            className="management-tile tile-amber tactile-press"
             style={{
               padding: '1.25rem',
-              background: '#111827',
-              border: '1px solid rgba(245, 158, 11, 0.22)',
-              borderLeft: '4px solid #F59E0B',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
               borderRadius: 16,
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 140,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div>
@@ -465,7 +520,9 @@ export default function ManagementHubPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#FBBF24', fontSize: 13, fontWeight: 600 }}>
               <span>ไปยังหน้าลงทะเบียน</span>
-              <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+              <span className="tile-arrow" style={{ marginLeft: 6 }}>
+                <ArrowRightIcon size={14} />
+              </span>
             </div>
           </div>
         )}
@@ -474,21 +531,25 @@ export default function ManagementHubPage() {
         {!isGuest && (
           <div
             onClick={() => navigate('/profile')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate('/profile');
+              }
+            }}
             role="button"
             tabIndex={0}
-            className="management-tile tile-slate"
+            className="management-tile tile-slate tactile-press"
             style={{
               padding: '1.25rem',
-              background: '#111827',
-              border: '1px solid rgba(148, 163, 184, 0.22)',
-              borderLeft: '4px solid #94A3B8',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(148, 163, 184, 0.25)',
               borderRadius: 16,
               cursor: 'pointer',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               minHeight: 140,
-              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
             <div>
@@ -531,19 +592,21 @@ export default function ManagementHubPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>
               <span>แก้ไขโปรไฟล์</span>
-              <ArrowRightIcon size={14} style={{ marginLeft: 4 }} />
+              <span className="tile-arrow" style={{ marginLeft: 6 }}>
+                <ArrowRightIcon size={14} />
+              </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── 3. CITIZEN DUAL-VIEW: GUEST LOGIN PROMPT (Clean Dashed Border Card) ── */}
+      {/* ── 3. CITIZEN DUAL-VIEW: GUEST LOGIN PROMPT ── */}
       {(isGuest || isCitizen) && (
         <div
           style={{
             padding: '1.25rem 1.5rem',
-            background: 'rgba(15, 23, 42, 0.6)',
-            border: '1.5px dashed rgba(255, 255, 255, 0.15)',
+            background: 'var(--card-surface, #0C0E12)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: 16,
             display: 'flex',
             alignItems: 'center',
@@ -551,6 +614,7 @@ export default function ManagementHubPage() {
             flexWrap: 'wrap',
             gap: 14,
             marginBottom: '1.5rem',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -582,7 +646,7 @@ export default function ManagementHubPage() {
           <button
             type="button"
             onClick={() => navigate('/login')}
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm tactile-press"
             style={{
               padding: '8px 18px',
               fontSize: 13,
@@ -606,7 +670,7 @@ export default function ManagementHubPage() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            paddingTop: '1rem',
+            paddingTop: '1.25rem',
             borderTop: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
@@ -628,13 +692,13 @@ export default function ManagementHubPage() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn btn-sm"
+                className="btn btn-sm tactile-press"
                 style={{
                   background: '#EF4444',
                   color: '#FFFFFF',
                   border: 'none',
-                  padding: '4px 12px',
-                  borderRadius: 6,
+                  padding: '5px 14px',
+                  borderRadius: 8,
                   fontSize: 12,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -645,8 +709,8 @@ export default function ManagementHubPage() {
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="btn btn-secondary btn-sm"
-                style={{ fontSize: 12, padding: '4px 10px' }}
+                className="btn btn-secondary btn-sm tactile-press"
+                style={{ fontSize: 12, padding: '5px 12px', borderRadius: 8 }}
               >
                 ยกเลิก
               </button>
@@ -655,13 +719,15 @@ export default function ManagementHubPage() {
             <button
               type="button"
               onClick={() => setShowLogoutConfirm(true)}
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-sm tactile-press"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
                 color: 'var(--text-muted)',
                 fontSize: 13,
+                padding: '6px 14px',
+                borderRadius: 8,
               }}
             >
               <LogOutIcon size={15} />

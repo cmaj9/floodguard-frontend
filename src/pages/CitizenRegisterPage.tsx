@@ -144,7 +144,7 @@ export default function CitizenRegisterPage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'radial-gradient(ellipse at top, #0f1f3d 0%, #080C14 70%)',
+          background: 'var(--canvas-background, #000000)',
           color: '#F8FAFC',
           gap: 16,
           padding: 20,
@@ -170,7 +170,7 @@ export default function CitizenRegisterPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(ellipse at top, #0f1f3d 0%, #080C14 75%)',
+        background: 'var(--canvas-background, #000000)',
         color: '#F8FAFC',
         padding: '24px 16px 56px',
         boxSizing: 'border-box',
@@ -185,7 +185,7 @@ export default function CitizenRegisterPage() {
         {/* ── Main Registration Card ── */}
         <div
           style={{
-            background: 'rgba(15, 23, 42, 0.85)',
+            background: 'var(--card-surface, #0C0E12)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: 16,
             backdropFilter: 'blur(16px)',
@@ -324,6 +324,7 @@ export default function CitizenRegisterPage() {
                     />
                     <button
                       type="button"
+                      className="tactile-press"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                       style={{
@@ -338,6 +339,7 @@ export default function CitizenRegisterPage() {
                         padding: 6,
                         display: 'flex',
                         alignItems: 'center',
+                        borderRadius: 6,
                       }}
                     >
                       {showPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
@@ -395,7 +397,7 @@ export default function CitizenRegisterPage() {
                   </label>
                   <input
                     id="reg-phone"
-                    className="input"
+                    className="input font-mono tabular-nums"
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -438,18 +440,19 @@ export default function CitizenRegisterPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#E2E8F0' }}>
                   <MapIcon size={14} style={{ color: '#38BDF8' }} />
-                  <span>สถานีที่ต้องการรับแจ้งเตือน ({selectedStationIds.length}/{stations.length})</span>
+                  <span>สถานีที่ต้องการรับแจ้งเตือน (<span className="font-mono tabular-nums">{selectedStationIds.length}</span>/<span className="font-mono tabular-nums">{stations.length}</span>)</span>
                 </div>
                 <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
                   <button
                     type="button"
+                    className="tactile-press"
                     onClick={() => handleSelectAll(true)}
                     style={{
                       background: 'none',
                       border: 'none',
                       color: '#38BDF8',
                       cursor: 'pointer',
-                      padding: 0,
+                      padding: '2px 4px',
                       fontWeight: 600,
                     }}
                   >
@@ -458,13 +461,14 @@ export default function CitizenRegisterPage() {
                   <span style={{ color: '#475569' }}>|</span>
                   <button
                     type="button"
+                    className="tactile-press"
                     onClick={() => handleSelectAll(false)}
                     style={{
                       background: 'none',
                       border: 'none',
                       color: '#94A3B8',
                       cursor: 'pointer',
-                      padding: 0,
+                      padding: '2px 4px',
                     }}
                   >
                     ยกเลิกทั้งหมด
@@ -490,7 +494,17 @@ export default function CitizenRegisterPage() {
                   return (
                     <div
                       key={st.station_id}
+                      role="checkbox"
+                      aria-checked={isChecked}
+                      tabIndex={0}
                       onClick={() => handleToggleStation(st.station_id)}
+                      onKeyDown={(e) => {
+                        if (e.key === ' ' || e.key === 'Enter') {
+                          e.preventDefault();
+                          handleToggleStation(st.station_id);
+                        }
+                      }}
+                      className="tactile-press"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -500,19 +514,21 @@ export default function CitizenRegisterPage() {
                         cursor: 'pointer',
                         fontSize: 13,
                         background: isChecked ? 'rgba(2, 132, 199, 0.14)' : 'rgba(255, 255, 255, 0.02)',
-                        border: isChecked ? '1px solid rgba(2, 132, 199, 0.4)' : '1px solid transparent',
-                        transition: 'all 0.15s ease',
+                        border: isChecked ? '1px solid rgba(2, 132, 199, 0.4)' : '1px solid rgba(255, 255, 255, 0.04)',
+                        transition: 'background 0.15s ease, border-color 0.15s ease',
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          onChange={() => {}}
-                          style={{ accentColor: '#0284C7', width: 16, height: 16, flexShrink: 0 }}
+                          onChange={() => handleToggleStation(st.station_id)}
+                          tabIndex={-1}
+                          style={{ accentColor: '#0284C7', width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
                         />
                         <div style={{ minWidth: 0 }}>
                           <span
+                            className="font-mono tabular-nums"
                             style={{
                               fontWeight: 700,
                               color: '#38BDF8',
@@ -539,20 +555,16 @@ export default function CitizenRegisterPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Button - The Single Focal Jewel 3D Pastel Pink Creation Button */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="btn btn-primary"
+              className="btn-3d-pastel tactile-press"
               style={{
                 width: '100%',
-                height: 44,
                 justifyContent: 'center',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                fontWeight: 600,
-                fontSize: 14,
+                opacity: isSubmitting ? 0.7 : 1,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
               }}
             >
               {isSubmitting ? (
@@ -562,8 +574,8 @@ export default function CitizenRegisterPage() {
                       display: 'inline-block',
                       width: 16,
                       height: 16,
-                      border: '2px solid rgba(255,255,255,0.3)',
-                      borderTopColor: '#fff',
+                      border: '2px solid rgba(56, 43, 34, 0.3)',
+                      borderTopColor: 'var(--accent-pink-text, #382B22)',
                       borderRadius: '50%',
                       animation: 'spin 0.8s linear infinite',
                     }}
@@ -592,12 +604,12 @@ export default function CitizenRegisterPage() {
           >
             <div>
               <span style={{ color: '#94A3B8' }}>มีบัญชีอยู่แล้ว? </span>
-              <Link to="/login" style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'none' }}>
+              <Link to="/login" className="tactile-press" style={{ color: '#38BDF8', fontWeight: 600, textDecoration: 'none', display: 'inline-block' }}>
                 เข้าสู่ระบบ
               </Link>
             </div>
 
-            <Link to="/dashboard" style={{ color: '#94A3B8', textDecoration: 'none', fontSize: 12 }}>
+            <Link to="/dashboard" className="tactile-press" style={{ color: '#94A3B8', textDecoration: 'none', fontSize: 12, display: 'inline-block' }}>
               ข้ามไปหน้าแดชบอร์ด →
             </Link>
           </div>

@@ -163,6 +163,14 @@ export function LayersIcon({ size = 18, className = '', ...props }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ size = 18, className = '', ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} {...defaultProps} className={className} {...props}>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
 export function ChevronRightIcon({ size = 18, className = '', ...props }: IconProps) {
   return (
     <svg width={size} height={size} {...defaultProps} className={className} {...props}>
@@ -541,6 +549,22 @@ export function ChevronDownIcon({ size = 18, className = '', ...props }: IconPro
   );
 }
 
+export function ChevronUpIcon({ size = 18, className = '', ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} {...defaultProps} className={className} {...props}>
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+export function MinusIcon({ size = 18, className = '', ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} {...defaultProps} className={className} {...props}>
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
 export function SlidersIcon({ size = 18, className = '', ...props }: IconProps) {
   return (
     <svg width={size} height={size} {...defaultProps} className={className} {...props}>
@@ -647,6 +671,13 @@ export function LayoutGridIcon({ size = 18, className = '', ...props }: IconProp
     </svg>
   );
 }
-
-
+export function ExternalLinkIcon({ size = 18, className = '', ...props }: IconProps) {
+  return (
+    <svg width={size} height={size} {...defaultProps} className={className} {...props}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
 

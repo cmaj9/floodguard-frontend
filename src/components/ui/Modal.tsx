@@ -121,7 +121,7 @@ export function Modal({
           width: '100%',
           maxWidth,
           maxHeight: '90vh',
-          background: '#0D1526',
+          background: 'var(--card-surface, #0C0E12)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '16px',
           boxShadow: '0 24px 64px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.4)',

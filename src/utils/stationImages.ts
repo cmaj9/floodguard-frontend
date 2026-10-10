@@ -31,7 +31,7 @@ export const SVG_STATION_FALLBACKS: Record<string, string> = {
       <!-- Telemetry Pole -->
       <rect x="220" y="100" width="18" height="260" fill="url(#metal)" rx="2" />
       <!-- Solar Panel Bracket -->
-      <polygon points="180,50 280,30 270,70 170,90" fill="#1e293b" stroke="#38bdf8" stroke-width="2" />
+      <polygon points="180,50 280,30 270,70 170,90" fill="#15181E" stroke="#38bdf8" stroke-width="2" />
       <polygon points="183,52 277,33 268,68 174,87" fill="#0369a1" />
       <line x1="205" y1="46" x2="198" y2="82" stroke="#bae6fd" stroke-width="1.5" />
       <line x1="230" y1="41" x2="223" y2="77" stroke="#bae6fd" stroke-width="1.5" />
@@ -78,7 +78,7 @@ export const SVG_STATION_FALLBACKS: Record<string, string> = {
       <!-- Measurement Beam Projection -->
       <polygon points="232,142 244,142 280,360 196,360" fill="#06b6d4" opacity="0.12" />
       <!-- River Surface -->
-      <rect x="0" y="320" width="600" height="40" fill="#0f172a" opacity="0.7" />
+      <rect x="0" y="320" width="600" height="40" fill="#0C0E12" opacity="0.7" />
     </svg>
   `)}`,
 

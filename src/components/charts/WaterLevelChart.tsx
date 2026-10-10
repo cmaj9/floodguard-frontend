@@ -60,7 +60,7 @@ function CustomTooltip({ active, payload, label, station }: any) {
   return (
     <div
       style={{
-        background: 'rgba(8, 14, 22, 0.94)',
+        background: '#15181E',
         border: '1px solid rgba(255, 255, 255, 0.12)',
         borderRadius: 12,
         padding: '12px 16px',
@@ -91,7 +91,7 @@ function CustomTooltip({ active, payload, label, station }: any) {
 
       {pData?.rawDistance != null && (
         <div style={{ color: '#94A3B8', fontSize: 11, marginTop: 4 }}>
-          ระยะเซนเซอร์วัดได้: <strong style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>{Number(pData.rawDistance).toFixed(3)} ม.</strong>
+          ระยะเซนเซอร์วัดได้ <strong style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>{Number(pData.rawDistance).toFixed(3)} ม.</strong>
         </div>
       )}
 

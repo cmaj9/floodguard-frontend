@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import type { UserRole } from '../types';
 import { updateUser, changePasswordApi, setupCredentialsApi, linkLineApi } from '../services/apiService';
 import { getLiffProfile, loginWithLiff } from '../services/liffService';
+import ManagementBackBar from '../components/ui/ManagementBackBar';
 import {
   MailIcon,
   PhoneIcon,
@@ -59,8 +60,6 @@ export default function ProfilePage() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-
-
   // ── Case 1: Email Setup Modal State (for LINE user who hasn't set email) ──
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailModalForm, setEmailModalForm] = useState({
@@ -71,6 +70,22 @@ export default function ProfilePage() {
   const [showModalPass, setShowModalPass] = useState(false);
   const [emailModalError, setEmailModalError] = useState('');
   const [emailModalSaving, setEmailModalSaving] = useState(false);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showEmailModal) setShowEmailModal(false);
+        if (showLogoutModal) setShowLogoutModal(false);
+      }
+    };
+    if (showEmailModal || showLogoutModal) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showEmailModal, showLogoutModal]);
 
   const handleOpenEmailModal = () => {
     setEmailModalForm({ email: '', password: '', confirmPassword: '' });
@@ -165,7 +180,7 @@ export default function ProfilePage() {
     return () => {
       isMounted = false;
     };
-  }, [searchParams, user, updateProfile, setSearchParams]);
+  }, [searchParams, user, updateProfile, setSearchParams, showToast]);
 
   const handleConnectLineClick = async () => {
     if (!user) return;
@@ -308,7 +323,11 @@ export default function ProfilePage() {
 
   return (
     <div className="page-container" style={{ position: 'relative' }}>
-      <div className="profile-layout-grid">
+      <ManagementBackBar
+        title="โปรไฟล์และบัญชีผู้ใช้งาน"
+      />
+
+      <div className="profile-layout-grid" style={{ marginTop: 18 }}>
         {/* ── Left Side: Profile Summary Card ── */}
         <div className="card" style={{ textAlign: 'center' }}>
           <div
@@ -337,11 +356,11 @@ export default function ProfilePage() {
               user.name.slice(0, 1)
             )}
           </div>
-          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{user.name}</h3>
+          <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, color: '#F8FAFC' }}>{user.name}</h3>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>{user.email}</p>
 
           {/* Row 1: Role Badge (Centered) */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <span
               className={`badge ${
                 user.role === 'admin'
@@ -350,7 +369,7 @@ export default function ProfilePage() {
                   ? 'badge-role-staff'
                   : 'badge-role-citizen'
               }`}
-              style={{ fontSize: 12, padding: '4px 14px' }}
+              style={{ fontSize: 12, padding: '4px 14px', fontWeight: 600 }}
             >
               {roleLabel[user.role]}
             </span>
@@ -374,24 +393,29 @@ export default function ProfilePage() {
                 style={{
                   fontSize: 12,
                   padding: '4px 12px',
-                  backgroundColor: 'rgba(6, 199, 85, 0.15)',
+                  backgroundColor: 'rgba(6, 199, 85, 0.12)',
                   color: '#06C755',
-                  border: 'none',
+                  border: '1px solid rgba(6, 199, 85, 0.3)',
+                  borderRadius: 9999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                ● เชื่อมต่อ LINE แล้ว
+                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#06C755' }} />
+                <span>เชื่อมต่อ LINE แล้ว</span>
               </span>
             ) : (
               <button
                 type="button"
                 onClick={handleConnectLineClick}
                 disabled={isLinkingLine}
-                className="btn-outline-action-line"
+                className="btn-outline-action-line tactile-press"
                 title="กดเพื่อเชื่อมต่อบัญชี LINE"
               >
                 {isLinkingLine ? (
                   <>
-                    <RefreshCwIcon size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                    <RefreshCwIcon size={13} className="spin-animate" />
                     <span>กำลังเชื่อมต่อ...</span>
                   </>
                 ) : (
@@ -410,18 +434,23 @@ export default function ProfilePage() {
                 style={{
                   fontSize: 12,
                   padding: '4px 12px',
-                  backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                  backgroundColor: 'rgba(56, 189, 248, 0.12)',
                   color: '#38BDF8',
-                  border: 'none',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: 9999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                ● ตั้งค่า Mail แล้ว
+                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#38BDF8' }} />
+                <span>ตั้งค่า Mail แล้ว</span>
               </span>
             ) : (
               <button
                 type="button"
                 onClick={handleOpenEmailModal}
-                className="btn-outline-action-mail"
+                className="btn-outline-action-mail tactile-press"
                 title="กดเพื่อตั้งค่าอีเมลและรหัสผ่านสำหรับเข้าสู่ระบบ"
               >
                 <LinkIcon size={13} />
@@ -435,26 +464,27 @@ export default function ProfilePage() {
           {/* Account info */}
           <div style={{ textAlign: 'left' }}>
             {[
-              { icon: <MailIcon size={16} />, label: 'อีเมล', value: user.email },
-              { icon: <PhoneIcon size={16} />, label: 'เบอร์โทร', value: user.phone || '-' },
-              { icon: <MapPinIcon size={16} />, label: 'อำเภอ/เขต', value: user.district || '-' },
+              { icon: <MailIcon size={16} />, label: 'อีเมล', value: user.email, isMono: false },
+              { icon: <PhoneIcon size={16} />, label: 'เบอร์โทร', value: user.phone || '—', isMono: true },
+              { icon: <MapPinIcon size={16} />, label: 'อำเภอ/เขต', value: user.district || '—', isMono: false },
             ].map((item) => (
               <div key={item.label} style={{ display: 'flex', gap: 10, marginBottom: 12, fontSize: 13, alignItems: 'center' }}>
                 <span style={{ width: 24, flexShrink: 0, color: 'var(--cyan-glow)', display: 'flex', alignItems: 'center' }}>{item.icon}</span>
                 <div>
                   <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 1 }}>{item.label}</div>
-                  <div style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.value}</div>
+                  <div className={item.isMono ? 'font-mono tabular-nums' : ''} style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.value}</div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Mobile-only Logout in Profile Summary Card (Hidden on Desktop because Desktop has Sidebar Slide Menu) */}
+          {/* Mobile-only Logout in Profile Summary Card */}
           <div className="profile-logout-mobile-only">
             <div className="divider" style={{ margin: '16px 0' }} />
             <button
               type="button"
               onClick={() => setShowLogoutModal(true)}
+              className="tactile-press"
               style={{
                 width: '100%',
                 display: 'flex',
@@ -562,7 +592,7 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary tactile-press"
                   onClick={() => setForm({ name: user.name, phone: user.phone || '', district: user.district || '' })}
                 >
                   ยกเลิก
@@ -570,7 +600,7 @@ export default function ProfilePage() {
                 <button
                   id="save-profile"
                   type="submit"
-                  className="btn btn-primary"
+                  className="btn btn-primary tactile-press"
                   disabled={profileSaving}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
@@ -667,6 +697,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    className="tactile-press"
                     style={{
                       position: 'absolute',
                       right: 10,
@@ -679,7 +710,10 @@ export default function ProfilePage() {
                       padding: 4,
                       display: 'flex',
                       alignItems: 'center',
+                      borderRadius: 4,
                     }}
+                    title={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    aria-label={showCurrentPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   >
                     {showCurrentPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                   </button>
@@ -708,6 +742,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowNewPassword((prev) => !prev)}
+                      className="tactile-press"
                       style={{
                         position: 'absolute',
                         right: 10,
@@ -720,7 +755,10 @@ export default function ProfilePage() {
                         padding: 4,
                         display: 'flex',
                         alignItems: 'center',
+                        borderRadius: 4,
                       }}
+                      title={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                      aria-label={showNewPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                     >
                       {showNewPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                     </button>
@@ -747,6 +785,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      className="tactile-press"
                       style={{
                         position: 'absolute',
                         right: 10,
@@ -759,7 +798,10 @@ export default function ProfilePage() {
                         padding: 4,
                         display: 'flex',
                         alignItems: 'center',
+                        borderRadius: 4,
                       }}
+                      title={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                      aria-label={showConfirmPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                     >
                       {showConfirmPassword ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
                     </button>
@@ -775,7 +817,7 @@ export default function ProfilePage() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary tactile-press"
                   onClick={() => {
                     setPassForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
                     setPassErrors({});
@@ -787,7 +829,7 @@ export default function ProfilePage() {
                 <button
                   id="change-password-submit"
                   type="submit"
-                  className="btn btn-primary"
+                  className="btn btn-primary tactile-press"
                   disabled={passSaving}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
@@ -805,11 +847,16 @@ export default function ProfilePage() {
       {/* ── Minimal Email Setup Modal ── */}
       {showEmailModal && (
         <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="email-setup-modal-title"
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: 'rgba(0, 0, 0, 0.78)',
             backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -823,7 +870,7 @@ export default function ProfilePage() {
             style={{
               maxWidth: 420,
               width: '100%',
-              background: '#0F172A',
+              background: 'var(--card-surface, #0C0E12)',
               border: '1px solid rgba(2, 132, 199, 0.4)',
               borderRadius: 16,
               boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
@@ -849,13 +896,14 @@ export default function ProfilePage() {
                   <MailIcon size={18} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#FFFFFF' }}>ตั้งค่าอีเมลเข้าสู่ระบบ</h3>
+                  <h3 id="email-setup-modal-title" style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#FFFFFF' }}>ตั้งค่าอีเมลเข้าสู่ระบบ</h3>
                   <div style={{ fontSize: 11, color: '#94A3B8' }}>สำหรับเข้าสู่ระบบด้วยอีเมลและรหัสผ่าน</div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={handleCloseEmailModal}
+                className="tactile-press"
                 style={{
                   background: 'none',
                   border: 'none',
@@ -864,7 +912,10 @@ export default function ProfilePage() {
                   cursor: 'pointer',
                   padding: 4,
                   lineHeight: 1,
+                  borderRadius: 4,
                 }}
+                title="ปิดหน้าต่าง"
+                aria-label="ปิดหน้าต่าง"
               >
                 ✕
               </button>
@@ -925,6 +976,7 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowModalPass((prev) => !prev)}
+                    className="tactile-press"
                     style={{
                       position: 'absolute',
                       right: 6,
@@ -935,7 +987,10 @@ export default function ProfilePage() {
                       color: '#94A3B8',
                       cursor: 'pointer',
                       padding: 4,
+                      borderRadius: 4,
                     }}
+                    title={showModalPass ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+                    aria-label={showModalPass ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
                   >
                     {showModalPass ? <EyeOffIcon size={15} /> : <EyeIcon size={15} />}
                   </button>
@@ -961,7 +1016,7 @@ export default function ProfilePage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary tactile-press"
                   onClick={handleCloseEmailModal}
                   style={{ padding: '10px', fontSize: 13, justifyContent: 'center' }}
                 >
@@ -970,7 +1025,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={emailModalSaving}
-                  className="btn btn-primary"
+                  className="btn btn-primary tactile-press"
                   style={{ padding: '10px', fontSize: 13, fontWeight: 600, justifyContent: 'center' }}
                 >
                   {emailModalSaving ? 'กำลังบันทึก...' : 'บันทึกข้อมูล'}
@@ -985,13 +1040,16 @@ export default function ProfilePage() {
       {showLogoutModal && (
         <div
           className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-modal-title"
           onClick={() => setShowLogoutModal(false)}
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            backgroundColor: 'rgba(0, 0, 0, 0.78)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1003,8 +1061,8 @@ export default function ProfilePage() {
             className="modal-card"
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: '#0B1120',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              background: 'var(--card-surface, #0C0E12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
               borderRadius: 16,
               padding: 24,
               maxWidth: 380,
@@ -1030,7 +1088,7 @@ export default function ProfilePage() {
                 <LogOutIcon size={22} />
               </div>
               <div>
-                <h3 style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+                <h3 id="logout-modal-title" style={{ margin: '0 0 6px 0', fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
                   ยืนยันการออกจากระบบ
                 </h3>
                 <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
@@ -1042,7 +1100,7 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary tactile-press"
                 onClick={() => setShowLogoutModal(false)}
                 style={{
                   padding: '9px 18px',
@@ -1055,7 +1113,7 @@ export default function ProfilePage() {
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn tactile-press"
                 onClick={handleLogout}
                 style={{
                   padding: '9px 18px',

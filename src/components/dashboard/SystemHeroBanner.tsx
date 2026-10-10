@@ -26,7 +26,7 @@ export default function SystemHeroBanner({
     ? {
         themeClass: 'banner-critical',
         border: 'rgba(239, 68, 68, 0.4)',
-        bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(17, 24, 39, 0.95) 100%)',
+        bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(12, 14, 18, 0.98) 100%)',
         beaconColor: '#EF4444',
         beaconPingColor: 'rgba(239, 68, 68, 0.4)',
         statusBadge: 'สภาวะวิกฤต',
@@ -38,7 +38,7 @@ export default function SystemHeroBanner({
     ? {
         themeClass: 'banner-advisory',
         border: 'rgba(245, 158, 11, 0.35)',
-        bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(17, 24, 39, 0.95) 100%)',
+        bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(12, 14, 18, 0.98) 100%)',
         beaconColor: '#F59E0B',
         beaconPingColor: 'rgba(245, 158, 11, 0.35)',
         statusBadge: 'เฝ้าระวังระดับน้ำ',
@@ -49,7 +49,7 @@ export default function SystemHeroBanner({
     : {
         themeClass: 'banner-normal',
         border: 'rgba(16, 185, 129, 0.25)',
-        bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(17, 24, 39, 0.95) 100%)',
+        bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(12, 14, 18, 0.98) 100%)',
         beaconColor: '#10B981',
         beaconPingColor: 'rgba(16, 185, 129, 0.3)',
         statusBadge: 'ระบบเปิดให้บริการปกติ',

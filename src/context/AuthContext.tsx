@@ -35,9 +35,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const saved = localStorage.getItem('wl_auth_user');
+      const token = localStorage.getItem('wl_auth_token');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id) {
+          // If staff or admin but has NO token anywhere, this is an obsolete pre-JWT session
+          if ((parsed.role === 'admin' || parsed.role === 'staff') && !token && !parsed.token) {
+            console.warn('[AuthContext] Stale session without JWT token detected. Prompting re-login.');
+            localStorage.removeItem('wl_auth_user');
+            localStorage.removeItem('wl_auth_token');
+            return null;
+          }
+
+          if (parsed.token && !token) {
+            localStorage.setItem('wl_auth_token', parsed.token);
+          } else if (token && !parsed.token) {
+            parsed.token = token;
+          }
+
           const isSynthetic = Boolean(
             parsed.email && (parsed.email.endsWith('@waterwatch.local') || parsed.email.endsWith('@floodguard.local'))
           );
@@ -66,22 +81,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isGuest = !user || user.id === 'citizen_guest';
 
   useEffect(() => {
+    // Listen for unauthorized 401 events dispatched from API service
+    const handleUnauthorized = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      setUser((prevUser) => {
+        if (prevUser && prevUser.id !== 'citizen_guest') {
+          console.warn('[AuthContext] Received 401 unauthorized. Clearing stale session.');
+          localStorage.removeItem('wl_auth_user');
+          localStorage.removeItem('wl_auth_token');
+          setPendingToast(customEvent.detail?.message || 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่อีกครั้ง', 'info');
+          return null;
+        }
+        return prevUser;
+      });
+    };
+    window.addEventListener('app:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('app:unauthorized', handleUnauthorized);
+    };
+  }, []);
+
+  useEffect(() => {
     async function initAuth() {
       const isLiffCallback = hasLiffAuthParams() || isInLineClient();
 
       // If we don't have pending LIFF callback or in-client session, check if a real user is already saved
       if (!isLiffCallback) {
         const saved = localStorage.getItem('wl_auth_user');
+        const token = localStorage.getItem('wl_auth_token');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
             if (parsed && parsed.id && parsed.id !== 'citizen_guest') {
+              if ((parsed.role === 'admin' || parsed.role === 'staff') && !token && !parsed.token) {
+                localStorage.removeItem('wl_auth_user');
+                localStorage.removeItem('wl_auth_token');
+                setUser(null);
+                setIsLoading(false);
+                return;
+              }
+
+              if (parsed.token && !token) {
+                localStorage.setItem('wl_auth_token', parsed.token);
+              } else if (token && !parsed.token) {
+                parsed.token = token;
+              }
+
               setUser(parsed);
               setIsLoading(false);
               return;
             }
           } catch {
             localStorage.removeItem('wl_auth_user');
+            localStorage.removeItem('wl_auth_token');
           }
         }
       }
@@ -99,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
 
             const role = (citizen.role as any) || 'citizen';
+            const citizenToken = (citizen as any).token || (citizen as any).data?.token;
             const isSet = Boolean(
               citizen.isCredentialsSet ??
               citizen.is_credentials_set ??
@@ -117,10 +170,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               pictureUrl: profile.pictureUrl || null,
               isCredentialsSet: isSet,
               is_credentials_set: isSet,
+              token: citizenToken,
             };
 
             setUser(citizenUser);
             localStorage.setItem('wl_auth_user', JSON.stringify(citizenUser));
+            if (citizenToken) {
+              localStorage.setItem('wl_auth_token', citizenToken);
+            }
             if (isLiffCallback) {
               setPendingToast('เข้าสู่ระบบสำเร็จผ่าน LINE เรียบร้อยแล้ว', 'line');
             }
@@ -164,6 +221,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authUser = await loginApi(email, password);
       setUser(authUser);
       localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
+      if (authUser.token) {
+        localStorage.setItem('wl_auth_token', authUser.token);
+      }
       setIsLoading(false);
       setPendingToast('เข้าสู่ระบบสำเร็จ ยินดีต้อนรับสู่ระบบ FloodGuard', 'login');
       return { success: true };
@@ -181,6 +241,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authUser = await registerEmailApi(data);
       setUser(authUser);
       localStorage.setItem('wl_auth_user', JSON.stringify(authUser));
+      if (authUser.token) {
+        localStorage.setItem('wl_auth_token', authUser.token);
+      }
       setIsLoading(false);
       return { success: true };
     } catch (err: any) {
@@ -220,6 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('wl_auth_user');
+    localStorage.removeItem('wl_auth_token');
     logoutLiff();
     setPendingToast('ออกจากระบบเรียบร้อยแล้ว', 'logout');
   }, []);
@@ -253,6 +317,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         setUser(finalUser);
         localStorage.setItem('wl_auth_user', JSON.stringify(finalUser));
+        if (updatedUser.token || finalUser.token) {
+          localStorage.setItem('wl_auth_token', updatedUser.token || finalUser.token || '');
+        }
         setIsLoading(false);
         return { success: true };
       } catch (err: any) {

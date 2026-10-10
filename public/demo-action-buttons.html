@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FloodGuard · Time Range & Action Buttons Showcase</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0A0D12;
+      --surface-card: #0E1218;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hover: rgba(255, 255, 255, 0.2);
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --cyan: #38BDF8;
+      --marine: #0284C7;
+      --emerald: #10B981;
+      --amber: #F59E0B;
+      --rose: #EF4444;
+      --font: -apple-system, BlinkMacSystemFont, "Noto Sans Thai", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      padding: 40px 20px 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 960px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 44px;
+    }
+
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .title {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      background: linear-gradient(180deg, #FFFFFF 0%, #94A3B8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 720px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .notice-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #34D399;
+      background: rgba(16, 185, 129, 0.08);
+      padding: 6px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 48px 0 24px;
+    }
+    .section-divider-line {
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .section-divider-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .button-group-card {
+      background: var(--surface-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 28px;
+      box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .button-group-card:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .button-group-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-tag {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .tag-approved {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .tag-candidate {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .stage-row {
+      background: #040507;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 30px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      position: relative;
+    }
+
+    .feedback-caption {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+      margin-top: 16px;
+      text-align: center;
+      min-height: 20px;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       TIME RANGE CONCEPT T1: THE CHRONO-HORIZON (Living Timeline Stream)
+       ลืมกล่องแท็บเดิมๆ: เป็นเส้นสายเวลาแนวนอน มีขีดสเกล Ticks และ Span ปัจจุบัน
+       ══════════════════════════════════════════════════════════════ */
+    .chrono-horizon-dock {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      position: relative;
+      padding: 12px 10px;
+      user-select: none;
+    }
+
+    .chrono-horizon-item {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      padding: 4px 6px;
+    }
+
+    .chrono-horizon-item .time-marker {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .chrono-horizon-item:hover {
+      color: var(--text);
+    }
+    .chrono-horizon-item:hover .time-marker {
+      background: rgba(255, 255, 255, 0.6);
+      transform: scale(1.4);
+    }
+
+    .chrono-horizon-item.active {
+      color: #FFFFFF;
+      font-weight: 800;
+    }
+
+    .chrono-horizon-item.active .time-marker {
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      transform: scale(1.8);
+    }
+
+    /* เส้น Luminous Span ใต้ตัวเลือกที่ Active */
+    .chrono-horizon-item.active::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--cyan);
+      border-radius: 2px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       TIME RANGE CONCEPT T2: TACTICAL CHAMFER KEYS (Swiss Precision)
+       ปุ่มสไตล์สวิตช์เครื่องมือวัด หน้าปัดมุมตัด 4px (ไม่มนแบบแคปซูล)
+       ══════════════════════════════════════════════════════════════ */
+    .chamfer-keyboard-dock {
+      display: inline-flex;
+      align-items: center;
+      background: #07090C;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 4px;
+      gap: 4px;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+    }
+
+    .chamfer-key {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 4px; /* มุมคมกริบแบบ Technical Instrument */
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      letter-spacing: 0.03em;
+    }
+
+    .chamfer-key:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .chamfer-key.active {
+      background: #15181E;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .chamfer-key.active .key-dot {
+      background: var(--cyan);
+      box-shadow: 0 0 6px var(--cyan);
+    }
+
+    .key-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       TIME RANGE CONCEPT T3: MONOSPACE DELIMITER BRACKETS ([ 24H ])
+       ความเรียบง่ายระดับสูงสุด ไร้กรอบ ไร้พื้นหลัง มีเพียงเครื่องหมาย [ ]
+       ══════════════════════════════════════════════════════════════ */
+    .bracket-nav-dock {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      user-select: none;
+    }
+
+    .bracket-item {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: inherit;
+      font-size: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 4px;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bracket-item .bracket-char {
+      color: rgba(255, 255, 255, 0.15);
+      transition: all 0.15s ease;
+      font-weight: 800;
+    }
+
+    .bracket-item:hover {
+      color: var(--text);
+    }
+    .bracket-item:hover .bracket-char {
+      color: var(--cyan);
+    }
+
+    .bracket-item.active {
+      color: #FFFFFF;
+      font-weight: 800;
+    }
+    .bracket-item.active .bracket-char {
+      color: var(--cyan);
+      text-shadow: 0 0 8px var(--cyan);
+    }
+    .bracket-item.active .bracket-val {
+      color: #FFFFFF;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       TIME RANGE CONCEPT T4: HYDRO-FREQUENCY WAVE BANDS (คลื่นความถี่)
+       แต่ละช่วงเวลามีระลอกคลื่นบอกความถี่ของข้อมูลจริง (Data Density)
+       ══════════════════════════════════════════════════════════════ */
+    .wave-band-dock {
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .wave-band-btn {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+
+    .wave-band-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .wave-band-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .wave-band-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .wave-band-btn.active {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: var(--cyan);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.16);
+    }
+
+    .wave-band-btn.active .wave-band-label {
+      color: #FFFFFF;
+    }
+    .wave-band-btn.active .wave-band-meta {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+
+    /* ══════════════════════════════════════════════════════════════
+       APPROVED BUTTON REPRODUCTIONS (FOR REFERENCE)
+       ══════════════════════════════════════════════════════════════ */
+    .btn-radar-beacon {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.16) 0%, rgba(220, 38, 38, 0.08) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #FECACA;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      user-select: none;
+    }
+    .radar-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--rose);
+      box-shadow: 0 0 10px var(--rose);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .radar-pulse-dot::after {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1.5px solid var(--rose);
+      animation: beaconRadar 1.8s ease-out infinite;
+    }
+    @keyframes beaconRadar {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .btn-radar-beacon:hover {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.28) 0%, rgba(220, 38, 38, 0.16) 100%);
+      border-color: rgba(239, 68, 68, 0.7);
+      color: #FFFFFF;
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn-aqua-fluid {
+      background: rgba(2, 132, 199, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #E0F2FE;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 2px 10px rgba(2, 132, 199, 0.2);
+      user-select: none;
+    }
+    .aqua-fluid-backdrop {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 0%;
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.32) 0%, rgba(2, 132, 199, 0.18) 100%);
+      border-top: 1.5px solid var(--cyan);
+      transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .btn-aqua-fluid:hover .aqua-fluid-backdrop {
+      height: 100%;
+    }
+    .btn-aqua-fluid:hover {
+      border-color: var(--cyan);
+      color: #FFFFFF;
+      box-shadow: 0 4px 18px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    .btn-aqua-fluid .btn-content {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .csv-flight-button {
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #ffffff;
+      padding: 0.5rem 1.15rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(2, 132, 199, 0.35);
+      min-height: 36px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-badge">✦ FRESH TIME RANGE EXPLORATION · BOLDER CRAFT</div>
+      <h1 class="title">4 ตัวเลือกช่วงเวลาใหม่ (Time Range Selectors)</h1>
+      <p class="subtitle">
+        ตามที่คุณแจ้งว่าไม่ชอบแท็บสีม่วงแบบเดิม ผมจึงออกแบบ <strong>4 แนวคิดใหม่ล่าสุดสำหรับตัวเลือกช่วงเวลา (24 ชม. / 14 วัน / 14 สัปดาห์)</strong> โดยฉีกกรอบออกจากกล่องแท็บมาตรฐาน สู่ความมินิมอลระดับโปร
+      </p>
+      <div class="notice-bar">
+        <span>✨ ปุ่ม "ส่งออก CSV", "Crimson Radar" และ "Aqua Fluid" อัปเดตและเก็บไว้ตามที่คุณชอบเรียบร้อยแล้ว</span>
+      </div>
+    </div>
+
+    <!-- ── 4 FRESH TIME RANGE CONCEPTS ── -->
+    
+    <!-- ── CONCEPT T1 ── -->
+    <div class="button-group-card">
+      <div class="card-top">
+        <div class="card-title">
+          <span>T1 · The Chrono-Horizon (เส้นสายเวลาแนวนอน ไร้กล่องกรอบ)</span>
+        </div>
+        <span class="card-tag tag-candidate">มินิมอลสูงสุด ⏱️</span>
+      </div>
+      <p class="card-desc">
+        <strong>ตัดกล่องแท็บทิ้ง 100%:</strong> ไม่มีกรอบ ไม่มีพื้นหลังสีทึบ มีเพียงชื่อช่วงเวลาและจุดบอกพิกัดเวลา (Time Marker) เมื่อเลือกจะเรืองแสงสีฟ้าพร้อมขีดเส้นสะท้อนลอยใต้ตัวเลือก สบายตาและเข้ากับหน้าจอกราฟที่สุด
+      </p>
+
+      <div class="stage-row">
+        <div class="chrono-horizon-dock">
+          <button class="chrono-horizon-item active" onclick="selectHorizon(this, '24 ชั่วโมง')">
+            <span>24 ชม.</span>
+            <div class="time-marker"></div>
+          </button>
+          <span style="color: rgba(255,255,255,0.12)">·</span>
+          <button class="chrono-horizon-item" onclick="selectHorizon(this, '14 วันย้อนหลัง')">
+            <span>14 วัน</span>
+            <div class="time-marker"></div>
+          </button>
+          <span style="color: rgba(255,255,255,0.12)">·</span>
+          <button class="chrono-horizon-item" onclick="selectHorizon(this, '14 สัปดาห์')">
+            <span>14 สัปดาห์</span>
+            <div class="time-marker"></div>
+          </button>
+          <span style="color: rgba(255,255,255,0.12)">·</span>
+          <button class="chrono-horizon-item" onclick="selectHorizon(this, 'กำหนดเอง (Custom Range)')">
+            <span>กำหนดเอง</span>
+            <div class="time-marker"></div>
+          </button>
+        </div>
+      </div>
+      <div class="feedback-caption" id="feed-t1">ลองคลิกสลับช่วงเวลาบน Chrono-Horizon</div>
+    </div>
+
+    <!-- ── CONCEPT T2 ── -->
+    <div class="button-group-card">
+      <div class="card-top">
+        <div class="card-title">
+          <span>T2 · Tactical Chamfer Keys (แป้นสวิตช์เครื่องมือวัด หน้าปัดมุมตัด 4px)</span>
+        </div>
+        <span class="card-tag tag-candidate">สไตล์เครื่องวัดสวิส ⚙️</span>
+      </div>
+      <p class="card-desc">
+        <strong>ลืมทรงแคปซูลยา:</strong> ใช้มุมตัด 4px สไตล์เครื่องมือวัดออสซิลโลสโคปของวิศวกร (Oscilloscope Keys) วางบนถาด Basalt สีดำด้าน เมื่อกดแล้วปุ่มจะจมลงแบบมีน้ำหนัก พร้อมเสียงคลิกสวิตช์เครื่องกล
+      </p>
+
+      <div class="stage-row">
+        <div class="chamfer-keyboard-dock">
+          <button class="chamfer-key active" onclick="selectChamfer(this, '24H (Realtime)')">
+            <span class="key-dot"></span>
+            <span>24H</span>
+          </button>
+          <button class="chamfer-key" onclick="selectChamfer(this, '14D (Daily)')">
+            <span class="key-dot"></span>
+            <span>14D</span>
+          </button>
+          <button class="chamfer-key" onclick="selectChamfer(this, '14W (Weekly)')">
+            <span class="key-dot"></span>
+            <span>14W</span>
+          </button>
+          <button class="chamfer-key" onclick="selectChamfer(this, 'CUSTOM (ช่วงกำหนดเอง)')">
+            <span class="key-dot"></span>
+            <span>CUSTOM</span>
+          </button>
+        </div>
+      </div>
+      <div class="feedback-caption" id="feed-t2">ลองคลิกเพื่อสัมผัสความแน่นของสวิตช์ Chamfer Key</div>
+    </div>
+
+    <!-- ── CONCEPT T3 ── -->
+    <div class="button-group-card">
+      <div class="card-top">
+        <div class="card-title">
+          <span>T3 · Monospace Brackets ([ 24h ] วงเล็บรหัสเทคนิคอล)</span>
+        </div>
+        <span class="card-tag tag-candidate">คลีนและเท่ที่สุด 💻</span>
+      </div>
+      <p class="card-desc">
+        <strong>ฉีกกรอบแบบ Developer/Architectural Console:</strong> ตัวเลือกที่ยังไม่ถูกกดจะเป็นข้อความเรียบง่าย แต่ตัวเลือกที่ถูกเลือกจะถูกประกบด้วยวงเล็บเรืองแสง <code>[ 24h ]</code> พร้อมจุดสถานะสีฟ้า ให้ความรู้สึกไฮเทคและไม่กินพื้นที่
+      </p>
+
+      <div class="stage-row">
+        <div class="bracket-nav-dock">
+          <button class="bracket-item active" onclick="selectBracket(this, '24h')">
+            <span class="bracket-char">[</span>
+            <span class="bracket-val">● 24h</span>
+            <span class="bracket-char">]</span>
+          </button>
+          <span style="color: rgba(255,255,255,0.15)">/</span>
+          <button class="bracket-item" onclick="selectBracket(this, '14d')">
+            <span class="bracket-char">[</span>
+            <span class="bracket-val">14d</span>
+            <span class="bracket-char">]</span>
+          </button>
+          <span style="color: rgba(255,255,255,0.15)">/</span>
+          <button class="bracket-item" onclick="selectBracket(this, '14w')">
+            <span class="bracket-char">[</span>
+            <span class="bracket-val">14w</span>
+            <span class="bracket-char">]</span>
+          </button>
+          <span style="color: rgba(255,255,255,0.15)">/</span>
+          <button class="bracket-item" onclick="selectBracket(this, 'custom')">
+            <span class="bracket-char">[</span>
+            <span class="bracket-val">custom</span>
+            <span class="bracket-char">]</span>
+          </button>
+        </div>
+      </div>
+      <div class="feedback-caption" id="feed-t3">ลองคลิกวงเล็บโค้ดเพื่อดูการสลับสไตล์ Monospace</div>
+    </div>
+
+    <!-- ── CONCEPT T4 ── -->
+    <div class="button-group-card">
+      <div class="card-top">
+        <div class="card-title">
+          <span>T4 · Hydro-Frequency Wave Bands (แถบความถี่คลื่นมวลน้ำ)</span>
+        </div>
+        <span class="card-tag tag-candidate">บอกความหนาแน่นของข้อมูล 🌊</span>
+      </div>
+      <p class="card-desc">
+        <strong>ปุ่มบอกความละเอียดของข้อมูล (Data Granularity):</strong> 24 ชม. แสดงคลื่นความถี่สูง (ทุก 5 นาที), 14 วัน แสดงคลื่นวัน (Daily Mean), 14 สัปดาห์ แสดงคลื่นภาพกว้าง ลอยตัวนุ่มนวล
+      </p>
+
+      <div class="stage-row">
+        <div class="wave-band-dock">
+          <button class="wave-band-btn active" onclick="selectWaveBand(this, '24 ชม. (ละเอียดทุก 5 นาที)')">
+            <span class="wave-band-label">24 ชม.</span>
+            <span class="wave-band-meta">∿∿ HIGH RES</span>
+          </button>
+          <button class="wave-band-btn" onclick="selectWaveBand(this, '14 วัน (เฉลี่ยรายวัน)')">
+            <span class="wave-band-label">14 วัน</span>
+            <span class="wave-band-meta">∿ DAILY</span>
+          </button>
+          <button class="wave-band-btn" onclick="selectWaveBand(this, '14 สัปดาห์ (แนวโน้มฤดูกาล)')">
+            <span class="wave-band-label">14 สัปดาห์</span>
+            <span class="wave-band-meta">~ MACRO</span>
+          </button>
+        </div>
+      </div>
+      <div class="feedback-caption" id="feed-t4">ลองคลิกแถบความถี่เพื่อดูการแสดงความละเอียดข้อมูล</div>
+    </div>
+
+
+    <!-- ── SECTION: APPROVED ACTION BUTTONS (ALREADY IMPLEMENTED) ── -->
+    <div class="section-divider">
+      <div class="section-divider-line"></div>
+      <div class="section-divider-title">ปุ่ม Action ที่คุณอนุมัติและนำไปใช้งานแล้ว</div>
+      <div class="section-divider-line"></div>
+    </div>
+
+    <!-- ── DEPLOYED SHOWCASE ── -->
+    <div class="button-group-card" style="border-color: rgba(16, 185, 129, 0.3);">
+      <div class="card-top">
+        <div class="card-title">
+          <span>ปุ่มชุดใหม่ที่เปิดใช้งานจริงแล้วบน Dashboard</span>
+        </div>
+        <span class="card-tag tag-approved">DEPLOYED TO DASHBOARD ✅</span>
+      </div>
+      <p class="card-desc">
+        ปุ่มทั้งสองแบบนี้ถูกติดตั้งลงในหน้า Dashboard และ Station Telemetry Hub จริงเรียบร้อยแล้ว:
+      </p>
+      
+      <div class="stage-row" style="gap: 24px;">
+        <!-- Crimson Radar Beacon -->
+        <button class="btn-radar-beacon" onclick="playClickSound('sonar')">
+          <div class="radar-pulse-dot"></div>
+          <span>ยิงแจ้งเตือนด่วน LINE OA</span>
+        </button>
+
+        <!-- Aqua Fluid Shimmer -->
+        <button class="btn-aqua-fluid" onclick="playClickSound('fluid')">
+          <div class="aqua-fluid-backdrop"></div>
+          <div class="btn-content">
+            <span>กราฟเชิงลึก</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+          </div>
+        </button>
+
+        <!-- CSV Flight Button (Preserved) -->
+        <button class="csv-flight-button" onclick="playClickSound('fluid')">
+          <div class="flight-svg-wrapper">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </div>
+          <span style="margin-left: 6px;">ส่งออก CSV</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx && AudioContext) audioCtx = new AudioContext();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playClickSound(type) {
+      initAudio();
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        if (type === 'horizon') {
+          // Soft temporal sweep
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(780, audioCtx.currentTime + 0.05);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        } else if (type === 'chamfer') {
+          // Mechanical instrument snap
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.025);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.025);
+        } else if (type === 'bracket') {
+          // Terminal keyboard tap
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.03);
+          gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+        } else if (type === 'wave') {
+          // Hydro-acoustic wave resonance
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(640, audioCtx.currentTime + 0.06);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+        } else if (type === 'sonar') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+        } else if (type === 'fluid') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.05);
+          gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        }
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch (e) {}
+    }
+
+    // T1: Horizon
+    function selectHorizon(btn, label) {
+      playClickSound('horizon');
+      const all = btn.parentElement.querySelectorAll('.chrono-horizon-item');
+      all.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('feed-t1').innerHTML = `⏱️ สลับช่วงเวลา: <strong>${label}</strong> (ไร้กล่องกรอบ มินิมอล)`;
+    }
+
+    // T2: Chamfer
+    function selectChamfer(btn, label) {
+      playClickSound('chamfer');
+      const all = btn.parentElement.querySelectorAll('.chamfer-key');
+      all.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('feed-t2').innerHTML = `⚙️ ล็อกช่วงเวลา: <strong>${label}</strong> (แป้นสวิตช์เครื่องมือวัด)`;
+    }
+
+    // T3: Bracket
+    function selectBracket(btn, id) {
+      playClickSound('bracket');
+      const all = btn.parentElement.querySelectorAll('.bracket-item');
+      all.forEach(b => {
+        b.classList.remove('active');
+        b.querySelector('.bracket-val').textContent = b.querySelector('.bracket-val').textContent.replace('● ', '');
+      });
+      btn.classList.add('active');
+      const valSpan = btn.querySelector('.bracket-val');
+      if (!valSpan.textContent.includes('●')) {
+        valSpan.textContent = '● ' + valSpan.textContent;
+      }
+      document.getElementById('feed-t3').innerHTML = `💻 เลือกช่วงเวลา <strong>[ ${id} ]</strong> สไตล์ Technical Console`;
+    }
+
+    // T4: Wave Band
+    function selectWaveBand(btn, label) {
+      playClickSound('wave');
+      const all = btn.parentElement.querySelectorAll('.wave-band-btn');
+      all.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('feed-t4').innerHTML = `🌊 สลับระดับความละเอียดข้อมูล: <strong>${label}</strong>`;
+    }
+  </script>
+</body>
+</html>

@@ -70,7 +70,7 @@ export function SkeletonMetric({ className = '' }: { className?: string }) {
       style={{
         padding: '1.25rem',
         borderRadius: '12px',
-        background: 'rgba(17, 24, 39, 0.65)',
+        background: 'var(--card-surface, #0C0E12)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
         flexDirection: 'column',
@@ -105,7 +105,7 @@ export function SkeletonCard({
         height,
         padding: '1.25rem',
         borderRadius: '14px',
-        background: 'rgba(17, 24, 39, 0.6)',
+        background: 'var(--card-surface, #0C0E12)',
         border: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
         flexDirection: 'column',
@@ -150,7 +150,7 @@ export function SkeletonTable({
         gap: '8px',
         width: '100%',
         padding: '1rem',
-        background: 'rgba(17, 24, 39, 0.4)',
+        background: 'var(--card-surface, #0C0E12)',
         borderRadius: '12px',
         border: '1px solid rgba(255, 255, 255, 0.06)',
       }}
