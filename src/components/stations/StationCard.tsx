@@ -18,7 +18,7 @@ const statusColors: Record<WaterStatus, { bg: string; border: string; text: stri
   unknown: { bg: 'var(--bg-surface)', border: 'var(--border)', text: 'var(--text-muted)', fill: 'var(--border)' },
 };
 const statusLabel: Record<WaterStatus, string> = {
-  normal: 'ปกติ',
+  normal: 'ออนไลน์',
   warning: 'เฝ้าระวัง',
   critical: 'วิกฤต',
   unknown: 'ไม่ทราบสถานะ',

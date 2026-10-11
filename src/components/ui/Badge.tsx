@@ -1,6 +1,6 @@
 import React from 'react';
 import type { WaterStatus, UserRole } from '../../types';
-import { CheckCircleIcon, AlertTriangleIcon, XCircleIcon, ShieldIcon, UserIcon, Building2Icon } from './Icons';
+import { AlertTriangleIcon, XCircleIcon, ShieldIcon, UserIcon, Building2Icon } from './Icons';
 
 export type BadgeStatusType = WaterStatus | 'offline' | UserRole | 'info' | 'default';
 
@@ -35,12 +35,11 @@ export function Badge({
     { label: string; bg: string; text: string; border: string; dotColor: string; defaultIcon?: React.ReactNode }
   > = {
     normal: {
-      label: 'ปกติ',
+      label: 'ออนไลน์',
       bg: 'rgba(16, 185, 129, 0.12)',
       text: '#34D399',
       border: 'rgba(16, 185, 129, 0.28)',
       dotColor: '#10B981',
-      defaultIcon: <CheckCircleIcon size={12} />,
     },
     warning: {
       label: 'เฝ้าระวัง',
@@ -114,7 +113,7 @@ export function Badge({
 
   const cfg = configMap[status] || configMap.default;
   const content = label || children || cfg.label;
-  const renderedIcon = icon !== undefined ? icon : cfg.defaultIcon;
+  const renderedIcon = icon !== undefined ? icon : (dot ? null : cfg.defaultIcon);
 
   return (
     <span

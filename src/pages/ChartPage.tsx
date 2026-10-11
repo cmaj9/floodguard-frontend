@@ -35,7 +35,7 @@ const timeRangeOptions: SegmentedOption<TimeRange>[] = [
 ];
 
 const statusLabel: Record<string, string> = {
-  normal: 'ปกติ',
+  normal: 'ออนไลน์',
   warning: 'เฝ้าระวัง',
   critical: 'วิกฤต',
   unknown: 'ไม่มีข้อมูล',
@@ -671,8 +671,8 @@ export default function ChartPage() {
                       ? 'ออฟไลน์'
                       : !hasReading
                       ? 'ออนไลน์ (รอข้อมูล)'
-                      : statusLabel[selectedStation.status];
-                    return <Badge status={badgeStatus} dot label={badgeLabel} size="sm" />;
+                      : (statusLabel[selectedStation.status] || 'ออนไลน์');
+                    return <Badge status={badgeStatus} dot icon={null} label={badgeLabel} size="sm" />;
                   })()}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
@@ -1199,21 +1199,24 @@ export default function ChartPage() {
               }
 
               // Compute water capacity percentage
-              const curLvl = s.currentLevel ?? 0;
+              const hasReading = s.currentLevel !== null && s.currentLevel !== undefined;
+              const curLvl = hasReading ? Number(s.currentLevel) : 0;
               const critLvl = s.criticalLevel && s.criticalLevel > 0 ? s.criticalLevel : (s.warningLevel ? s.warningLevel * 1.25 : null);
               let pct = 0;
-              if (critLvl && critLvl > 0) {
-                pct = Math.min(100, Math.max(0, Math.round((curLvl / critLvl) * 100)));
-              } else {
-                pct = s.status === 'critical' ? 92 : s.status === 'warning' ? 70 : curLvl > 0 ? 25 : 8;
+              if (hasReading) {
+                if (critLvl && critLvl > 0) {
+                  pct = Math.min(100, Math.max(0, Math.round((curLvl / critLvl) * 100)));
+                } else {
+                  pct = s.status === 'critical' ? 92 : s.status === 'warning' ? 70 : curLvl > 0 ? 25 : 8;
+                }
               }
 
               const circumference = 113.1;
-              const strokeOffset = circumference - (pct / 100) * circumference;
+              const strokeOffset = hasReading ? circumference - (pct / 100) * circumference : circumference;
 
               const waterLevelColor = isSelected
                 ? '#FFFFFF'
-                : curLvl > 0
+                : hasReading && curLvl > 0
                 ? dynamicColor
                 : '#94A3B8';
 
@@ -1329,7 +1332,7 @@ export default function ChartPage() {
                         color: isOffline ? '#94A3B8' : '#FFFFFF',
                       }}
                     >
-                      {`${pct}%`}
+                      {hasReading ? `${pct}%` : '-'}
                     </span>
                   </div>
 
@@ -1367,17 +1370,19 @@ export default function ChartPage() {
                           letterSpacing: '-0.02em',
                         }}
                       >
-                        {(curLvl > 0 ? '+' : '') + curLvl.toFixed(2)}
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            marginLeft: '2px',
-                            color: isSelected ? '#CBD5E1' : curLvl > 0 ? `${dynamicColor}CC` : '#64748B',
-                            fontWeight: 600,
-                          }}
-                        >
-                          ม.
-                        </span>
+                        {hasReading ? (curLvl > 0 ? '+' : '') + curLvl.toFixed(2) : '-'}
+                        {hasReading && (
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              marginLeft: '2px',
+                              color: isSelected ? '#CBD5E1' : curLvl > 0 ? `${dynamicColor}CC` : '#64748B',
+                              fontWeight: 600,
+                            }}
+                          >
+                            ม.
+                          </span>
+                        )}
                       </span>
                     </div>
 

@@ -224,7 +224,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
   // Tactical Sonar status derivation
   let statusBadgeType: "normal" | "warning" | "critical" | "offline" = "normal";
-  let statusText = `ระดับน้ำปกติ (ต่ำกว่า${refName})`;
+  let statusText = "สถานีออนไลน์ (Online)";
 
   if (isOffline) {
     statusBadgeType = "offline";
@@ -766,7 +766,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               {station.name}
             </h2>
 
-            <Badge status={statusBadgeType} dot label={statusText} />
+            <Badge status={statusBadgeType} dot icon={null} label={statusText} />
           </div>
 
           <div

@@ -53,7 +53,7 @@ const timeframeOptions: SegmentedOption<TimeRange>[] = [
 ];
 
 const statusLabel: Record<WaterStatus, string> = {
-  normal: 'ปกติ',
+  normal: 'ออนไลน์',
   warning: 'เฝ้าระวัง',
   critical: 'วิกฤต',
   unknown: 'ไม่มีข้อมูล',
