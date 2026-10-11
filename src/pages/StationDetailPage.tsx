@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { format, subHours, subDays } from 'date-fns';
 import type { Station, StationWithReading, Reading, TimeRange, WaterStatus } from '../types';
+import { isStationOnline, formatRelativeTimeThai } from '../utils/stationStatus';
 import {
   fetchStations,
   fetchReadingsInRange,
@@ -33,15 +34,11 @@ import {
   ThermometerIcon,
   ActivityIcon,
   BatteryChargingIcon,
-  RadioIcon,
   SlidersIcon,
   BellIcon,
   Edit3Icon,
-  ClockIcon,
-  LineChartIcon,
   AlertTriangleIcon,
   WavesIcon,
-  RefreshCwIcon,
   TrendingUpIcon,
   TrendingDownIcon,
   MinusIcon,
@@ -50,9 +47,9 @@ import {
 import { SkeletonCard } from '../components/ui/Skeleton';
 
 const timeframeOptions: SegmentedOption<TimeRange>[] = [
-  { value: 'hourly', label: '24 ชั่วโมง', icon: <ClockIcon size={13} /> },
-  { value: 'daily', label: '7 วัน', icon: <ActivityIcon size={13} /> },
-  { value: 'weekly', label: '30 วัน', icon: <LineChartIcon size={13} /> },
+  { value: 'hourly', label: '24 ชม.' },
+  { value: 'daily', label: '7 วัน' },
+  { value: 'weekly', label: '30 วัน' },
 ];
 
 const statusLabel: Record<WaterStatus, string> = {
@@ -101,7 +98,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
         ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
         : swr.water_level != null
         ? Number(swr.water_level)
-        : 0,
+        : null,
     sensorToRefDistance: sToRef,
     referencePointName: refName,
     rawDistance: swr.raw_distance != null ? Number(swr.raw_distance) : null,
@@ -114,8 +111,16 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     criticalLevel: swr.critical_level != null ? Number(swr.critical_level) : undefined,
     status: swr.water_status || 'unknown',
     operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
-    lastUpdated: swr.last_reading_time || new Date().toISOString(),
+    lastReadingTime: swr.last_reading_time || null,
+    statusUpdatedAt: swr.status_updated_at || null,
+    lastUpdated: swr.last_reading_time || '',
     isActive: swr.status === 'active',
+    isOnline: swr.is_online !== undefined ? Boolean(swr.is_online) : swr.status === 'active',
+    manualStatus: (swr.manual_status || swr.status || 'active') as 'active' | 'offline' | 'maintenance',
+    manualOfflineAt: swr.manual_offline_at || null,
+    isManualOffline: swr.is_manual_offline !== undefined ? Boolean(swr.is_manual_offline) : Boolean(swr.manual_offline_at),
+    offlineTimeoutMinutes: swr.offline_timeout_minutes != null ? Number(swr.offline_timeout_minutes) : 30,
+    minutesSinceLastReading: swr.minutes_since_last_reading != null ? Number(swr.minutes_since_last_reading) : undefined,
     deviceId: swr.station_id,
     batteryPercent: swr.battery_percent != null ? Number(swr.battery_percent) : undefined,
     batteryVoltage: swr.battery_voltage != null ? Number(swr.battery_voltage) : undefined,
@@ -139,45 +144,62 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
 
 // ── Custom Tooltips with Tactical Matte Glass Aesthetic ───────────────────
 
-function WaterTooltip({ active, payload }: any) {
+function WaterTooltip({ active, payload, waterUnit = 'm' }: any) {
   if (!active || !payload || !payload.length) return null;
   const data = payload[0]?.payload;
   if (!data) return null;
 
+  const isCm = waterUnit === 'cm';
+  const formattedVal =
+    data.waterLevel != null
+      ? isCm
+        ? `${data.waterLevel * 100 >= 0 ? '+' : ''}${(data.waterLevel * 100).toFixed(1)}`
+        : `${data.waterLevel >= 0 ? '+' : ''}${data.waterLevel.toFixed(3)}`
+      : '-';
+  const unitText = isCm ? 'ซม.' : 'เมตร';
+  const formattedDist =
+    data.rawDistance != null
+      ? isCm
+        ? `${(data.rawDistance * 100).toFixed(1)} ซม.`
+        : `${data.rawDistance.toFixed(3)} ม.`
+      : null;
+
   return (
     <div
       style={{
-        background: '#15181E',
+        background: 'var(--card-surface, #15181E)',
         border: '1px solid rgba(56, 189, 248, 0.28)',
         borderRadius: 12,
         padding: '12px 16px',
-        fontSize: 12.5,
+        fontSize: 12,
+        lineHeight: 1.4,
         boxShadow: '0 12px 32px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         minWidth: 190,
       }}
     >
-      <div style={{ color: '#94A3B8', fontSize: 11, marginBottom: 6, fontWeight: 500 }}>
+      <div className="tabular-nums font-mono" style={{ color: 'var(--text-secondary, #94A3B8)', fontSize: 11, marginBottom: 6, fontWeight: 500 }}>
         {data.fullTime}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
         <span
           className="tabular-nums font-mono"
           style={{
-            color: '#38BDF8',
+            color: 'var(--color-cyan, #38BDF8)',
             fontWeight: 800,
             fontSize: 20,
+            lineHeight: 1,
             letterSpacing: '-0.02em',
           }}
         >
-          {data.waterLevel != null ? (data.waterLevel >= 0 ? `+${data.waterLevel.toFixed(3)}` : data.waterLevel.toFixed(3)) : '-'}
+          {formattedVal}
         </span>
-        <span style={{ color: '#94A3B8', fontSize: 11.5 }}>เมตร</span>
+        <span style={{ color: 'var(--text-secondary, #94A3B8)', fontSize: 12 }}>{unitText}</span>
       </div>
-      {data.rawDistance != null && (
-        <div style={{ color: '#64748B', fontSize: 11, marginTop: 4 }}>
-          ระยะเซนเซอร์วัดได้ <span className="tabular-nums font-mono" style={{ color: '#CBD5E1' }}>{data.rawDistance.toFixed(3)} ม.</span>
+      {formattedDist != null && (
+        <div style={{ color: 'var(--text-secondary, #94A3B8)', fontSize: 11.5, marginTop: 4 }}>
+          ระยะเซนเซอร์ <span className="tabular-nums font-mono" style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 600 }}>{formattedDist}</span>
         </div>
       )}
     </div>
@@ -192,18 +214,19 @@ function EnvironmentTooltip({ active, payload }: any) {
   return (
     <div
       style={{
-        background: '#15181E',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
+        background: 'var(--card-surface, #15181E)',
+        border: '1px solid var(--card-border, rgba(255, 255, 255, 0.12))',
         borderRadius: 12,
         padding: '12px 16px',
-        fontSize: 12.5,
+        fontSize: 12,
+        lineHeight: 1.4,
         boxShadow: '0 12px 32px rgba(0, 0, 0, 0.7)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         minWidth: 190,
       }}
     >
-      <div style={{ color: '#94A3B8', fontSize: 11, marginBottom: 8, fontWeight: 500 }}>
+      <div className="tabular-nums font-mono" style={{ color: 'var(--text-secondary, #94A3B8)', fontSize: 11, marginBottom: 8, fontWeight: 500 }}>
         {data.fullTime}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -212,16 +235,16 @@ function EnvironmentTooltip({ active, payload }: any) {
             <ThermometerIcon size={13} />
             <span>อุณหภูมิ</span>
           </span>
-          <span className="tabular-nums font-mono" style={{ color: '#F8FAFC', fontWeight: 700 }}>
+          <span className="tabular-nums font-mono" style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 700 }}>
             {data.temperature != null ? `${data.temperature.toFixed(1)} °C` : '-'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ color: '#06B6D4', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--color-cyan, #38BDF8)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <ActivityIcon size={13} />
             <span>ความชื้น</span>
           </span>
-          <span className="tabular-nums font-mono" style={{ color: '#F8FAFC', fontWeight: 700 }}>
+          <span className="tabular-nums font-mono" style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 700 }}>
             {data.humidity != null ? `${data.humidity.toFixed(1)} %RH` : '-'}
           </span>
         </div>
@@ -238,34 +261,35 @@ function BatteryTooltip({ active, payload }: any) {
   return (
     <div
       style={{
-        background: '#15181E',
+        background: 'var(--card-surface, #15181E)',
         border: '1px solid rgba(16, 185, 129, 0.28)',
         borderRadius: 12,
         padding: '12px 16px',
-        fontSize: 12.5,
+        fontSize: 12,
+        lineHeight: 1.4,
         boxShadow: '0 12px 32px rgba(0, 0, 0, 0.7)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
         minWidth: 190,
       }}
     >
-      <div style={{ color: '#94A3B8', fontSize: 11, marginBottom: 8, fontWeight: 500 }}>
+      <div className="tabular-nums font-mono" style={{ color: 'var(--text-secondary, #94A3B8)', fontSize: 11, marginBottom: 8, fontWeight: 500 }}>
         {data.fullTime}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: 'var(--color-normal, #10B981)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <BatteryChargingIcon size={13} />
-            <span>ระดับแบตเตอรี่</span>
+            <span>แบตเตอรี่</span>
           </span>
-          <span className="tabular-nums font-mono" style={{ color: '#F8FAFC', fontWeight: 700 }}>
+          <span className="tabular-nums font-mono" style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 700 }}>
             {data.batteryPercent != null ? `${data.batteryPercent}%` : '-'}
           </span>
         </div>
         {data.batteryVoltage != null && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span style={{ color: '#64748B' }}>แรงดันไฟฟ้า</span>
-            <span className="tabular-nums font-mono" style={{ color: '#CBD5E1', fontWeight: 600 }}>
+            <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>แรงดันไฟฟ้า</span>
+            <span className="tabular-nums font-mono" style={{ color: 'var(--text-secondary, #CBD5E1)', fontWeight: 600 }}>
               {data.batteryVoltage.toFixed(2)} V
             </span>
           </div>
@@ -277,9 +301,13 @@ function BatteryTooltip({ active, payload }: any) {
 
 // ── Main Page Component ───────────────────────────────────────────────────
 
+import { useAuth } from '../context/AuthContext';
+
 export default function StationDetailPage() {
   const { stationId } = useParams<{ stationId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.role === 'staff';
 
   const [station, setStation] = useState<Station | null>(null);
   const [readings, setReadings] = useState<Reading[]>([]);
@@ -289,8 +317,15 @@ export default function StationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
-  // Auto-refresh countdown (Delight axis)
-  const [countdown, setCountdown] = useState(30);
+  // Water level display unit: 'm' (meters, default) or 'cm' (centimeters)
+  const [waterUnit, setWaterUnit] = useState<'m' | 'cm'>('m');
+
+  // Real-time time tick for accurate offline timeout calculation
+  const [timeTick, setTimeTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Modals
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -347,30 +382,14 @@ export default function StationDetailPage() {
     loadStation();
   }, [loadStation]);
 
+  // Auto-refresh telemetry in the background every 30 seconds
   useEffect(() => {
     loadReadings();
-  }, [loadReadings]);
-
-  // Auto-refresh timer countdown (30s)
-  useEffect(() => {
     const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          loadReadings();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      loadReadings();
+    }, 30000);
     return () => clearInterval(timer);
   }, [loadReadings]);
-
-  // Manual Force Refresh
-  const handleForceRefresh = async () => {
-    setCountdown(30);
-    await loadStation();
-    await loadReadings();
-  };
 
   // Global App Refresh Listener from TopBar
   useEffect(() => {
@@ -384,11 +403,26 @@ export default function StationDetailPage() {
     };
   }, [loadStation, loadReadings]);
 
+  // Scroll to hash section if present (e.g. #battery-chart)
+  useEffect(() => {
+    if (window.location.hash) {
+      const targetId = window.location.hash.replace('#', '');
+      const el = document.getElementById(targetId);
+      if (el) {
+        const timer = setTimeout(() => {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [stationId]);
+
   // Trigger Confirmation Modal for Operating Status Change
   const handleRequestStatusToggle = (newStatus: 'active' | 'offline') => {
     if (!station) return;
     const isTargetActive = newStatus === 'active';
-    if (station.isActive === isTargetActive) return;
+    const isManualActive = (station.manualStatus || station.operatingStatus) === 'active';
+    if (isManualActive === isTargetActive) return;
     setStatusConfirmTarget(newStatus);
     setStatusConfirmModalOpen(true);
   };
@@ -397,11 +431,25 @@ export default function StationDetailPage() {
   const handleExecuteStatusToggle = async () => {
     if (!station || statusUpdating) return;
     const targetStatus = statusConfirmTarget;
+    const isTargetActive = targetStatus === 'active';
     const prevActive = station.isActive;
     const prevStatus = station.operatingStatus;
+    const prevManual = station.manualStatus;
+    const prevOnline = station.isOnline;
 
     setStation((prev) =>
-      prev ? { ...prev, isActive: targetStatus === 'active', operatingStatus: targetStatus } : null
+      prev
+        ? {
+            ...prev,
+            isActive: isTargetActive,
+            operatingStatus: targetStatus,
+            manualStatus: targetStatus,
+            isOnline:
+              isTargetActive &&
+              (prev.minutesSinceLastReading == null ||
+                prev.minutesSinceLastReading < (prev.offlineTimeoutMinutes || 30)),
+          }
+        : null
     );
     setStatusUpdating(true);
 
@@ -410,7 +458,15 @@ export default function StationDetailPage() {
       window.dispatchEvent(new Event('app:refresh'));
     } catch (err: any) {
       setStation((prev) =>
-        prev ? { ...prev, isActive: prevActive, operatingStatus: prevStatus } : null
+        prev
+          ? {
+              ...prev,
+              isActive: prevActive,
+              operatingStatus: prevStatus,
+              manualStatus: prevManual,
+              isOnline: prevOnline,
+            }
+          : null
       );
       alert(err.message || 'ไม่สามารถเปลี่ยนสถานะการให้บริการได้');
     } finally {
@@ -418,9 +474,31 @@ export default function StationDetailPage() {
     }
   };
 
-  // Format Chart Data
+  // Format Chart Data with smart deduplication for clean time labels
   const chartData = useMemo(() => {
-    return readings.map((r) => {
+    if (!readings || readings.length === 0) return [];
+
+    // Filter out duplicate readings within the same minute to eliminate repeating X-axis timestamps
+    const seenMinutes = new Set<string>();
+    const deduplicatedReadings: Reading[] = [];
+
+    for (let i = 0; i < readings.length; i++) {
+      const r = readings[i];
+      const d = new Date(r.timestamp);
+      // Group by date and minute
+      const minuteKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+      if (!seenMinutes.has(minuteKey)) {
+        seenMinutes.add(minuteKey);
+        deduplicatedReadings.push(r);
+      } else {
+        // Keep the latest reading for this minute
+        deduplicatedReadings[deduplicatedReadings.length - 1] = r;
+      }
+    }
+
+    const sToRef = station?.sensorToRefDistance ?? 2.0;
+
+    return deduplicatedReadings.map((r) => {
       const date = new Date(r.timestamp);
       let timeLabel = '';
       let fullTime = '';
@@ -440,7 +518,6 @@ export default function StationDetailPage() {
         fullTime = r.timestamp;
       }
 
-      const sToRef = station?.sensorToRefDistance ?? 2.0;
       let calculatedWaterLevel = r.water_level != null ? Number(r.water_level) : null;
       if (calculatedWaterLevel == null && r.raw_distance != null) {
         calculatedWaterLevel = Number((sToRef - Number(r.raw_distance)).toFixed(3));
@@ -493,49 +570,9 @@ export default function StationDetailPage() {
     };
   }, [chartData]);
 
-  // Tactical Situational Intelligence Briefing
-  const situationalInsight = useMemo(() => {
-    if (!station) return { text: '', dotColor: '#94A3B8' };
-    if (!station.isActive) {
-      return {
-        text: `สถานี ${station.name} อยู่ในสถานะออฟไลน์ การบันทึกและส่งข้อมูล telemetry ถูกระงับชั่วคราว`,
-        dotColor: '#94A3B8',
-      };
-    }
-    const curr = station.currentLevel;
-    const crit = station.criticalLevel ?? 0.0;
-    const warn = station.warningLevel ?? -0.5;
-    const rName = station.referencePointName || 'จุดอ้างอิง';
-
-    if (curr >= crit) {
-      return {
-        text: `สภาวะวิกฤต ระดับน้ำเกินเกณฑ์วิกฤต +${(curr - crit).toFixed(2)} ม. เสี่ยงน้ำท่วมล้น${rName} ขอให้เฝ้าระวังสูงสุด`,
-        dotColor: '#EF4444',
-      };
-    }
-    if (curr >= warn) {
-      const diff = (crit - curr).toFixed(2);
-      return {
-        text: `ระดับน้ำอยู่ในเกณฑ์เฝ้าระวังพิเศษ ต่ำกว่าระดับวิกฤต ${diff} ม. แนะนำติดตามแนวโน้มอัตราการเพิ่มอย่างใกล้ชิด`,
-        dotColor: '#F59E0B',
-      };
-    }
-    if (curr > 0) {
-      return {
-        text: `ระดับน้ำสูงกว่าระดับ${rName} +${curr.toFixed(2)} ม. เริ่มส่งผลกระทบต่อพื้นที่ลุ่มต่ำริมฝั่ง`,
-        dotColor: '#EF4444',
-      };
-    }
-    const margin = Math.abs(curr).toFixed(2);
-    return {
-      text: `สถานการณ์ปกติ ระดับน้ำต่ำกว่าระดับ${rName} ${margin} ม. ปลอดภัย สภาพการไหลคล่องตัวและเซนเซอร์ทำงานปกติ`,
-      dotColor: '#10B981',
-    };
-  }, [station]);
-
   if (loading) {
     return (
-      <div style={{ maxWidth: 1340, margin: '0 auto', padding: '24px 16px' }}>
+      <div className="page-container" style={{ maxWidth: 1440, margin: '0 auto', padding: '24px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <SkeletonCard />
           <SkeletonCard />
@@ -547,7 +584,7 @@ export default function StationDetailPage() {
 
   if (error || !station) {
     return (
-      <div style={{ maxWidth: 1340, margin: '0 auto', padding: '32px 16px' }}>
+      <div className="page-container" style={{ maxWidth: 1440, margin: '0 auto', padding: '32px 24px' }}>
         <button
           type="button"
           onClick={() => navigate('/stations')}
@@ -593,142 +630,120 @@ export default function StationDetailPage() {
   const warnLevel = station.warningLevel ?? -0.5;
   const critLevel = station.criticalLevel ?? 0.0;
   const sensorToRef = station.sensorToRefDistance ?? 2.0;
-  const rawDist = station.rawDistance ?? Number((sensorToRef - station.currentLevel).toFixed(3));
-  const waterLevel = station.currentLevel;
+  const hasReading = Boolean(
+    station.lastReadingTime ||
+    station.rawDistance !== null && station.rawDistance !== undefined ||
+    station.currentLevel !== null && station.currentLevel !== undefined
+  );
+  const rawDist = station.rawDistance ?? (hasReading && station.currentLevel !== null ? Number((sensorToRef - station.currentLevel).toFixed(3)) : null);
+  const waterLevel = hasReading ? station.currentLevel : null;
 
-  // Hydro-Tactical Water Gauge Percentage Calculations
+  // Water unit formatting helpers
+  const unitShort = waterUnit === 'cm' ? 'ซม.' : 'ม.';
+
+  const formatLevel = (valInMeters: number | null | undefined): string => {
+    if (valInMeters === null || valInMeters === undefined) return '-';
+    if (waterUnit === 'cm') {
+      const cmVal = valInMeters * 100;
+      const sign = cmVal >= 0 ? '+' : '';
+      return `${sign}${cmVal.toFixed(1)}`;
+    }
+    const sign = valInMeters >= 0 ? '+' : '';
+    return `${sign}${valInMeters.toFixed(3)}`;
+  };
+
+  const formatDistanceVal = (valInMeters: number | null | undefined): string => {
+    if (valInMeters === null || valInMeters === undefined) return '-';
+    if (waterUnit === 'cm') {
+      return `${(valInMeters * 100).toFixed(1)} ซม.`;
+    }
+    return `${valInMeters.toFixed(2)} ม.`;
+  };
+
+  const formatThresholdVal = (valInMeters: number | null | undefined): string => {
+    if (valInMeters === null || valInMeters === undefined) return 'ไม่กำหนด';
+    if (waterUnit === 'cm') {
+      const cmVal = valInMeters * 100;
+      const sign = cmVal >= 0 ? '+' : '';
+      return `${sign}${cmVal.toFixed(1)} ซม.`;
+    }
+    const sign = valInMeters >= 0 ? '+' : '';
+    return `${sign}${valInMeters.toFixed(2)} ม.`;
+  };
+
+  // Hydro-Tactical Water Gauge Percentage Calculations - pins to datum (0.00m) if no reading
   const minExpected = -Math.max(1.5, sensorToRef * 0.85);
   const maxExpected = Math.max(0.8, critLevel + 0.6);
   const span = maxExpected - minExpected;
-  const currentRatio = Math.max(0.04, Math.min(0.98, (waterLevel - minExpected) / (span || 1)));
+  const effectiveLevelForGauge = hasReading && waterLevel !== null ? waterLevel : 0;
+  const currentRatio = Math.max(0.04, Math.min(0.98, (effectiveLevelForGauge - minExpected) / (span || 1)));
   const gaugePercent = Math.round(currentRatio * 100);
   const datumPercent = Math.max(12, Math.min(88, Math.round(((0 - minExpected) / (span || 1)) * 100)));
   const warnPercent = Math.max(15, Math.min(94, Math.round(((warnLevel - minExpected) / (span || 1)) * 100)));
   const critPercent = Math.max(18, Math.min(96, Math.round(((critLevel - minExpected) / (span || 1)) * 100)));
 
-  // LoRa Signal Strength Rating
-  const rssi = station.rssi ?? -72;
-  let signalRating = 'สัญญาณดีเยี่ยม';
-  let signalColor = '#10B981';
-  if (rssi < -90) {
-    signalRating = 'สัญญาณอ่อน';
-    signalColor = '#EF4444';
-  } else if (rssi < -75) {
-    signalRating = 'สัญญาณปานกลาง';
-    signalColor = '#F59E0B';
-  }
+  // LoRa Signal Strength (dBm)
+  const rssi = station.rssi;
+
+  const isOnline = isStationOnline(station, timeTick);
+  const isManualActive = (station.manualStatus || station.operatingStatus) === 'active';
 
   return (
     <div
+      className="page-container"
       style={{
-        maxWidth: 1340,
+        maxWidth: 1440,
         margin: '0 auto',
-        padding: '20px 16px 56px',
+        padding: '20px 24px 56px',
         display: 'flex',
         flexDirection: 'column',
         gap: 20,
       }}
     >
-      {/* ── BREADCRUMB / TOP NAVIGATION & LIVE BEACON ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+      {/* ── BREADCRUMB / TOP NAVIGATION ── */}
+      <div>
         <button
           type="button"
           onClick={() => navigate('/stations')}
           className="tactile-press"
+          aria-label="กลับหน้ารายการสถานี"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: 8,
-            padding: '8px 16px',
+            padding: '0 16px',
+            minHeight: 40,
             borderRadius: 999,
-            background: '#15181E',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            color: '#94A3B8',
+            background: 'var(--card-surface, #15181E)',
+            border: '1px solid var(--card-border, rgba(255, 255, 255, 0.12))',
+            color: 'var(--text-secondary, #94A3B8)',
             fontSize: 13,
             fontWeight: 600,
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = '#F8FAFC';
+            e.currentTarget.style.color = 'var(--text-primary, #F8FAFC)';
             e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = '#94A3B8';
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+            e.currentTarget.style.color = 'var(--text-secondary, #94A3B8)';
+            e.currentTarget.style.borderColor = 'var(--card-border, rgba(255, 255, 255, 0.12))';
           }}
         >
           <ArrowLeftIcon size={14} />
-          <span>กลับหน้ารายการสถานี</span>
+          <span>กลับหน้ารายการ</span>
         </button>
-
-        {/* Live IoT Telemetry Beacon & Force Ping */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 14px',
-              borderRadius: 999,
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(8px)',
-            }}
-          >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: station.isActive ? '#10B981' : '#94A3B8',
-                boxShadow: station.isActive ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
-                display: 'inline-block',
-              }}
-              className={station.isActive ? 'heartbeat-dot' : ''}
-            />
-            <span className="tabular-nums font-mono" style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>
-              {loadingReadings ? 'กำลังอัปเดต Telemetry...' : `ซิงค์สด IoT · รีเฟรชใน ${countdown} วิ`}
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleForceRefresh}
-            disabled={loadingReadings}
-            className="tactile-press"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '6px 12px',
-              borderRadius: 999,
-              background: '#15181E',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: '#38BDF8',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: loadingReadings ? 'wait' : 'pointer',
-            }}
-            title="บังคับดึงข้อมูล Telemetry ล่าสุดจากเซนเซอร์"
-          >
-            <RefreshCwIcon size={12} className={loadingReadings ? 'animate-spin' : ''} />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
-        </div>
       </div>
 
       {/* ── 1. STATION COCKPIT HERO HEADER ── */}
       <div
         style={{
           background: 'var(--card-surface, #0C0E12)',
-          border: '1px solid rgba(56, 189, 248, 0.22)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
           borderRadius: 18,
-          padding: '20px 22px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
+          padding: '22px 24px',
+          boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
         }}
       >
         <div
@@ -747,12 +762,12 @@ export default function StationDetailPage() {
                 className="tabular-nums font-mono"
                 style={{
                   fontSize: 12,
-                  fontWeight: 800,
-                  padding: '3px 10px',
+                  fontWeight: 700,
+                  padding: '3px 9px',
                   borderRadius: 6,
-                  background: station.isActive ? 'rgba(56, 189, 248, 0.14)' : 'rgba(148, 163, 184, 0.1)',
-                  border: station.isActive ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(148, 163, 184, 0.2)',
-                  color: station.isActive ? '#38BDF8' : '#94A3B8',
+                  background: isOnline ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.1)',
+                  border: isOnline ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.2)',
+                  color: isOnline ? 'var(--color-cyan, #38BDF8)' : 'var(--text-secondary, #94A3B8)',
                   letterSpacing: '0.04em',
                 }}
               >
@@ -761,46 +776,88 @@ export default function StationDetailPage() {
               <h1
                 style={{
                   fontSize: 22,
-                  fontWeight: 800,
-                  color: '#F8FAFC',
+                  fontWeight: 700,
+                  color: 'var(--text-primary, #F8FAFC)',
                   margin: 0,
-                  letterSpacing: '-0.02em',
+                  lineHeight: 1.25,
                 }}
               >
                 {station.name}
               </h1>
-              <span className={`badge ${statusClass[station.status]}`} style={{ fontSize: 12, padding: '3px 10px' }}>
-                <span className="badge-dot" style={{ width: 6, height: 6 }} />
-                {statusLabel[station.status]}
+              <span
+                className={`badge ${isOnline ? (!hasReading ? 'badge-normal' : statusClass[station.status]) : 'badge-unknown'}`}
+                style={{
+                  fontSize: 12,
+                  padding: '3px 10px',
+                  border: !isOnline && isStaff && station.isManualOffline ? '1px solid rgba(245, 158, 11, 0.45)' : undefined,
+                  color: !isOnline && isStaff && station.isManualOffline ? '#F59E0B' : undefined,
+                  background: !isOnline && isStaff && station.isManualOffline ? 'rgba(245, 158, 11, 0.12)' : undefined,
+                }}
+              >
+                <span className="badge-dot" style={{ width: 6, height: 6, background: !isOnline && isStaff && station.isManualOffline ? '#F59E0B' : undefined }} />
+                {isOnline
+                  ? (!hasReading ? 'ออนไลน์ (รอข้อมูล)' : statusLabel[station.status])
+                  : !hasReading
+                  ? 'ออฟไลน์ (ไม่มีข้อมูล)'
+                  : isStaff && station.isManualOffline
+                  ? 'ออฟไลน์ (โหมดทดสอบ: ค่าสดเฉพาะเจ้าหน้าที่)'
+                  : 'ออฟไลน์'}
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94A3B8', fontSize: 13, marginTop: 6, flexWrap: 'wrap' }}>
-              <MapPinIcon size={14} style={{ color: '#64748B' }} />
-              <span>{station.location || `${station.lat.toFixed(4)}, ${station.lng.toFixed(4)}`}</span>
-              <span style={{ color: '#475569' }}>·</span>
-              <span className="tabular-nums font-mono" style={{ color: '#64748B' }}>
-                พิกัด {station.lat.toFixed(4)}, {station.lng.toFixed(4)}
+            {/* Staff Test Mode Info Banner */}
+            {!isOnline && isStaff && station.isManualOffline && (
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.28)',
+                  borderRadius: 8,
+                  padding: '7px 12px',
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: '#FBBF24',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  lineHeight: 1.4,
+                }}
+              >
+                <span style={{ fontWeight: 600, color: '#F59E0B', flexShrink: 0 }}>โหมดทดสอบสถานีออฟไลน์:</span>
+                <span>กำลังแสดงค่าสดเฉพาะเจ้าหน้าที่/ผู้ดูแลระบบ (ประชาชนจะเห็นเฉพาะค่าบันทึกก่อนออฟไลน์ และระบบระงับการแจ้งเตือนประชาชนชั่วคราว)</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary, #94A3B8)', fontSize: 12.5, marginTop: 6, flexWrap: 'wrap' }}>
+              <MapPinIcon size={13} style={{ color: 'var(--text-muted, #8B9EB7)', flexShrink: 0 }} />
+              <span>{station.location || 'จุดติดตั้ง'}</span>
+              <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+              <span className="tabular-nums font-mono" style={{ color: 'var(--text-muted, #8B9EB7)' }}>
+                {station.lat.toFixed(4)}, {station.lng.toFixed(4)}
               </span>
-              <span style={{ color: '#475569' }}>·</span>
-              <span style={{ color: '#64748B' }}>
+              <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+              <span style={{ color: 'var(--text-muted, #8B9EB7)' }}>
                 เกตเวย์ {station.gatewayName || 'Gateway_01'}
+              </span>
+              <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+              <span style={{ color: 'var(--text-muted, #8B9EB7)' }}>
+                {formatRelativeTimeThai(station.lastUpdated, timeTick)}
               </span>
             </div>
           </div>
 
           {/* Quick Management Actions with Tactile Feedback */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            {/* Status Switch (6px Segmented Switch) */}
-            <div className="status-switch-bar">
+          <div className="station-detail-actions">
+            {/* Status Switch (Segmented Switch) */}
+            <div className="status-switch-bar" role="group" aria-label={`สถานะให้บริการ ${station.name}`}>
               <button
                 type="button"
                 disabled={statusUpdating}
                 onClick={() => handleRequestStatusToggle('active')}
-                className={`status-switch-btn tactile-press ${station.isActive ? 'active-online' : ''}`}
+                className={`status-switch-btn tactile-press ${isManualActive ? 'active-online' : ''}`}
+                aria-pressed={isManualActive}
                 title="เปิดให้บริการออนไลน์"
               >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: station.isActive ? '#10B981' : '#475569' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isManualActive ? 'var(--color-normal, #10B981)' : 'var(--text-muted, #475569)' }} />
                 <span>ออนไลน์</span>
               </button>
 
@@ -808,10 +865,11 @@ export default function StationDetailPage() {
                 type="button"
                 disabled={statusUpdating}
                 onClick={() => handleRequestStatusToggle('offline')}
-                className={`status-switch-btn tactile-press ${!station.isActive ? 'active-offline' : ''}`}
+                className={`status-switch-btn tactile-press ${!isManualActive ? 'active-offline' : ''}`}
+                aria-pressed={!isManualActive}
                 title="ปิดบริการชั่วคราว"
               >
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: !station.isActive ? '#F59E0B' : '#475569' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: !isManualActive ? 'var(--color-warning, #F59E0B)' : 'var(--text-muted, #475569)' }} />
                 <span>ออฟไลน์</span>
               </button>
             </div>
@@ -823,9 +881,10 @@ export default function StationDetailPage() {
                 type="button"
                 onClick={() => setCalibrationModalOpen(true)}
                 className="btn-badge-action calibrate tactile-press"
+                aria-label={`ตั้งค่าจุดอ้างอิงสถานี ${station.name}`}
                 title="ตั้งค่าจุดอ้างอิงและระนาบเสา"
               >
-                <SlidersIcon size={13} />
+                <SlidersIcon size={14} />
                 <span>จุดอ้างอิง</span>
               </button>
 
@@ -833,9 +892,10 @@ export default function StationDetailPage() {
                 type="button"
                 onClick={() => setNotificationModalOpen(true)}
                 className="btn-badge-action alert tactile-press"
+                aria-label={`ตั้งค่าเกณฑ์เตือนภัยสถานี ${station.name}`}
                 title="ตั้งค่าเกณฑ์เตือนภัยสถานีนี้"
               >
-                <BellIcon size={13} />
+                <BellIcon size={14} />
                 <span>เตือนภัย</span>
               </button>
 
@@ -843,63 +903,21 @@ export default function StationDetailPage() {
                 type="button"
                 onClick={() => setEditModalOpen(true)}
                 className="btn-badge-action tactile-press"
+                aria-label={`แก้ไขข้อมูลสถานี ${station.name}`}
                 title="แก้ไขข้อมูลสถานี"
               >
-                <Edit3Icon size={13} />
+                <Edit3Icon size={14} />
                 <span>แก้ไข</span>
               </button>
             </div>
           </div>
         </div>
-
-        {/* ── TACTICAL SITUATIONAL INTELLIGENCE BRIEFING BANNER ── */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 14px',
-            background: 'rgba(255, 255, 255, 0.03)',
-            border: '1px solid rgba(255, 255, 255, 0.07)',
-            borderRadius: 10,
-            flexWrap: 'wrap',
-            gap: '8px 14px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: situationalInsight.dotColor,
-                flexShrink: 0,
-              }}
-              className="heartbeat-dot"
-            />
-            <span style={{ fontSize: 13, color: '#F1F5F9', fontWeight: 600 }}>
-              {situationalInsight.text}
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11.5, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <RadioIcon size={12} style={{ color: signalColor }} />
-              <span>{signalRating} ({rssi} dBm)</span>
-            </span>
-            <span style={{ color: '#475569' }}>·</span>
-            <span style={{ fontSize: 11.5, color: '#94A3B8' }}>
-              อัปเดตล่าสุด {format(new Date(station.lastUpdated), 'HH:mm:ss น.')}
-            </span>
-          </div>
-        </div>
       </div>
 
       {/* ── 2. PRIMARY TELEMETRY BENTO COCKPIT (HERO ASYMMETRIC GRID) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* ── POD 1: MASTER HYDRO-TELEMETRY POD (7 COLS ON LG) ── */}
+      <div className="station-bento-hero">
+        {/* ── POD 1: MASTER HYDRO-TELEMETRY POD ── */}
         <div
-          className="lg:col-span-7"
           style={{
             background: 'var(--card-surface, #0C0E12)',
             border: '1px solid rgba(56, 189, 248, 0.28)',
@@ -915,8 +933,8 @@ export default function StationDetailPage() {
           {/* Header Strip */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <WavesIcon size={18} style={{ color: '#38BDF8' }} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC' }}>
+              <WavesIcon size={18} style={{ color: 'var(--color-cyan, #38BDF8)' }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)' }}>
                 ระดับน้ำเทียบ{refName}
               </span>
             </div>
@@ -930,12 +948,12 @@ export default function StationDetailPage() {
                     padding: '2px 8px',
                     borderRadius: 999,
                     background: 'rgba(239, 68, 68, 0.15)',
-                    color: '#F87171',
+                    color: 'var(--color-critical, #F87171)',
                     border: '1px solid rgba(239, 68, 68, 0.3)',
                     fontWeight: 600,
                   }}
                 >
-                  อยู่ในระยะบอดเซนเซอร์ (&lt; 0.28 ม.)
+                  ระยะบอดเซนเซอร์
                 </span>
               ) : station.isPoleTilted ? (
                 <span
@@ -944,12 +962,26 @@ export default function StationDetailPage() {
                     padding: '2px 8px',
                     borderRadius: 999,
                     background: 'rgba(245, 158, 11, 0.15)',
-                    color: '#F59E0B',
+                    color: 'var(--color-warning, #F59E0B)',
                     border: '1px solid rgba(245, 158, 11, 0.3)',
                     fontWeight: 600,
                   }}
                 >
                   ชดเชยเสาเอียง ({station.relativeTotalTilt?.toFixed(1) ?? '0.0'}°)
+                </span>
+              ) : !hasReading ? (
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: '2px 8px',
+                    borderRadius: 999,
+                    background: isOnline ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                    color: isOnline ? 'var(--color-cyan, #38BDF8)' : 'var(--text-muted, #94A3B8)',
+                    border: isOnline ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(148, 163, 184, 0.25)',
+                    fontWeight: 600,
+                  }}
+                >
+                  {isOnline ? 'พร้อมรับข้อมูล' : 'ยังไม่มีข้อมูล'}
                 </span>
               ) : (
                 <span
@@ -958,79 +990,141 @@ export default function StationDetailPage() {
                     padding: '2px 8px',
                     borderRadius: 999,
                     background: 'rgba(16, 185, 129, 0.12)',
-                    color: '#10B981',
+                    color: 'var(--color-normal, #10B981)',
                     border: '1px solid rgba(16, 185, 129, 0.25)',
                     fontWeight: 600,
                   }}
                 >
-                  ระนาบเสาและระยะเซนเซอร์ปกติ
+                  เซนเซอร์ทำงานปกติ
                 </span>
               )}
             </div>
           </div>
 
-          {/* Hero Telemetry Readout (Giant Telemetry Mono - 48px) */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+          {/* Hero Telemetry Readout (Giant Telemetry Mono 48px) with Interactive Unit Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <span
-              className="tabular-nums font-mono"
+              key={waterUnit}
+              className="tabular-nums font-mono unit-swap-active"
               style={{
-                fontSize: '48px',
+                fontSize: 48,
                 fontWeight: 900,
-                color:
-                  station.status === 'critical'
-                    ? '#EF4444'
-                    : station.status === 'warning'
-                    ? '#F59E0B'
-                    : '#10B981',
+                color: !isOnline || !hasReading || waterLevel === null
+                  ? 'var(--text-muted, #94A3B8)'
+                  : station.status === 'critical'
+                  ? 'var(--color-critical, #EF4444)'
+                  : station.status === 'warning'
+                  ? 'var(--color-warning, #F59E0B)'
+                  : 'var(--color-normal, #10B981)',
                 lineHeight: 1,
                 letterSpacing: '-0.03em',
               }}
             >
-              {station.isActive
-                ? waterLevel >= 0
-                  ? `+${waterLevel.toFixed(3)}`
-                  : waterLevel.toFixed(3)
-                : '-'}
+              {formatLevel(waterLevel)}
             </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 18, color: '#F8FAFC', fontWeight: 700 }}>
-                เมตร (ม.)
-              </span>
-              <span style={{ fontSize: 12, color: '#94A3B8' }}>
-                เทียบระดับ{refName} (0.00 ม.)
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* Interactive Unit Pill (Balanced Cockpit Badge) */}
+                <button
+                  type="button"
+                  onClick={() => setWaterUnit((prev) => (prev === 'm' ? 'cm' : 'm'))}
+                  title="คลิกเพื่อสลับหน่วยวัด (เมตร ⇄ เซนติเมตร)"
+                  aria-label={`หน่วยวัดปัจจุบัน ${waterUnit === 'cm' ? 'เซนติเมตร' : 'เมตร'} คลิกเพื่อสลับ`}
+                  className="tactile-press"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 5,
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    borderRadius: 7,
+                    padding: '4px 10px',
+                    minHeight: 30,
+                    color: 'var(--text-secondary, #94A3B8)',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    userSelect: 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--color-cyan, #38BDF8)';
+                    e.currentTarget.style.color = 'var(--color-cyan, #38BDF8)';
+                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.14)';
+                    e.currentTarget.style.boxShadow = '0 0 8px rgba(56, 189, 248, 0.25)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.14)';
+                    e.currentTarget.style.color = 'var(--text-secondary, #94A3B8)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <span key={waterUnit} className="unit-fade-active">
+                    {unitShort}
+                  </span>
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      opacity: 0.85,
+                      transform: waterUnit === 'cm' ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+                    }}
+                  >
+                    <path d="M7 16V4m0 0L3 8m4-4l4 4m6-4v12m0 0l4-4m-4 4l-4-4" />
+                  </svg>
+                </button>
+              </div>
+              <span style={{ fontSize: 12, color: 'var(--text-muted, #64748B)', lineHeight: 1.3 }}>
+                {refName && refName !== 'จุดอ้างอิง' ? `เทียบ${refName}` : 'เทียบจุดอ้างอิง'}
               </span>
             </div>
           </div>
 
-          {/* Hydro-Tactical Graduated Water Gauge */}
+          {/* Graduated Water Gauge with Accessible Progressbar */}
           <div>
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                fontSize: 11.5,
-                color: '#94A3B8',
+                fontSize: 12,
+                color: 'var(--text-secondary, #94A3B8)',
                 marginBottom: 6,
+                lineHeight: 1.4,
               }}
             >
-              <span>มาตรวัดระดับน้ำทางชลศาสตร์ (Hydro-Tactical Gauge)</span>
-              <span className="tabular-nums font-mono">
-                ระยะแอร์แก็ปเซนเซอร์ {rawDist.toFixed(2)} ม.
+              <span style={{ fontWeight: 600, color: 'var(--text-primary, #F8FAFC)' }}>ระดับน้ำเทียบเกณฑ์เตือนภัย</span>
+              <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>
+                ระยะตรวจวัดจริง <span key={waterUnit} className="tabular-nums font-mono unit-fade-active" style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 600 }}>{formatDistanceVal(rawDist)}</span>
               </span>
             </div>
 
             {/* Gauge Track */}
             <div
+              role="progressbar"
+              aria-label={`ระดับน้ำ${refName && refName !== 'จุดอ้างอิง' ? `เทียบ${refName}` : 'เทียบจุดอ้างอิง'}`}
+              aria-valuenow={effectiveLevelForGauge}
+              aria-valuemin={minExpected}
+              aria-valuemax={maxExpected}
+              aria-valuetext={hasReading && waterLevel !== null ? `${formatLevel(waterLevel)} ${unitShort}` : 'ไม่มีข้อมูล (ระดับอ้างอิง)'}
               style={{
                 position: 'relative',
                 height: 24,
                 borderRadius: 8,
                 background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                border: '1px solid var(--card-border, rgba(255, 255, 255, 0.1))',
                 overflow: 'hidden',
                 boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.5)',
               }}
-              title={`ระดับน้ำเทียบ${refName} ${waterLevel >= 0 ? '+' : ''}${waterLevel.toFixed(3)} ม. | ระยะเซนเซอร์ ${rawDist.toFixed(2)} ม.`}
+              title={hasReading && waterLevel !== null ? `ระดับน้ำ${refName && refName !== 'จุดอ้างอิง' ? `เทียบ${refName}` : 'เทียบจุดอ้างอิง'} ${formatLevel(waterLevel)} ${unitShort} | ระยะตรวจวัดจริง ${formatDistanceVal(rawDist)}` : `ระดับน้ำเทียบ${refName}: ไม่มีข้อมูล (คงระดับที่จุดอ้างอิง)`}
             >
               {/* Fluid Fill Bar */}
               <div
@@ -1044,10 +1138,10 @@ export default function StationDetailPage() {
                   transformOrigin: 'left',
                   background:
                     station.status === 'critical'
-                      ? 'linear-gradient(90deg, #F59E0B 0%, #EF4444 100%)'
+                      ? 'linear-gradient(90deg, var(--color-warning, #F59E0B) 0%, var(--color-critical, #EF4444) 100%)'
                       : station.status === 'warning'
-                      ? 'linear-gradient(90deg, #0284C7 0%, #F59E0B 100%)'
-                      : 'linear-gradient(90deg, #0284C7 0%, #38BDF8 60%, #10B981 100%)',
+                      ? 'linear-gradient(90deg, #0284C7 0%, var(--color-warning, #F59E0B) 100%)'
+                      : 'linear-gradient(90deg, #0284C7 0%, var(--color-cyan, #38BDF8) 60%, var(--color-normal, #10B981) 100%)',
                   borderRadius: 6,
                   transition: 'transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
                   boxShadow: station.status === 'critical' ? '0 0 14px rgba(239, 68, 68, 0.6)' : 'none',
@@ -1075,7 +1169,7 @@ export default function StationDetailPage() {
                   bottom: 0,
                   left: `${warnPercent}%`,
                   width: 2,
-                  background: '#F59E0B',
+                  background: 'var(--color-warning, #F59E0B)',
                   zIndex: 2,
                 }}
               />
@@ -1088,7 +1182,7 @@ export default function StationDetailPage() {
                   bottom: 0,
                   left: `${critPercent}%`,
                   width: 2,
-                  background: '#EF4444',
+                  background: 'var(--color-critical, #EF4444)',
                   zIndex: 2,
                 }}
               />
@@ -1099,15 +1193,23 @@ export default function StationDetailPage() {
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                fontSize: 10.5,
-                color: '#64748B',
+                fontSize: 11,
+                color: 'var(--text-secondary, #94A3B8)',
                 marginTop: 6,
+                fontWeight: 500,
+                lineHeight: 1.4,
               }}
             >
               <span>ระดับต่ำ</span>
-              <span style={{ color: '#CBD5E1' }}>0.00 ม. ({refName})</span>
-              <span style={{ color: '#F59E0B' }}>เฝ้าระวัง {warnLevel.toFixed(2)} ม.</span>
-              <span style={{ color: '#EF4444' }}>วิกฤต {critLevel.toFixed(2)} ม.</span>
+              <span style={{ color: 'var(--text-secondary, #CBD5E1)' }}>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{waterUnit === 'cm' ? '0.0' : '0.00'}</span> {unitShort} ({refName})
+              </span>
+              <span style={{ color: 'var(--color-warning, #F59E0B)' }}>
+                เฝ้าระวัง <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatThresholdVal(warnLevel)}</span>
+              </span>
+              <span style={{ color: 'var(--color-critical, #EF4444)' }}>
+                วิกฤต <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatThresholdVal(critLevel)}</span>
+              </span>
             </div>
           </div>
 
@@ -1119,38 +1221,39 @@ export default function StationDetailPage() {
               gap: 8,
               paddingTop: 10,
               borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-              fontSize: 11.5,
+              fontSize: 12,
+              lineHeight: 1.4,
             }}
           >
             <div>
-              <div style={{ color: '#64748B' }}>ระยะติดตั้งเซนเซอร์</div>
-              <div className="tabular-nums font-mono" style={{ color: '#F8FAFC', fontWeight: 600 }}>
-                {sensorToRef.toFixed(2)} ม.
+              <div style={{ color: 'var(--text-muted, #64748B)', fontSize: 11, fontWeight: 500 }}>ระยะติดตั้งเซนเซอร์</div>
+              <div style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 600, marginTop: 2 }}>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatDistanceVal(sensorToRef)}</span>
               </div>
             </div>
             <div>
-              <div style={{ color: '#64748B' }}>ระยะแอร์แก็ป Air-Gap</div>
-              <div className="tabular-nums font-mono" style={{ color: '#38BDF8', fontWeight: 600 }}>
-                {rawDist.toFixed(2)} ม.
+              <div style={{ color: 'var(--text-muted, #64748B)', fontSize: 11, fontWeight: 500 }}>ระยะตรวจวัดจริง</div>
+              <div style={{ color: 'var(--color-cyan, #38BDF8)', fontWeight: 600, marginTop: 2 }}>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatDistanceVal(rawDist)}</span>
               </div>
             </div>
             <div>
-              <div style={{ color: '#64748B' }}>การชดเชยเสาเอียง</div>
-              <div style={{ color: station.tiltCompensationEnabled ? '#10B981' : '#64748B', fontWeight: 600 }}>
+              <div style={{ color: 'var(--text-muted, #64748B)', fontSize: 11, fontWeight: 500 }}>ชดเชยระนาบเสา</div>
+              <div style={{ color: station.tiltCompensationEnabled ? 'var(--color-normal, #10B981)' : 'var(--text-muted, #64748B)', fontWeight: 600, marginTop: 2 }}>
                 {station.tiltCompensationEnabled ? 'เปิดใช้งาน' : 'ปิดการชดเชย'}
               </div>
             </div>
             <div>
-              <div style={{ color: '#64748B' }}>ขอบเขตระยะบอด</div>
-              <div className="tabular-nums font-mono" style={{ color: '#F8FAFC', fontWeight: 600 }}>
-                {station.blindZoneOffset ?? 0.28} ม.
+              <div style={{ color: 'var(--text-muted, #64748B)', fontSize: 11, fontWeight: 500 }}>ระยะบอดเซนเซอร์</div>
+              <div style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 600, marginTop: 2 }}>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatDistanceVal(station.blindZoneOffset ?? 0.28)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── POD 2 & 3: ATMOSPHERE & HARDWARE COCKPIT (5 COLS ON LG) ── */}
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        {/* ── POD 2 & 3: ATMOSPHERE & HARDWARE COCKPIT ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Atmosphere Pod (Temperature & Humidity) */}
           <div
             style={{
@@ -1166,10 +1269,9 @@ export default function StationDetailPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', lineHeight: 1.35 }}>
                 สภาพแวดล้อมรอบสถานี
               </span>
-              <span style={{ fontSize: 11, color: '#64748B' }}>เซนเซอร์อุตุนิยมวิทยา</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1177,7 +1279,7 @@ export default function StationDetailPage() {
               <div
                 style={{
                   background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(249, 115, 22, 0.15)',
+                  border: '1px solid rgba(249, 115, 22, 0.25)',
                   borderRadius: 12,
                   padding: '12px 14px',
                 }}
@@ -1189,11 +1291,11 @@ export default function StationDetailPage() {
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                   <span
                     className="tabular-nums font-mono"
-                    style={{ fontSize: 26, fontWeight: 800, color: '#F97316' }}
+                    style={{ fontSize: 26, fontWeight: 800, color: '#F97316', lineHeight: 1 }}
                   >
                     {station.temperature != null ? station.temperature.toFixed(1) : '-'}
                   </span>
-                  <span style={{ fontSize: 12, color: '#94A3B8' }}>°C</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #94A3B8)' }}>°C</span>
                 </div>
               </div>
 
@@ -1201,30 +1303,25 @@ export default function StationDetailPage() {
               <div
                 style={{
                   background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(6, 182, 212, 0.15)',
+                  border: '1px solid rgba(6, 182, 212, 0.25)',
                   borderRadius: 12,
                   padding: '12px 14px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#06B6D4', fontSize: 12, fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-cyan, #38BDF8)', fontSize: 12, fontWeight: 600 }}>
                   <DropletsIcon size={14} />
-                  <span>ความชื้นสัมพัทธ์</span>
+                  <span>ความชื้น</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                   <span
                     className="tabular-nums font-mono"
-                    style={{ fontSize: 26, fontWeight: 800, color: '#06B6D4' }}
+                    style={{ fontSize: 26, fontWeight: 800, color: 'var(--color-cyan, #38BDF8)', lineHeight: 1 }}
                   >
                     {station.humidity != null ? station.humidity.toFixed(1) : '-'}
                   </span>
-                  <span style={{ fontSize: 12, color: '#94A3B8' }}>%RH</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #94A3B8)' }}>%RH</span>
                 </div>
               </div>
-            </div>
-
-            <div style={{ fontSize: 11, color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>ความดันบรรยากาศปกติ</span>
-              <span>เซนเซอร์ SHT30 / AHT20</span>
             </div>
           </div>
 
@@ -1243,10 +1340,10 @@ export default function StationDetailPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>
-                พลังงานและการสื่อสาร LoRaWAN
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', lineHeight: 1.35 }}>
+                พลังงานและการสื่อสาร
               </span>
-              <span style={{ fontSize: 11, color: '#64748B' }}>รุ่น {station.model || 'Heltec V3'}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted, #64748B)' }}>{station.model || 'Heltec V3'}</span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -1255,9 +1352,11 @@ export default function StationDetailPage() {
                 style={{
                   background: 'rgba(255, 255, 255, 0.02)',
                   border: `1px solid ${
-                    station.batteryPercent != null && station.batteryPercent < 20
-                      ? 'rgba(239, 68, 68, 0.3)'
-                      : 'rgba(16, 185, 129, 0.15)'
+                    station.batteryPercent == null
+                      ? 'rgba(255, 255, 255, 0.1)'
+                      : station.batteryPercent < 20
+                      ? 'rgba(239, 68, 68, 0.35)'
+                      : 'rgba(16, 185, 129, 0.25)'
                   }`,
                   borderRadius: 12,
                   padding: '12px 14px',
@@ -1268,13 +1367,13 @@ export default function StationDetailPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    color: station.batteryPercent != null && station.batteryPercent < 20 ? '#EF4444' : '#10B981',
+                    color: station.batteryPercent == null ? 'var(--text-secondary, #94A3B8)' : station.batteryPercent < 20 ? 'var(--color-critical, #EF4444)' : 'var(--color-normal, #10B981)',
                     fontSize: 12,
                     fontWeight: 600,
                   }}
                 >
                   <BatteryChargingIcon size={14} />
-                  <span>ระดับแบตเตอรี่</span>
+                  <span>แบตเตอรี่</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
                   <span
@@ -1282,13 +1381,14 @@ export default function StationDetailPage() {
                     style={{
                       fontSize: 26,
                       fontWeight: 800,
-                      color: station.batteryPercent != null && station.batteryPercent < 20 ? '#EF4444' : '#10B981',
+                      color: station.batteryPercent == null ? 'var(--text-secondary, #94A3B8)' : station.batteryPercent < 20 ? 'var(--color-critical, #EF4444)' : 'var(--color-normal, #10B981)',
+                      lineHeight: 1,
                     }}
                   >
-                    {station.batteryPercent != null ? `${station.batteryPercent}%` : '100%'}
+                    {station.batteryPercent != null ? `${station.batteryPercent}%` : '-'}
                   </span>
                   {station.batteryVoltage != null && (
-                    <span className="tabular-nums font-mono" style={{ fontSize: 11.5, color: '#94A3B8' }}>
+                    <span className="tabular-nums font-mono" style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)' }}>
                       ({station.batteryVoltage.toFixed(2)}V)
                     </span>
                   )}
@@ -1299,35 +1399,30 @@ export default function StationDetailPage() {
               <div
                 style={{
                   background: 'rgba(255, 255, 255, 0.02)',
-                  border: '1px solid rgba(168, 85, 247, 0.15)',
+                  border: '1px solid rgba(192, 132, 252, 0.25)',
                   borderRadius: 12,
                   padding: '12px 14px',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#A855F7', fontSize: 12, fontWeight: 600 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#C084FC', fontSize: 12, fontWeight: 600 }}>
                   <WifiIcon size={14} />
-                  <span>ลิงก์สัญญาณ LoRa</span>
+                  <span>สัญญาณ LoRa</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4 }}>
                   <span
                     className="tabular-nums font-mono"
-                    style={{ fontSize: 18, fontWeight: 800, color: '#F8FAFC' }}
+                    style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary, #F8FAFC)', lineHeight: 1 }}
                   >
-                    {rssi}
+                    {rssi != null ? rssi : '-'}
                   </span>
-                  <span style={{ fontSize: 11.5, color: '#94A3B8' }}>dBm</span>
-                  <span className="tabular-nums font-mono" style={{ fontSize: 11, color: '#64748B' }}>
-                    SNR {station.snr ?? 14.5}
-                  </span>
+                  {rssi != null && <span style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)' }}>dBm</span>}
+                  {station.snr != null && (
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)' }}>
+                      SNR <span className="tabular-nums font-mono">{station.snr}</span>
+                    </span>
+                  )}
                 </div>
               </div>
-            </div>
-
-            <div style={{ fontSize: 11, color: '#64748B', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <RadioIcon size={12} style={{ color: '#A855F7', flexShrink: 0 }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                เชื่อมต่อ {station.gatewayName || 'Gateway_01'} · โซลาร์เซลล์ประจำสถานี
-              </span>
             </div>
           </div>
         </div>
@@ -1345,33 +1440,34 @@ export default function StationDetailPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ fontSize: 17, fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-            กราฟประวัติเซนเซอร์ตามช่วงเวลา
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0, lineHeight: 1.35 }}>
+            ประวัติการตรวจวัด
           </h2>
-          <span style={{ fontSize: 12, color: '#64748B' }}>
-            ({metrics.count} รายการข้อมูล)
+          <span style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)' }}>
+            (<span className="tabular-nums font-mono">{metrics.count}</span> รายการ)
           </span>
         </div>
 
-        {/* VisionOS Pill Selector via SegmentedControl */}
+        {/* Cockpit Minimal Pill Selector via SegmentedControl */}
         <SegmentedControl
           options={timeframeOptions}
           value={timeRange}
           onChange={(val) => setTimeRange(val)}
           size="sm"
+          accentColor="cyan"
           ariaLabel="เลือกช่วงเวลากราฟ"
         />
       </div>
 
       {/* ── 4. COCKPIT CHARTS BENTO SECTION ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         {/* ── CARD 1: MASTER WATER LEVEL TELEMETRY (WIDE HERO) ── */}
         <div
           style={{
             background: 'var(--card-surface, #0C0E12)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 16,
-            padding: '20px 22px',
+            borderRadius: 18,
+            padding: '22px 24px',
             boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
             display: 'flex',
             flexDirection: 'column',
@@ -1382,48 +1478,50 @@ export default function StationDetailPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <DropletsIcon size={18} style={{ color: '#38BDF8' }} />
-                <h3 style={{ fontSize: 16, fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-                  กราฟระดับน้ำเทียบ{refName}
+                <DropletsIcon size={17} style={{ color: 'var(--color-cyan, #38BDF8)' }} />
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0, lineHeight: 1.35 }}>
+                  กราฟระดับน้ำ{refName && refName !== 'จุดอ้างอิง' ? `เทียบ${refName}` : 'เทียบจุดอ้างอิง'}
                 </h3>
               </div>
-              <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                ระดับน้ำที่คำนวณจากระยะเซนเซอร์อัลตราโซนิกหักลบจุดอ้างอิง ({sensorToRef.toFixed(2)} ม.)
+              <div style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)', marginTop: 3, lineHeight: 1.4 }}>
+                ระยะติดตั้งถึงจุดอ้างอิง <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">{formatDistanceVal(sensorToRef)}</span>
               </div>
             </div>
 
             {/* Metric Strip with Delta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 12 }}>
-                <span style={{ color: '#64748B' }}>สูงสุด </span>
-                <span className="tabular-nums font-mono" style={{ color: '#F87171', fontWeight: 700 }}>
-                  {metrics.waterMax != null ? `${metrics.waterMax.toFixed(2)} ม.` : '-'}
+              <div style={{ fontSize: 12, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ color: 'var(--text-muted, #64748B)', fontSize: 11.5 }}>สูงสุด</span>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active" style={{ color: '#F87171', fontWeight: 700 }}>
+                  {metrics.waterMax != null ? (waterUnit === 'cm' ? (metrics.waterMax * 100).toFixed(1) : metrics.waterMax.toFixed(2)) : '-'}
                 </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted, #64748B)' }}>{unitShort}</span>
               </div>
-              <div style={{ fontSize: 12 }}>
-                <span style={{ color: '#64748B' }}>ต่ำสุด </span>
-                <span className="tabular-nums font-mono" style={{ color: '#34D399', fontWeight: 700 }}>
-                  {metrics.waterMin != null ? `${metrics.waterMin.toFixed(2)} ม.` : '-'}
+              <div style={{ fontSize: 12, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ color: 'var(--text-muted, #64748B)', fontSize: 11.5 }}>ต่ำสุด</span>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active" style={{ color: '#34D399', fontWeight: 700 }}>
+                  {metrics.waterMin != null ? (waterUnit === 'cm' ? (metrics.waterMin * 100).toFixed(1) : metrics.waterMin.toFixed(2)) : '-'}
                 </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted, #64748B)' }}>{unitShort}</span>
               </div>
-              <div style={{ fontSize: 12 }}>
-                <span style={{ color: '#64748B' }}>เฉลี่ย </span>
-                <span className="tabular-nums font-mono" style={{ color: '#38BDF8', fontWeight: 700 }}>
-                  {metrics.waterAvg != null ? `${metrics.waterAvg.toFixed(2)} ม.` : '-'}
+              <div style={{ fontSize: 12, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ color: 'var(--text-muted, #64748B)', fontSize: 11.5 }}>เฉลี่ย</span>
+                <span key={waterUnit} className="tabular-nums font-mono unit-fade-active" style={{ color: 'var(--color-cyan, #38BDF8)', fontWeight: 700 }}>
+                  {metrics.waterAvg != null ? (waterUnit === 'cm' ? (metrics.waterAvg * 100).toFixed(1) : metrics.waterAvg.toFixed(2)) : '-'}
                 </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted, #64748B)' }}>{unitShort}</span>
               </div>
               {waterDelta && (
                 <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ color: '#64748B' }}>การเปลี่ยนแปลง </span>
+                  <span style={{ color: 'var(--text-muted, #64748B)', fontSize: 11.5 }}>แนวโน้ม</span>
                   <span
-                    className="tabular-nums font-mono"
                     style={{
                       color:
                         waterDelta.direction === 'up'
-                          ? '#EF4444'
+                          ? 'var(--color-critical, #EF4444)'
                           : waterDelta.direction === 'down'
-                          ? '#10B981'
-                          : '#94A3B8',
+                          ? 'var(--color-normal, #10B981)'
+                          : 'var(--text-secondary, #94A3B8)',
                       fontWeight: 700,
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1437,7 +1535,12 @@ export default function StationDetailPage() {
                     ) : (
                       <MinusIcon size={13} />
                     )}
-                    <span>{waterDelta.delta > 0 ? `+${waterDelta.delta}` : waterDelta.delta} ม.</span>
+                    <span key={waterUnit} className="tabular-nums font-mono unit-fade-active">
+                      {waterUnit === 'cm'
+                        ? `${waterDelta.delta > 0 ? '+' : ''}${(waterDelta.delta * 100).toFixed(1)}`
+                        : `${waterDelta.delta > 0 ? '+' : ''}${waterDelta.delta}`}
+                    </span>
+                    <span style={{ fontSize: 11 }}>{unitShort}</span>
                   </span>
                 </div>
               )}
@@ -1445,18 +1548,18 @@ export default function StationDetailPage() {
           </div>
 
           {/* Chart Display */}
-          <div style={{ height: 340, width: '100%', position: 'relative' }}>
+          <div style={{ height: 320, width: '100%', position: 'relative' }}>
             {loadingReadings ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)' }}>
                 กำลังโหลดข้อมูลประวัติระดับน้ำ...
               </div>
             ) : chartData.length === 0 ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: 13 }}>
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)', fontSize: 13 }}>
                 ไม่มีบันทึกข้อมูลระดับน้ำในช่วงเวลานี้
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
+                <ComposedChart data={chartData} margin={{ top: 16, right: 24, left: 12, bottom: 6 }}>
                   <defs>
                     <linearGradient id="waterGradientDetail" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#38BDF8" stopOpacity={0.35} />
@@ -1466,24 +1569,57 @@ export default function StationDetailPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
                   <XAxis
                     dataKey="timeLabel"
-                    tick={{ fill: '#64748B', fontSize: 11 }}
+                    minTickGap={70}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--text-secondary, #94A3B8)', fontSize: 11 }}
                     axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
                     tickLine={false}
                   />
                   <YAxis
+                    width={54}
                     domain={['auto', 'auto']}
-                    tick={{ fill: '#64748B', fontSize: 11 }}
+                    tick={{ fill: 'var(--text-secondary, #94A3B8)', fontSize: 11 }}
                     axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
                     tickLine={false}
-                    tickFormatter={(v) => `${Number(v).toFixed(2)}m`}
+                    tickFormatter={(v) => (waterUnit === 'cm' ? `${(Number(v) * 100).toFixed(0)}cm` : `${Number(v).toFixed(2)}m`)}
                   />
-                  <Tooltip content={<WaterTooltip />} />
-                  <ReferenceLine y={0} stroke="#64748B" strokeDasharray="3 3" label={{ value: 'จุดอ้างอิง 0.00 ม.', fill: '#64748B', fontSize: 11, position: 'insideTopLeft' }} />
+                  <Tooltip content={<WaterTooltip waterUnit={waterUnit} />} />
+                  <ReferenceLine
+                    y={0}
+                    stroke="var(--text-secondary, #94A3B8)"
+                    strokeDasharray="3 3"
+                    label={{
+                      value: `จุดอ้างอิง 0.00 ${unitShort}`,
+                      fill: 'var(--text-secondary, #94A3B8)',
+                      fontSize: 11,
+                      position: 'insideTopLeft',
+                    }}
+                  />
                   {station.warningLevel != null && (
-                    <ReferenceLine y={warnLevel} stroke="#F59E0B" strokeDasharray="4 4" label={{ value: `เฝ้าระวัง ${warnLevel.toFixed(2)} ม.`, fill: '#F59E0B', fontSize: 11, position: 'insideTopLeft' }} />
+                    <ReferenceLine
+                      y={warnLevel}
+                      stroke="var(--color-warning, #F59E0B)"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: `เฝ้าระวัง ${waterUnit === 'cm' ? (warnLevel * 100).toFixed(1) : warnLevel.toFixed(2)} ${unitShort}`,
+                        fill: 'var(--color-warning, #F59E0B)',
+                        fontSize: 11,
+                        position: 'insideTopLeft',
+                      }}
+                    />
                   )}
                   {station.criticalLevel != null && (
-                    <ReferenceLine y={critLevel} stroke="#EF4444" strokeDasharray="4 4" label={{ value: `วิกฤต ${critLevel.toFixed(2)} ม.`, fill: '#EF4444', fontSize: 11, position: 'insideTopLeft' }} />
+                    <ReferenceLine
+                      y={critLevel}
+                      stroke="var(--color-critical, #EF4444)"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: `วิกฤต ${waterUnit === 'cm' ? (critLevel * 100).toFixed(1) : critLevel.toFixed(2)} ${unitShort}`,
+                        fill: 'var(--color-critical, #EF4444)',
+                        fontSize: 11,
+                        position: 'insideTopLeft',
+                      }}
+                    />
                   )}
                   <Area
                     type="monotone"
@@ -1500,208 +1636,260 @@ export default function StationDetailPage() {
           </div>
         </div>
 
-        {/* ── SECONDARY TELEMETRY GRID (ENVIRONMENT + BATTERY SIDE-BY-SIDE ON LG) ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* ── CARD 2: ENVIRONMENT TELEMETRY (TEMPERATURE & HUMIDITY) ── */}
-          <div
-            style={{
-              background: 'var(--card-surface, #0C0E12)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 16,
-              padding: '20px 22px',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-            }}
-          >
-            {/* Card Header & Stats */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ThermometerIcon size={18} style={{ color: '#F97316' }} />
-                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-                    กราฟสภาพแวดล้อม
-                  </h3>
-                </div>
-                <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                  อุณหภูมิ (°C สีส้ม) และความชื้นสัมพัทธ์ (%RH สีฟ้า)
-                </div>
-              </div>
-
-              {/* Metric Strip */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 12 }}>
-                  <span style={{ color: '#64748B' }}>อุณหภูมิเฉลี่ย </span>
-                  <span className="tabular-nums font-mono" style={{ color: '#F97316', fontWeight: 700 }}>
-                    {metrics.tempAvg != null ? `${metrics.tempAvg.toFixed(1)} °C` : '-'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12 }}>
-                  <span style={{ color: '#64748B' }}>ความชื้นเฉลี่ย </span>
-                  <span className="tabular-nums font-mono" style={{ color: '#06B6D4', fontWeight: 700 }}>
-                    {metrics.humidityAvg != null ? `${metrics.humidityAvg.toFixed(1)} %RH` : '-'}
-                  </span>
-                </div>
-              </div>
+        {/* ── CARD 2: ENVIRONMENT TELEMETRY (TEMPERATURE & HUMIDITY) ── */}
+        <div
+          style={{
+            background: 'var(--card-surface, #0C0E12)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 18,
+            padding: '22px 24px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          {/* Card Header & Balanced Metric Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ThermometerIcon size={17} style={{ color: '#F97316' }} />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0, lineHeight: 1.35 }}>
+                กราฟสภาพแวดล้อม
+              </h3>
             </div>
 
-            {/* Chart Display */}
-            <div style={{ height: 270, width: '100%', position: 'relative' }}>
-              {loadingReadings ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
-                  กำลังโหลดข้อมูลสภาพแวดล้อม...
-                </div>
-              ) : chartData.length === 0 ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: 13 }}>
-                  ไม่มีบันทึกข้อมูลสภาพแวดล้อมในช่วงเวลานี้
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
-                    <XAxis
-                      dataKey="timeLabel"
-                      tick={{ fill: '#64748B', fontSize: 11 }}
-                      axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      domain={['auto', 'auto']}
-                      tick={{ fill: '#F97316', fontSize: 11 }}
-                      axisLine={{ stroke: 'rgba(249, 115, 22, 0.2)' }}
-                      tickLine={false}
-                      tickFormatter={(v) => `${Number(v).toFixed(0)}°C`}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      domain={[0, 100]}
-                      tick={{ fill: '#06B6D4', fontSize: 11 }}
-                      axisLine={{ stroke: 'rgba(6, 182, 212, 0.2)' }}
-                      tickLine={false}
-                      tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
-                    />
-                    <Tooltip content={<EnvironmentTooltip />} />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="temperature"
-                      stroke="#F97316"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#F97316' }}
-                      name="อุณหภูมิ (°C)"
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="humidity"
-                      stroke="#06B6D4"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#06B6D4' }}
-                      name="ความชื้น (%RH)"
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              )}
+            {/* Metric Strip with Distinct Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  background: 'rgba(249, 115, 22, 0.08)',
+                  padding: '3px 10px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(249, 115, 22, 0.22)',
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F97316' }} />
+                <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>อุณหภูมิเฉลี่ย</span>
+                <span className="tabular-nums font-mono" style={{ color: '#F97316', fontWeight: 700 }}>
+                  {metrics.tempAvg != null ? metrics.tempAvg.toFixed(1) : '-'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary, #94A3B8)' }}>°C</span>
+              </div>
+
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  background: 'rgba(56, 189, 248, 0.08)',
+                  padding: '3px 10px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(56, 189, 248, 0.22)',
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-cyan, #38BDF8)' }} />
+                <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>ความชื้นเฉลี่ย</span>
+                <span className="tabular-nums font-mono" style={{ color: 'var(--color-cyan, #38BDF8)', fontWeight: 700 }}>
+                  {metrics.humidityAvg != null ? metrics.humidityAvg.toFixed(1) : '-'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary, #94A3B8)' }}>%RH</span>
+              </div>
             </div>
           </div>
 
-          {/* ── CARD 3: POWER & BATTERY TELEMETRY ── */}
-          <div
-            style={{
-              background: 'var(--card-surface, #0C0E12)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 16,
-              padding: '20px 22px',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-            }}
-          >
-            {/* Card Header & Stats */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <BatteryChargingIcon size={18} style={{ color: '#10B981' }} />
-                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#F8FAFC', margin: 0 }}>
-                    กราฟสถานะพลังงาน
-                  </h3>
-                </div>
-                <div style={{ fontSize: 12, color: '#64748B', marginTop: 4 }}>
-                  ประจุแบตเตอรี่ลิเธียมไอออนและระบบชาร์จโซลาร์เซลล์
-                </div>
+          {/* Chart Display */}
+          <div style={{ height: 320, width: '100%', position: 'relative' }}>
+            {loadingReadings ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)', fontSize: 13 }}>
+                กำลังโหลดข้อมูลสภาพแวดล้อม...
               </div>
+            ) : chartData.length === 0 ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)', fontSize: 13 }}>
+                ไม่มีบันทึกข้อมูลสภาพแวดล้อมในช่วงเวลานี้
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 16, right: 20, left: 10, bottom: 6 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
+                  <XAxis
+                    dataKey="timeLabel"
+                    minTickGap={70}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--text-secondary, #94A3B8)', fontSize: 11 }}
+                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    width={46}
+                    domain={['auto', 'auto']}
+                    tick={{ fill: '#F97316', fontSize: 11 }}
+                    axisLine={{ stroke: 'rgba(249, 115, 22, 0.2)' }}
+                    tickLine={false}
+                    tickFormatter={(v) => `${Number(v).toFixed(0)}°C`}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    width={46}
+                    orientation="right"
+                    domain={[0, 100]}
+                    tick={{ fill: 'var(--color-cyan, #38BDF8)', fontSize: 11 }}
+                    axisLine={{ stroke: 'rgba(56, 189, 248, 0.2)' }}
+                    tickLine={false}
+                    tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+                  />
+                  <Tooltip content={<EnvironmentTooltip />} />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="temperature"
+                    stroke="#F97316"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#F97316' }}
+                    name="อุณหภูมิ (°C)"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="humidity"
+                    stroke="var(--color-cyan, #38BDF8)"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, fill: 'var(--color-cyan, #38BDF8)' }}
+                    name="ความชื้น (%RH)"
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
 
-              {/* Metric Strip */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ fontSize: 12 }}>
-                  <span style={{ color: '#64748B' }}>แบตเตอรี่ล่าสุด </span>
-                  <span className="tabular-nums font-mono" style={{ color: '#10B981', fontWeight: 700 }}>
-                    {station.batteryPercent != null ? `${station.batteryPercent}%` : '100%'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12 }}>
-                  <span style={{ color: '#64748B' }}>ต่ำสุดในช่วง </span>
-                  <span className="tabular-nums font-mono" style={{ color: metrics.batteryMin != null && metrics.batteryMin < 20 ? '#EF4444' : '#F8FAFC', fontWeight: 700 }}>
-                    {metrics.batteryMin != null ? `${metrics.batteryMin}%` : '-'}
-                  </span>
-                </div>
-              </div>
+        {/* ── CARD 3: POWER & BATTERY TELEMETRY ── */}
+        <div
+          id="battery-chart"
+          style={{
+            background: 'var(--card-surface, #0C0E12)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 18,
+            padding: '22px 24px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.35)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          {/* Card Header & Balanced Metric Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BatteryChargingIcon size={17} style={{ color: 'var(--color-normal, #10B981)' }} />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0, lineHeight: 1.35 }}>
+                กราฟสถานะพลังงาน
+              </h3>
             </div>
 
-            {/* Chart Display */}
-            <div style={{ height: 270, width: '100%', position: 'relative' }}>
-              {loadingReadings ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
-                  กำลังโหลดข้อมูลพลังงาน...
-                </div>
-              ) : chartData.length === 0 ? (
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', fontSize: 13 }}>
-                  ไม่มีบันทึกข้อมูลพลังงานในช่วงเวลานี้
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="batteryGradientDetail" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#10B981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
-                    <XAxis
-                      dataKey="timeLabel"
-                      tick={{ fill: '#64748B', fontSize: 11 }}
-                      axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      domain={[0, 100]}
-                      tick={{ fill: '#64748B', fontSize: 11 }}
-                      axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
-                      tickLine={false}
-                      tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
-                    />
-                    <Tooltip content={<BatteryTooltip />} />
-                    <ReferenceLine y={20} stroke="#EF4444" strokeDasharray="3 3" label={{ value: 'เกณฑ์แบตเตอรี่ต่ำ (20%)', fill: '#EF4444', fontSize: 11, position: 'insideTopLeft' }} />
-                    <Area
-                      type="monotone"
-                      dataKey="batteryPercent"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      fill="url(#batteryGradientDetail)"
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#10B981' }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              )}
+            {/* Metric Strip with Distinct Badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  padding: '3px 10px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(16, 185, 129, 0.22)',
+                }}
+              >
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-normal, #10B981)' }} />
+                <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>ล่าสุด</span>
+                <span className="tabular-nums font-mono" style={{ color: 'var(--color-normal, #10B981)', fontWeight: 700 }}>
+                  {station.batteryPercent != null ? `${station.batteryPercent}%` : '100%'}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 12,
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  padding: '3px 10px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <span style={{ color: 'var(--text-muted, #64748B)' }}>ต่ำสุด</span>
+                <span
+                  className="tabular-nums font-mono"
+                  style={{
+                    color: metrics.batteryMin != null && metrics.batteryMin < 20 ? 'var(--color-critical, #EF4444)' : 'var(--text-primary, #F8FAFC)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {metrics.batteryMin != null ? `${metrics.batteryMin}%` : '-'}
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Chart Display */}
+          <div style={{ height: 320, width: '100%', position: 'relative' }}>
+            {loadingReadings ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)' }}>
+                กำลังโหลดข้อมูลพลังงาน...
+              </div>
+            ) : chartData.length === 0 ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary, #94A3B8)', fontSize: 13 }}>
+                ไม่มีบันทึกข้อมูลพลังงานในช่วงเวลานี้
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 16, right: 24, left: 10, bottom: 6 }}>
+                  <defs>
+                    <linearGradient id="batteryGradientDetail" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
+                  <XAxis
+                    dataKey="timeLabel"
+                    minTickGap={70}
+                    interval="preserveStartEnd"
+                    tick={{ fill: 'var(--text-secondary, #94A3B8)', fontSize: 11 }}
+                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    width={48}
+                    domain={[0, 100]}
+                    tick={{ fill: 'var(--text-secondary, #94A3B8)', fontSize: 11 }}
+                    axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                    tickLine={false}
+                    tickFormatter={(v) => `${Number(v).toFixed(0)}%`}
+                  />
+                  <Tooltip content={<BatteryTooltip />} />
+                  <ReferenceLine y={20} stroke="var(--color-critical, #EF4444)" strokeDasharray="3 3" label={{ value: 'เกณฑ์แบตเตอรี่ต่ำ (20%)', fill: 'var(--color-critical, #EF4444)', fontSize: 11, position: 'insideTopLeft' }} />
+                  <Area
+                    type="monotone"
+                    dataKey="batteryPercent"
+                    stroke="var(--color-normal, #10B981)"
+                    strokeWidth={2}
+                    fill="url(#batteryGradientDetail)"
+                    dot={false}
+                    activeDot={{ r: 4, fill: '#10B981' }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

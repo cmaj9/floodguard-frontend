@@ -17,6 +17,7 @@ interface SegmentedControlProps<T extends string | number> {
   className?: string;
   id?: string;
   ariaLabel?: string;
+  accentColor?: 'default' | 'cyan';
 }
 
 export function SegmentedControl<T extends string | number>({
@@ -28,6 +29,7 @@ export function SegmentedControl<T extends string | number>({
   className = '',
   id,
   ariaLabel = 'Segmented Control',
+  accentColor = 'default',
 }: SegmentedControlProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number; opacity: number }>({
@@ -65,6 +67,7 @@ export function SegmentedControl<T extends string | number>({
   const padY = size === 'sm' ? '0.35rem' : size === 'lg' ? '0.65rem' : '0.45rem';
   const padX = size === 'sm' ? '0.75rem' : size === 'lg' ? '1.25rem' : '0.95rem';
   const fontSize = size === 'sm' ? '0.8125rem' : size === 'lg' ? '0.9375rem' : '0.875rem';
+  const isCyan = accentColor === 'cyan';
 
   return (
     <div
@@ -77,8 +80,8 @@ export function SegmentedControl<T extends string | number>({
         display: fullWidth ? 'flex' : 'inline-flex',
         width: fullWidth ? '100%' : 'auto',
         position: 'relative',
-        background: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: isCyan ? 'rgba(15, 23, 42, 0.75)' : 'rgba(255, 255, 255, 0.05)',
+        border: isCyan ? '1px solid rgba(56, 189, 248, 0.22)' : '1px solid rgba(255, 255, 255, 0.08)',
         borderRadius: '9999px',
         padding: '3px',
         backdropFilter: 'blur(12px)',
@@ -93,10 +96,12 @@ export function SegmentedControl<T extends string | number>({
           bottom: '3px',
           left: `${indicatorStyle.left}px`,
           width: `${indicatorStyle.width}px`,
-          background: '#1F242C',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
+          background: isCyan ? 'rgba(56, 189, 248, 0.16)' : '#1F242C',
+          border: isCyan ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid rgba(255, 255, 255, 0.15)',
           borderRadius: '9999px',
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.45)',
+          boxShadow: isCyan
+            ? '0 0 14px rgba(56, 189, 248, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+            : '0 2px 10px rgba(0, 0, 0, 0.45)',
           transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           opacity: indicatorStyle.opacity,
           pointerEvents: 'none',
@@ -126,7 +131,7 @@ export function SegmentedControl<T extends string | number>({
               borderRadius: '9999px',
               border: 'none',
               background: 'transparent',
-              color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
+              color: isActive ? (isCyan ? 'var(--color-cyan, #38BDF8)' : '#FFFFFF') : 'var(--text-secondary, #94A3B8)',
               fontSize: fontSize,
               fontWeight: isActive ? 700 : 500,
               cursor: 'pointer',
@@ -142,7 +147,7 @@ export function SegmentedControl<T extends string | number>({
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  color: isActive ? '#FFFFFF' : 'var(--cyan-glow)',
+                  color: isActive ? (isCyan ? 'var(--color-cyan, #38BDF8)' : '#FFFFFF') : 'var(--text-muted, #64748B)',
                   opacity: isActive ? 1 : 0.75,
                 }}
               >

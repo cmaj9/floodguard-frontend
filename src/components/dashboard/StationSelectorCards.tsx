@@ -6,6 +6,7 @@ import {
   XCircleIcon,
   MapPinIcon,
 } from '../ui/Icons';
+import { isStationOnline } from '../../utils/stationStatus';
 
 interface StationSelectorCardsProps {
   stations: Station[];
@@ -31,7 +32,13 @@ export const StationSelectorCards = memo(function StationSelectorCards({
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;
-          const isOnline = station.isActive;
+          const isOnline = isStationOnline(station);
+
+          const hasReading = Boolean(
+            station.lastReadingTime ||
+            station.rawDistance !== null && station.rawDistance !== undefined ||
+            station.currentLevel !== null && station.currentLevel !== undefined
+          );
 
           // Status colors & labels (Dual-Coding)
           let statusLabel = 'ปกติ (ปลอดภัย)';
@@ -39,7 +46,17 @@ export const StationSelectorCards = memo(function StationSelectorCards({
           let statusBg = 'var(--status-normal-dim)';
           let StatusIcon = CheckCircleIcon;
 
-          if (station.status === 'critical') {
+          if (!isOnline) {
+            statusLabel = 'ออฟไลน์';
+            statusColor = 'var(--text-muted)';
+            statusBg = 'rgba(100, 116, 139, 0.12)';
+            StatusIcon = AlertTriangleIcon;
+          } else if (!hasReading) {
+            statusLabel = 'ออนไลน์ (รอข้อมูล)';
+            statusColor = 'var(--status-normal)';
+            statusBg = 'var(--status-normal-dim)';
+            StatusIcon = CheckCircleIcon;
+          } else if (station.status === 'critical') {
             statusLabel = 'วิกฤต (ล้นตลิ่ง)';
             statusColor = 'var(--status-critical)';
             statusBg = 'var(--status-critical-dim)';
@@ -49,19 +66,12 @@ export const StationSelectorCards = memo(function StationSelectorCards({
             statusColor = 'var(--status-advisory)';
             statusBg = 'var(--status-advisory-dim)';
             StatusIcon = AlertTriangleIcon;
-          } else if (!isOnline) {
-            statusLabel = 'ออฟไลน์';
-            statusColor = 'var(--text-muted)';
-            statusBg = 'rgba(100, 116, 139, 0.12)';
-            StatusIcon = AlertTriangleIcon;
           }
 
           const formattedLevel =
-            !isOnline
-              ? '-'
-              : typeof station.currentLevel === 'number'
+            hasReading && typeof station.currentLevel === 'number'
               ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
-              : '0.00';
+              : '-';
 
           return (
             <div
@@ -157,7 +167,7 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                       fontWeight: 600,
                     }}
                   >
-                    {isOnline ? 'เชื่อมต่อสด' : 'ออฟไลน์'}
+                    {isOnline ? (!hasReading ? 'ออนไลน์ (รอข้อมูล)' : 'เชื่อมต่อสด') : 'ออฟไลน์'}
                   </span>
                 </div>
               </div>
@@ -237,7 +247,7 @@ export const StationSelectorCards = memo(function StationSelectorCards({
                     >
                       {formattedLevel}
                     </span>
-                    {isOnline && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ม.</span>}
+                    {hasReading && <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ม.</span>}
                   </div>
                 </div>
 

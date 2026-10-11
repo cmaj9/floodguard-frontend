@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -31,6 +32,8 @@ import {
   ChevronUpIcon,
 } from "../ui/Icons";
 import { Badge } from "../ui/Badge";
+import { isStationOnline, formatRelativeTimeThai } from "../../utils/stationStatus";
+import { useAuth } from "../../context/AuthContext";
 
 interface StationTelemetryHubProps {
   station: Station;
@@ -41,6 +44,29 @@ interface StationTelemetryHubProps {
 }
 
 type HubViewMode = "sensors" | "chart";
+
+// Shared singleton AudioContext to prevent browser audio resource leaks
+let sharedAudioCtx: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
+      sharedAudioCtx = new AudioCtx();
+    }
+    if (sharedAudioCtx.state === "suspended") {
+      sharedAudioCtx.resume().catch(() => {});
+    }
+    return sharedAudioCtx;
+  } catch {
+    return null;
+  }
+}
 
 export const StationTelemetryHub = memo(function StationTelemetryHub({
   station,
@@ -56,8 +82,6 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
   // Mobile expandable diagnostics toggle (shows primary by default, expands to 8)
   const [showAllMetrics, setShowAllMetrics] = useState(false);
-
-  const [recentReadings, setRecentReadings] = useState<Reading[]>([]);
 
   // Water level display unit: 'm' (meters, default) or 'cm' (centimeters)
   const [waterUnit, setWaterUnit] = useState<"m" | "cm">("m");
@@ -93,15 +117,22 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
     return `${sign}${valInMeters.toFixed(2)} ม.`;
   };
 
-  // Real-time audio synthesizer for tactile water resonance
+  // TanStack Query: Fetch recent readings with deduplication and caching across Hub & Recent Readings Card
+  const { data: recentReadings = [] } = useQuery<Reading[]>({
+    queryKey: ['station-readings', station.id],
+    queryFn: async () => {
+      const data = await fetchReadingsByStation(station.id, 20).catch(() => []);
+      return data || [];
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  // Real-time audio synthesizer for tactile water resonance (uses shared singleton)
   const playFluidResonance = () => {
     try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext })
-          .webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
+      const ctx = getSharedAudioContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "triangle";
@@ -118,67 +149,62 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
     }
   };
 
-  // Fetch recent readings for this specific station
-  useEffect(() => {
-    let isMounted = true;
-    fetchReadingsByStation(station.id, 12)
-      .then((data) => {
-        if (isMounted) setRecentReadings(data || []);
-      })
-      .catch(() => {
-        if (isMounted) setRecentReadings([]);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [station.id]);
-
   // Derived values & fallbacks
-  const temp = station.temperature ?? 30.2;
-  const hum = station.humidity ?? 66.3;
-  const battPercent = station.batteryPercent ?? 100;
+  const temp = station.temperature;
+  const hum = station.humidity;
+  const battPercent = station.batteryPercent;
   // Dynamic battery color coding: Green >50%, Amber/Yellow 21-50%, Red <=20%
   const battColor =
-    battPercent <= 20
+    battPercent === undefined || battPercent === null
+      ? "#64748B"
+      : battPercent <= 20
       ? "#EF4444"
       : battPercent <= 50
       ? "#F59E0B"
       : "#10B981";
 
   const battTrackGradient =
-    battPercent <= 20
+    battPercent === undefined || battPercent === null
+      ? "transparent"
+      : battPercent <= 20
       ? "linear-gradient(90deg, #E11D48 0%, #EF4444 100%)"
       : battPercent <= 50
       ? "linear-gradient(90deg, #F59E0B 0%, #FBBF24 100%)"
       : "linear-gradient(90deg, #10B981 0%, #34D399 100%)";
 
   const battGlow =
-    battPercent <= 20
+    battPercent === undefined || battPercent === null
+      ? "none"
+      : battPercent <= 20
       ? "0 0 8px rgba(239, 68, 68, 0.5)"
       : battPercent <= 50
       ? "0 0 6px rgba(245, 158, 11, 0.35)"
       : "0 0 6px rgba(16, 185, 129, 0.35)";
-  const battVolt = station.batteryVoltage ?? 13.0;
-  const rssi = station.rssi ?? -71;
-  const snr = station.snr ?? 14.5;
-  const tiltX = station.tiltX ?? 4.1;
-  const tiltY = station.tiltY ?? -1.1;
-  const gateway = station.gatewayName || "Gateway_01";
-  const model = station.model || "Heltec-WiFi-LoRa-32(V3)";
-  const firmware = station.firmwareVersion || "v1.2.0";
+  const battVolt = station.batteryVoltage;
+  const rssi = station.rssi;
+  const snr = station.snr;
+  const tiltX = station.tiltX;
+  const tiltY = station.tiltY;
+  const gateway = station.gatewayName || "-";
+  const model = station.model || "-";
+  const firmware = station.firmwareVersion || "-";
 
   // Physical Calibration & Reference Point
   const refName = station.referencePointName || "จุดอ้างอิง";
   const sensorToRef = station.sensorToRefDistance ?? 2.0;
-  const rawDistance =
-    station.rawDistance ?? Number((sensorToRef - (station.currentLevel ?? 0)).toFixed(3));
-  const waterLevel =
-    station.rawDistance !== null && station.rawDistance !== undefined
-      ? Number((sensorToRef - station.rawDistance).toFixed(3))
-      : (station.currentLevel ?? 0);
+  const hasReading = Boolean(
+    station.lastReadingTime ||
+    station.rawDistance !== null && station.rawDistance !== undefined ||
+    station.currentLevel !== null && station.currentLevel !== undefined
+  );
+  const rawDistance = station.rawDistance ?? (hasReading && station.currentLevel !== null ? Number((sensorToRef - (station.currentLevel ?? 0)).toFixed(3)) : null);
+  const waterLevel = hasReading
+    ? (station.rawDistance !== null && station.rawDistance !== undefined
+        ? Number((sensorToRef - station.rawDistance).toFixed(3))
+        : (station.currentLevel !== null && station.currentLevel !== undefined ? Number(station.currentLevel) : null))
+    : null;
   const isBlindZone =
-    station.isBlindZone || rawDistance <= (station.blindZoneOffset ?? 0.28);
+    station.isBlindZone || (rawDistance !== null && rawDistance <= (station.blindZoneOffset ?? 0.28));
 
   // Water level thresholds
   const hasWarning =
@@ -191,7 +217,10 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
     !isNaN(Number(station.criticalLevel));
   const warningLevel = hasWarning ? Number(station.warningLevel) : null;
   const criticalLevel = hasCritical ? Number(station.criticalLevel) : null;
-  const isOffline = !station.isActive || station.operatingStatus === "offline";
+  const isOffline = !isStationOnline(station);
+
+  const { user } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.role === 'staff';
 
   // Tactical Sonar status derivation
   let statusBadgeType: "normal" | "warning" | "critical" | "offline" = "normal";
@@ -199,7 +228,10 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
   if (isOffline) {
     statusBadgeType = "offline";
-    statusText = "ปิดให้บริการชั่วคราว (Offline)";
+    statusText = isStaff && station.isManualOffline ? "ออฟไลน์ (โหมดทดสอบ: ค่าสดเฉพาะเจ้าหน้าที่)" : "สถานีออฟไลน์ (Offline)";
+  } else if (!hasReading || waterLevel === null) {
+    statusBadgeType = "normal";
+    statusText = "ออนไลน์ (รอข้อมูลเซนเซอร์)";
   } else if (hasCritical && waterLevel >= (criticalLevel as number)) {
     statusBadgeType = "critical";
     statusText = `ระดับน้ำวิกฤต (สูงกว่า${refName})`;
@@ -213,10 +245,37 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
   // Tactical Situational Intelligence Insight
   const situationalInsight = useMemo(() => {
-    if (isOffline) {
+    if (!hasReading || waterLevel === null) {
+      if (isOffline) {
+        if (station.gatewayStatus === 'offline') {
+          return {
+            text: `เกตเวย์แม่ข่ายขาดการเชื่อมต่อ (${station.gatewayName || 'ChirpStack Gateway'})`,
+            dotColor: "var(--beacon-red, #EF4444)",
+          };
+        }
+        return {
+          text: `ยังไม่มีประวัติการส่งข้อมูลจากเซนเซอร์`,
+          dotColor: "#94A3B8",
+        };
+      }
       return {
-        text: "สถานีปิดบริการชั่วคราว · ตรวจสอบระบบเซนเซอร์",
-        dotColor: "#94A3B8",
+        text: `พร้อมรับข้อมูล`,
+        dotColor: "var(--sonar-green, #10B981)",
+      };
+    }
+    if (isOffline) {
+      if (station.gatewayStatus === 'offline') {
+        return {
+          text: `เกตเวย์แม่ข่ายขาดการเชื่อมต่อ (${station.gatewayName || 'ChirpStack Gateway'})`,
+          dotColor: "var(--beacon-red, #EF4444)",
+        };
+      }
+      const relTime = formatRelativeTimeThai(station.lastUpdated);
+      return {
+        text: isStaff && station.isManualOffline
+          ? `โหมดทดสอบเจ้าหน้าที่ · ค่าสดเฉพาะเจ้าหน้าที่ (${relTime})`
+          : `แสดงข้อมูลล่าสุด (${relTime})`,
+        dotColor: isStaff && station.isManualOffline ? "#F59E0B" : "#94A3B8",
       };
     }
     if (hasCritical && waterLevel >= criticalLevel!) {
@@ -243,13 +302,14 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
       text: `สถานการณ์ปกติ · ระดับน้ำต่ำกว่า${refName} ${margin.toFixed(2)} ม.`,
       dotColor: "var(--sonar-green, #10B981)",
     };
-  }, [isOffline, hasCritical, criticalLevel, hasWarning, warningLevel, waterLevel, refName]);
+  }, [hasReading, waterLevel, isOffline, station.gatewayStatus, station.gatewayName, isStaff, station.isManualOffline, station.lastUpdated, hasCritical, criticalLevel, hasWarning, warningLevel, refName]);
 
-  // Hydro-Tactical Water Gauge Percentage Calculations
+  // Hydro-Tactical Water Gauge Percentage Calculations - pins to datum (0.00m) if no reading
   const minExpected = -Math.max(1.5, sensorToRef * 0.85);
   const maxExpected = Math.max(0.8, (criticalLevel ?? 0.5) + 0.6);
   const span = maxExpected - minExpected;
-  const currentRatio = Math.max(0.04, Math.min(0.98, (waterLevel - minExpected) / (span || 1)));
+  const effectiveLevelForGauge = hasReading && waterLevel !== null ? waterLevel : 0;
+  const currentRatio = Math.max(0.04, Math.min(0.98, (effectiveLevelForGauge - minExpected) / (span || 1)));
   const gaugePercent = Math.round(currentRatio * 100);
   const datumPercent = Math.max(12, Math.min(88, Math.round(((0 - minExpected) / (span || 1)) * 100)));
   const warnPercent = hasWarning ? Math.max(15, Math.min(94, Math.round(((warningLevel! - minExpected) / (span || 1)) * 100))) : null;
@@ -257,7 +317,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
 
   // Tilt Status
-  const isTilted = station.isPoleTilted ?? (Math.abs(tiltX) > 15 || Math.abs(tiltY) > 15);
+  const isTilted = station.isPoleTilted ?? (Boolean(tiltX != null && Math.abs(tiltX) > 15) || Boolean(tiltY != null && Math.abs(tiltY) > 15));
 
   // Format timestamp
   let formattedTime = "เมื่อสักครู่";
@@ -296,24 +356,28 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               ? Number((sensorToRef - Number(r.raw_distance)).toFixed(3))
               : (r.water_level !== null && r.water_level !== undefined && !isNaN(Number(r.water_level))
                   ? Number(Number(r.water_level).toFixed(3))
-                  : waterLevel),
+                  : (waterLevel ?? 0)),
         };
       });
     }
+    if (!hasReading || waterLevel === null) {
+      return [];
+    }
     // Fallback baseline points
+    const base = waterLevel;
     return [
-      { time: "17:15", level: Number((waterLevel - 0.02).toFixed(3)) },
-      { time: "17:20", level: Number((waterLevel - 0.01).toFixed(3)) },
-      { time: "17:25", level: waterLevel },
-      { time: "17:30", level: Number((waterLevel + 0.005).toFixed(3)) },
-      { time: "17:35", level: waterLevel },
-      { time: "17:40", level: waterLevel },
-      { time: "17:45", level: waterLevel },
-      { time: "17:50", level: Number((waterLevel + 0.003).toFixed(3)) },
-      { time: "17:55", level: waterLevel },
-      { time: "18:00", level: waterLevel },
+      { time: "17:15", level: Number((base - 0.02).toFixed(3)) },
+      { time: "17:20", level: Number((base - 0.01).toFixed(3)) },
+      { time: "17:25", level: base },
+      { time: "17:30", level: Number((base + 0.005).toFixed(3)) },
+      { time: "17:35", level: base },
+      { time: "17:40", level: base },
+      { time: "17:45", level: base },
+      { time: "17:50", level: Number((base + 0.003).toFixed(3)) },
+      { time: "17:55", level: base },
+      { time: "18:00", level: base },
     ];
-  }, [recentReadings, sensorToRef, waterLevel]);
+  }, [recentReadings, sensorToRef, waterLevel, hasReading]);
 
   return (
     <div
@@ -361,12 +425,18 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             >
               {stations.map((s) => {
                 const isSelected = s.id === station.id;
-                const isStationOffline = !s.isActive || s.operatingStatus === "offline";
+                const isStationOffline = !isStationOnline(s);
                 const sSensorToRef = s.sensorToRefDistance ?? 2.0;
-                const sWaterLevel =
-                  s.rawDistance !== null && s.rawDistance !== undefined
-                    ? Number((sSensorToRef - s.rawDistance).toFixed(3))
-                    : (s.currentLevel ?? 0);
+                const sHasReading = Boolean(
+                  s.lastReadingTime ||
+                  s.rawDistance !== null && s.rawDistance !== undefined ||
+                  s.currentLevel !== null && s.currentLevel !== undefined
+                );
+                const sWaterLevel = sHasReading
+                  ? (s.rawDistance !== null && s.rawDistance !== undefined
+                      ? Number((sSensorToRef - s.rawDistance).toFixed(3))
+                      : (s.currentLevel !== null && s.currentLevel !== undefined ? Number(s.currentLevel) : null))
+                  : null;
                 const hasStCrit =
                   s.criticalLevel !== null &&
                   s.criticalLevel !== undefined &&
@@ -385,27 +455,31 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
 
                 if (isStationOffline) {
                   statusDotColor = "#64748B";
-                  fluidGradient = "transparent";
-                  fluidBorderTop = "none";
-                } else if (hasStCrit && sWaterLevel >= stCrit!) {
+                  fluidGradient =
+                    "linear-gradient(180deg, rgba(100, 116, 139, 0.25) 0%, rgba(100, 116, 139, 0.05) 100%)";
+                  fluidBorderTop = "2px solid #64748B";
+                } else if (!sHasReading) {
+                  statusDotColor = "var(--sonar-green, #10B981)";
+                  fluidGradient =
+                    "linear-gradient(180deg, rgba(56, 189, 248, 0.28) 0%, rgba(56, 189, 248, 0.05) 100%)";
+                  fluidBorderTop = "2px solid #38BDF8";
+                } else if (hasStCrit && sWaterLevel !== null && sWaterLevel >= stCrit!) {
                   statusDotColor = "var(--beacon-red, #EF4444)";
                   fluidGradient =
                     "linear-gradient(180deg, rgba(239, 68, 68, 0.32) 0%, rgba(239, 68, 68, 0.06) 100%)";
                   fluidBorderTop = "2px solid #EF4444";
-                } else if (hasStWarn && sWaterLevel >= stWarn!) {
+                } else if (hasStWarn && sWaterLevel !== null && sWaterLevel >= stWarn!) {
                   statusDotColor = "var(--tactical-amber, #F59E0B)";
                   fluidGradient =
                     "linear-gradient(180deg, rgba(245, 158, 11, 0.3) 0%, rgba(245, 158, 11, 0.06) 100%)";
                   fluidBorderTop = "2px solid #F59E0B";
                 }
 
-                // Calculate fluid fill height percentage (between 16% and 88%)
-                let fillHeightPercent = 0;
-                if (!isStationOffline) {
-                  const refVal = stCrit ? stCrit * 1.25 : 3.5;
-                  const ratio = Math.max(0, Math.min(1, (sWaterLevel + 0.5) / (refVal + 0.5)));
-                  fillHeightPercent = Math.round(18 + ratio * 64);
-                }
+                // Calculate fluid fill height percentage (between 16% and 88%) - stays at reference baseline (0) if no reading
+                const refVal = stCrit ? stCrit * 1.25 : 3.5;
+                const effectiveTabLevel = sWaterLevel !== null ? sWaterLevel : 0;
+                const ratio = Math.max(0, Math.min(1, (effectiveTabLevel + 0.5) / (refVal + 0.5)));
+                const fillHeightPercent = Math.round(18 + ratio * 64);
 
                 return (
                   <button
@@ -590,18 +664,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                               : "none",
                         }}
                       >
-                        {isStationOffline ? (
-                          <span
-                            style={{
-                              fontSize: "0.8125rem",
-                              fontWeight: 600,
-                              color: "var(--text-dim, #64748B)",
-                              letterSpacing: "normal",
-                            }}
-                          >
-                            ออฟไลน์
-                          </span>
-                        ) : (
+                        {sWaterLevel !== null ? (
                           <>
                             <span>{sWaterLevel.toFixed(2)}</span>
                             <span
@@ -615,7 +678,38 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                               m
                             </span>
                           </>
+                        ) : (
+                          <span style={{ fontSize: "1.125rem", color: isStationOffline ? "var(--text-dim, #64748B)" : "#94A3B8" }}>-</span>
                         )}
+                        {isStationOffline ? (
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              fontWeight: 600,
+                              color: isStaff && s.isManualOffline ? "#F59E0B" : "#94A3B8",
+                              marginLeft: "auto",
+                              padding: "1px 4px",
+                              borderRadius: "3px",
+                              background: isStaff && s.isManualOffline ? "rgba(245, 158, 11, 0.15)" : "rgba(148, 163, 184, 0.15)",
+                            }}
+                          >
+                            {isStaff && s.isManualOffline ? "ออฟไลน์ (ทดสอบ)" : "ออฟไลน์"}
+                          </span>
+                        ) : !sHasReading ? (
+                          <span
+                            style={{
+                              fontSize: "0.65rem",
+                              fontWeight: 600,
+                              color: "#10B981",
+                              marginLeft: "auto",
+                              padding: "1px 4px",
+                              borderRadius: "3px",
+                              background: "rgba(16, 185, 129, 0.15)",
+                            }}
+                          >
+                            รอข้อมูล
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </button>
@@ -734,10 +828,11 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               onClick={() => setViewMode("sensors")}
               className="tactile-press"
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "6px 14px",
+                padding: "8px 16px",
+                minHeight: "40px",
                 borderRadius: "6px",
                 background:
                   viewMode === "sensors"
@@ -762,10 +857,11 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               onClick={() => setViewMode("chart")}
               className="tactile-press"
               style={{
-                display: "flex",
+                display: "inline-flex",
                 alignItems: "center",
                 gap: "6px",
-                padding: "6px 14px",
+                padding: "8px 16px",
+                minHeight: "40px",
                 borderRadius: "6px",
                 background:
                   viewMode === "chart"
@@ -789,6 +885,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             className="btn-aqua-fluid telemetry-desktop-cta tactile-press"
             onClick={() => navigate(`/chart?station=${station.id}`)}
             title="เปิดหน้าระบบวิเคราะห์ประวัติย้อนหลังแบบเต็มหน้าจอ"
+            style={{ minHeight: "40px" }}
           >
             <div className="aqua-fluid-backdrop" />
             <div className="btn-content">
@@ -828,20 +925,6 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               ระดับน้ำ ({refName})
             </span>
           </div>
-
-          <Badge
-            status={statusBadgeType}
-            dot
-            label={
-              isOffline
-                ? "ออฟไลน์"
-                : waterLevel < 0
-                ? `ต่ำกว่าเกณฑ์ ${Math.abs(waterLevel).toFixed(2)} ม.`
-                : waterLevel === 0
-                ? `เสมอเกณฑ์พอดี`
-                : `สูงกว่าเกณฑ์ +${waterLevel.toFixed(2)} ม.`
-            }
-          />
         </div>
 
         {/* Large Prominent Giant Telemetry Mono Readout with Interactive Unit Pill */}
@@ -854,101 +937,91 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             flexWrap: "wrap",
           }}
         >
-          {isOffline ? (
-            <span
-              className="tabular-nums font-mono"
+          <span
+            key={waterUnit}
+            className="tabular-nums font-mono unit-swap-active"
+            style={{
+              fontSize: "48px",
+              fontWeight: 900,
+              color:
+                waterLevel === null
+                  ? "var(--text-dim, #64748B)"
+                  : isOffline
+                  ? "var(--text-primary)"
+                  : statusBadgeType === "critical"
+                  ? "var(--beacon-red, #EF4444)"
+                  : statusBadgeType === "warning"
+                  ? "var(--tactical-amber, #F59E0B)"
+                  : "var(--sonar-green, #10B981)",
+              letterSpacing: "-0.03em",
+              lineHeight: 1,
+              display: "inline-block",
+            }}
+          >
+            {formatLevel(waterLevel)}
+          </span>
+
+          {/* Interactive Unit Pill (Click to toggle m / cm with 180° rotation) */}
+          <button
+            type="button"
+            onClick={() => setWaterUnit((prev) => (prev === "m" ? "cm" : "m"))}
+            title="คลิกเพื่อสลับหน่วยวัด (เมตร ⇄ เซนติเมตร)"
+            aria-label={`หน่วยวัดปัจจุบัน ${waterUnit === "cm" ? "เซนติเมตร" : "เมตร"} คลิกเพื่อสลับ`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              borderRadius: "8px",
+              padding: "8px 14px",
+              minHeight: "44px",
+              minWidth: "44px",
+              color: "var(--text-secondary, #94A3B8)",
+              fontSize: "0.9375rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              userSelect: "none",
+              transform: "translateY(-4px)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "var(--marine-blue, #0284C7)";
+              e.currentTarget.style.color = "var(--telemetry-cyan, #38BDF8)";
+              e.currentTarget.style.background = "rgba(2, 132, 199, 0.12)";
+              e.currentTarget.style.boxShadow = "0 0 8px rgba(56, 189, 248, 0.25)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
+              e.currentTarget.style.color = "var(--text-secondary, #94A3B8)";
+              e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
+              e.currentTarget.style.boxShadow = "none";
+            }}
+          >
+            <span key={waterUnit} className="unit-fade-active">{waterUnit === "cm" ? "ซม." : "ม."}</span>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               style={{
-                fontSize: "48px",
-                fontWeight: 900,
-                color: "var(--text-muted)",
-                lineHeight: 1,
+                opacity: 0.8,
+                transform: waterUnit === "cm" ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
               }}
             >
-              -
-            </span>
-          ) : (
-            <>
-              <span
-                key={waterUnit}
-                className="tabular-nums font-mono unit-swap-active"
-                style={{
-                  fontSize: "48px",
-                  fontWeight: 900,
-                  color:
-                    statusBadgeType === "critical"
-                      ? "var(--beacon-red, #EF4444)"
-                      : statusBadgeType === "warning"
-                      ? "var(--tactical-amber, #F59E0B)"
-                      : "var(--sonar-green, #10B981)",
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1,
-                  display: "inline-block",
-                }}
-              >
-                {formatLevel(waterLevel)}
-              </span>
-
-              {/* Interactive Unit Pill (Click to toggle m / cm with 180° rotation) */}
-              <button
-                type="button"
-                onClick={() => setWaterUnit((prev) => (prev === "m" ? "cm" : "m"))}
-                title="คลิกเพื่อสลับหน่วยวัด (เมตร ⇄ เซนติเมตร)"
-                aria-label={`หน่วยวัดปัจจุบัน ${waterUnit === "cm" ? "เซนติเมตร" : "เมตร"} คลิกเพื่อสลับ`}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "6px",
-                  padding: "3px 8px",
-                  color: "var(--text-secondary, #94A3B8)",
-                  fontSize: "0.875rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                  userSelect: "none",
-                  transform: "translateY(-4px)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "var(--marine-blue, #0284C7)";
-                  e.currentTarget.style.color = "var(--telemetry-cyan, #38BDF8)";
-                  e.currentTarget.style.background = "rgba(2, 132, 199, 0.12)";
-                  e.currentTarget.style.boxShadow = "0 0 8px rgba(56, 189, 248, 0.25)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.12)";
-                  e.currentTarget.style.color = "var(--text-secondary, #94A3B8)";
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                <span key={waterUnit} className="unit-fade-active">{waterUnit === "cm" ? "ซม." : "ม."}</span>
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    opacity: 0.8,
-                    transform: waterUnit === "cm" ? "rotate(180deg)" : "rotate(0deg)",
-                    transition: "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
-                  }}
-                >
-                  <path d="M7 16V4m0 0L3 8m4-4l4 4m6-4v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-              </button>
-            </>
-          )}
+              <path d="M7 16V4m0 0L3 8m4-4l4 4m6-4v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+          </button>
         </div>
 
         {/* ── HYDRO-TACTICAL GRADUATED WATER GAUGE (ANIMATE) ── */}
-        {!isOffline && (
-          <div style={{ marginBottom: "1.25rem" }}>
+        <div style={{ marginBottom: "1.25rem" }}>
             {/* Gauge Track */}
             <div
               style={{
@@ -960,7 +1033,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                 overflow: "hidden",
                 boxShadow: "inset 0 2px 4px rgba(0, 0, 0, 0.5)",
               }}
-              title={`ระดับน้ำเทียบ${refName}: ${waterLevel >= 0 ? '+' : ''}${waterLevel.toFixed(3)} ม.`}
+              title={waterLevel !== null ? `ระดับน้ำเทียบ${refName}: ${waterLevel >= 0 ? '+' : ''}${waterLevel.toFixed(3)} ม.` : `ระดับน้ำเทียบ${refName}: ไม่มีข้อมูล (คงระดับที่จุดอ้างอิง)`}
             >
               {/* Fluid Fill Bar */}
               <div
@@ -1066,7 +1139,6 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               <span>น้ำล้นตลิ่ง</span>
             </div>
           </div>
-        )}
 
         {/* Blind Zone Alert Banner */}
         {isBlindZone && (
@@ -1097,9 +1169,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             <strong
               key={waterUnit}
               className="hero-calibration-val tabular-nums font-mono unit-fade-active"
-              style={{ color: isOffline ? "var(--text-muted)" : "var(--text-primary)" }}
+              style={{ color: "var(--text-primary)" }}
             >
-              {isOffline ? "-" : formatDistanceVal(rawDistance)}
+              {formatDistanceVal(rawDistance)}
             </strong>
           </div>
           <div className="hero-calibration-item">
@@ -1163,9 +1235,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               <div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                   <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                    {isOffline ? "-" : temp.toFixed(1)}
+                    {temp != null ? temp.toFixed(1) : "-"}
                   </span>
-                  {!isOffline && <span style={{ color: "#38BDF8", fontWeight: 700, fontSize: "0.875rem" }}>°C</span>}
+                  {temp != null && <span style={{ color: "#38BDF8", fontWeight: 700, fontSize: "0.875rem" }}>°C</span>}
                 </div>
               </div>
             </div>
@@ -1194,9 +1266,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               <div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                   <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                    {isOffline ? "-" : hum.toFixed(1)}
+                    {hum != null ? hum.toFixed(1) : "-"}
                   </span>
-                  {!isOffline && <span style={{ color: "#38BDF8", fontWeight: 700, fontSize: "0.875rem" }}>%</span>}
+                  {hum != null && <span style={{ color: "#38BDF8", fontWeight: 700, fontSize: "0.875rem" }}>%</span>}
                 </div>
               </div>
             </div>
@@ -1205,8 +1277,8 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             <div
               className="telemetry-metric-card"
               style={{
-                background: battPercent <= 20 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)",
-                border: battPercent <= 20 ? "1px solid var(--beacon-red, #EF4444)" : "1px solid rgba(255, 255, 255, 0.08)",
+                background: battPercent != null && battPercent <= 20 ? "rgba(239, 68, 68, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                border: battPercent != null && battPercent <= 20 ? "1px solid var(--beacon-red, #EF4444)" : "1px solid rgba(255, 255, 255, 0.08)",
                 borderTop: `2px solid ${battColor}`,
                 borderRadius: "10px",
                 padding: "1rem 1.15rem",
@@ -1220,45 +1292,43 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                 <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)", fontWeight: 600 }}>
                   แบตเตอรี่
                 </span>
-                {battPercent > 20 ? (
-                  <BatteryChargingIcon size={18} style={{ color: battColor, filter: `drop-shadow(${battGlow})` }} />
-                ) : (
+                {battPercent != null && battPercent <= 20 ? (
                   <BatteryLowIcon size={18} style={{ color: "#EF4444", filter: "drop-shadow(0 0 6px rgba(239, 68, 68, 0.4))" }} />
+                ) : (
+                  <BatteryChargingIcon size={18} style={{ color: battColor, filter: battGlow !== "none" ? `drop-shadow(${battGlow})` : "none" }} />
                 )}
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                   <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                    {isOffline ? "-" : `${Math.round(battPercent)}`}
+                    {battPercent != null ? `${Math.round(battPercent)}` : "-"}
                   </span>
-                  {!isOffline && <span style={{ color: battColor, fontWeight: 700, fontSize: "0.875rem" }}>%</span>}
+                  {battPercent != null && <span style={{ color: battColor, fontWeight: 700, fontSize: "0.875rem" }}>%</span>}
                 </div>
                 {/* Sleek Micro Battery Track */}
-                {!isOffline && (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "4px",
+                    borderRadius: "2px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    overflow: "hidden",
+                    marginTop: "6px",
+                  }}
+                >
                   <div
                     style={{
+                      height: "100%",
                       width: "100%",
-                      height: "4px",
+                      transform: `scaleX(${battPercent != null ? Math.max(0.04, Math.min(1, battPercent / 100)) : 0})`,
+                      transformOrigin: "left",
                       borderRadius: "2px",
-                      background: "rgba(255, 255, 255, 0.08)",
-                      overflow: "hidden",
-                      marginTop: "6px",
+                      background: battTrackGradient,
+                      boxShadow: battGlow,
+                      transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
                     }}
-                  >
-                    <div
-                      style={{
-                        height: "100%",
-                        width: "100%",
-                        transform: `scaleX(${Math.max(0.04, Math.min(1, battPercent / 100))})`,
-                        transformOrigin: "left",
-                        borderRadius: "2px",
-                        background: battTrackGradient,
-                        boxShadow: battGlow,
-                        transition: "transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-                      }}
-                    />
-                  </div>
-                )}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1286,9 +1356,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               <div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                   <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                    {isOffline ? "-" : rssi}
+                    {rssi != null ? rssi : "-"}
                   </span>
-                  {!isOffline && <span style={{ color: "#10B981", fontWeight: 700, fontSize: "0.875rem" }}>dBm</span>}
+                  {rssi != null && <span style={{ color: "#10B981", fontWeight: 700, fontSize: "0.875rem" }}>dBm</span>}
                 </div>
               </div>
             </div>
@@ -1320,9 +1390,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                       <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                        {isOffline ? "-" : battVolt.toFixed(1)}
+                        {battVolt != null ? battVolt.toFixed(1) : "-"}
                       </span>
-                      {!isOffline && <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: "0.875rem" }}>V</span>}
+                      {battVolt != null && <span style={{ color: "#F59E0B", fontWeight: 700, fontSize: "0.875rem" }}>V</span>}
                     </div>
                   </div>
                 </div>
@@ -1351,9 +1421,9 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "0.35rem" }}>
                       <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
-                        {isOffline ? "-" : snr.toFixed(1)}
+                        {snr != null ? snr.toFixed(1) : "-"}
                       </span>
-                      {!isOffline && <span style={{ color: "#10B981", fontWeight: 700, fontSize: "0.875rem" }}>dB</span>}
+                      {snr != null && <span style={{ color: "#10B981", fontWeight: 700, fontSize: "0.875rem" }}>dB</span>}
                     </div>
                   </div>
                 </div>
@@ -1381,12 +1451,20 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
-                      <span className="tabular-nums font-mono" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
-                        X {tiltX.toFixed(1)}°
-                      </span>
-                      <span className="tabular-nums font-mono" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
-                        Y {tiltY.toFixed(1)}°
-                      </span>
+                      {tiltX != null && tiltY != null ? (
+                        <>
+                          <span className="tabular-nums font-mono" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
+                            X {tiltX.toFixed(1)}°
+                          </span>
+                          <span className="tabular-nums font-mono" style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
+                            Y {tiltY.toFixed(1)}°
+                          </span>
+                        </>
+                      ) : (
+                        <span className="tabular-nums font-mono" style={{ fontSize: "1.75rem", fontWeight: 800, color: "#FFFFFF" }}>
+                          -
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1414,7 +1492,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                   </div>
                   <div>
                     <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "#FFFFFF" }}>
-                      {isOffline ? "-" : gateway}
+                      {hasReading && gateway !== "-" ? gateway : "-"}
                     </div>
                   </div>
                 </div>
@@ -1463,19 +1541,22 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "6px",
+                justifyContent: "center",
+                gap: "8px",
                 background: "rgba(255, 255, 255, 0.04)",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                borderRadius: "6px",
-                padding: "6px 16px",
-                fontSize: "0.8125rem",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: "8px",
+                padding: "10px 22px",
+                minHeight: "44px",
+                fontSize: "0.875rem",
+                fontWeight: 600,
                 color: "var(--text-secondary)",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
             >
               <span>{showAllMetrics ? "ย่อรายละเอียด" : "รายละเอียดฮาร์ดแวร์"}</span>
-              {showAllMetrics ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+              {showAllMetrics ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
             </button>
           </div>
         </div>

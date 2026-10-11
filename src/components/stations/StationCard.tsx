@@ -1,4 +1,6 @@
 import type { Station, WaterStatus } from '../../types';
+import { isStationOnline } from '../../utils/stationStatus';
+import { useAuth } from '../../context/AuthContext';
 import {
   MapPinIcon,
   AlertTriangleIcon,
@@ -29,10 +31,18 @@ interface StationCardProps {
 }
 
 export default function StationCard({ station, selected, onClick }: StationCardProps) {
-  const isOffline = !station.isActive || (station as any).operatingStatus === 'offline';
+  const { user } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.role === 'staff';
+  const isOffline = !isStationOnline(station);
   const colors = statusColors[station.status];
+  const hasReading = Boolean(
+    station.lastReadingTime ||
+    station.rawDistance !== null && station.rawDistance !== undefined ||
+    station.currentLevel !== null && station.currentLevel !== undefined
+  );
   const maxLvl = station.maxLevel || 10;
-  const pct = isOffline ? 0 : Math.max(0, Math.min(100, (station.currentLevel / maxLvl) * 100));
+  const levelForPct = hasReading && station.currentLevel !== null ? station.currentLevel : 0;
+  const pct = Math.max(0, Math.min(100, (levelForPct / maxLvl) * 100));
   const hasWarn = station.warningLevel !== undefined && station.warningLevel !== null;
   const hasCrit = station.criticalLevel !== undefined && station.criticalLevel !== null;
   const warningPct = hasWarn ? Math.max(0, Math.min(100, (station.warningLevel! / maxLvl) * 100)) : null;
@@ -62,20 +72,34 @@ export default function StationCard({ station, selected, onClick }: StationCardP
           </div>
         </div>
         <span
-          className={`badge ${isOffline ? 'badge-unknown' : `badge-${station.status}`}`}
-          style={{ flexShrink: 0, fontSize: 11 }}
+          className={`badge ${isOffline ? 'badge-unknown' : (!hasReading ? 'badge-normal' : `badge-${station.status}`)}`}
+          style={{
+            flexShrink: 0,
+            fontSize: 11,
+            border: isOffline && isStaff && station.isManualOffline ? '1px solid rgba(245, 158, 11, 0.45)' : undefined,
+            color: isOffline && isStaff && station.isManualOffline ? '#F59E0B' : undefined,
+            background: isOffline && isStaff && station.isManualOffline ? 'rgba(245, 158, 11, 0.12)' : undefined,
+          }}
         >
-          <span className="badge-dot" />
-          {isOffline ? 'ออฟไลน์' : statusLabel[station.status]}
+          <span className="badge-dot" style={{ background: isOffline && isStaff && station.isManualOffline ? '#F59E0B' : undefined }} />
+          {isOffline
+            ? isStaff && station.isManualOffline
+              ? 'ออฟไลน์ (โหมดทดสอบ: ค่าสด)'
+              : 'ออฟไลน์'
+            : !hasReading
+            ? 'ออนไลน์ (รอข้อมูล)'
+            : statusLabel[station.status]}
         </span>
       </div>
 
       {/* Level value */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, margin: '8px 0' }}>
         <span className="stat-value" style={{ color: isOffline ? 'var(--text-muted)' : colors.text, fontSize: 32 }}>
-          {isOffline ? '-' : (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)}
+          {hasReading && station.currentLevel !== null
+            ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
+            : '-'}
         </span>
-        {!isOffline && <span className="stat-unit">ม.</span>}
+        {hasReading && station.currentLevel !== null && <span className="stat-unit">ม.</span>}
         <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
           เทียบ {station.referencePointName || 'จุดอ้างอิง'}
         </span>
@@ -167,7 +191,7 @@ export default function StationCard({ station, selected, onClick }: StationCardP
 
       {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>
-        <span>{station.deviceId} {!station.isActive && '· ออฟไลน์'}</span>
+        <span>{station.deviceId} {isOffline && '· ออฟไลน์'}</span>
         <span>{station.province}</span>
       </div>
     </div>

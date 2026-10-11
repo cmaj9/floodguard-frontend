@@ -5,6 +5,7 @@ import {
   CheckCircleIcon,
   MapPinIcon,
 } from "../ui/Icons";
+import { isStationOnline } from "../../utils/stationStatus";
 
 interface StationSegmentedControlProps {
   stations: Station[];
@@ -31,7 +32,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;
-          const isOffline = !station.isActive || station.operatingStatus === "offline";
+          const isOffline = !isStationOnline(station);
 
           let statusDotColor = "#10B981";
           if (isOffline) {
@@ -42,9 +43,13 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
             statusDotColor = "#F59E0B";
           }
 
-          const formattedLevel = isOffline
-            ? "-"
-            : typeof station.currentLevel === "number"
+          const hasReading = Boolean(
+            station.lastReadingTime ||
+            station.rawDistance !== null && station.rawDistance !== undefined ||
+            station.currentLevel !== null && station.currentLevel !== undefined
+          );
+
+          const formattedLevel = hasReading && typeof station.currentLevel === "number"
             ? (station.currentLevel > 0 ? "+" : "") + station.currentLevel.toFixed(2) + " ม."
             : "-";
 
@@ -78,7 +83,13 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
       >
         {stations.map((station) => {
           const isSelected = selectedStationId === station.id;
-          const isOffline = !station.isActive || station.operatingStatus === "offline";
+          const isOffline = !isStationOnline(station);
+
+          const hasReading = Boolean(
+            station.lastReadingTime ||
+            station.rawDistance !== null && station.rawDistance !== undefined ||
+            station.currentLevel !== null && station.currentLevel !== undefined
+          );
 
           // Status colors
           let statusColor = "#10B981";
@@ -91,6 +102,11 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
             statusBg = "rgba(100, 116, 139, 0.15)";
             statusBorder = "rgba(100, 116, 139, 0.3)";
             statusText = "ออฟไลน์";
+          } else if (!hasReading) {
+            statusColor = "#10B981";
+            statusBg = "rgba(16, 185, 129, 0.15)";
+            statusBorder = "rgba(16, 185, 129, 0.3)";
+            statusText = "ออนไลน์ (รอข้อมูล)";
           } else if (station.status === "critical") {
             statusColor = "#EF4444";
             statusBg = "rgba(239, 68, 68, 0.15)";
@@ -103,9 +119,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
             statusText = "เฝ้าระวังน้ำสูง";
           }
 
-          const formattedLevel = isOffline
-            ? "-"
-            : typeof station.currentLevel === "number"
+          const formattedLevel = hasReading && typeof station.currentLevel === "number"
             ? (station.currentLevel > 0 ? "+" : "") + station.currentLevel.toFixed(2)
             : "-";
 
@@ -342,7 +356,7 @@ export const StationSegmentedControl = memo(function StationSegmentedControl({
                     >
                       {formattedLevel}
                     </span>
-                    {!isOffline && (
+                    {hasReading && (
                       <span
                         style={{
                           fontSize: "0.8125rem",

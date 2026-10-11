@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from '../ui/Modal';
-import type { Station, NotificationSettings } from '../../types';
+import type { Station, NotificationSettings, DbAlert } from '../../types';
 import {
   fetchNotificationSettings,
   updateNotificationSettings,
@@ -11,14 +11,10 @@ import {
 import {
   BellIcon,
   DropletsIcon,
-  TrendingUpIcon,
-  ClockIcon,
-  ZapIcon,
+  ActivityIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
   RefreshCwIcon,
-  ActivityIcon,
-  MapPinIcon,
 } from '../ui/Icons';
 
 interface StationNotificationModalProps {
@@ -28,7 +24,8 @@ interface StationNotificationModalProps {
   onSaved?: () => void;
 }
 
-interface NumberStepperInputProps {
+interface CockpitMetricColumnProps {
+  label: string;
   value: number;
   onChange: (val: number) => void;
   min: number;
@@ -36,151 +33,185 @@ interface NumberStepperInputProps {
   step: number;
   unit: string;
   accentColor?: string;
+  align?: 'left' | 'right';
   ariaLabel: string;
 }
 
-function NumberStepperInput({
+function formatMetricVal(val: number, step: number): string {
+  if (step < 0.1) {
+    return (Math.round(val * 100) / 100).toFixed(2);
+  }
+  if (step < 1) {
+    return (Math.round(val * 10) / 10).toFixed(1);
+  }
+  return String(Math.round(val));
+}
+
+function CockpitMetricColumn({
+  label,
   value,
   onChange,
   min,
   max,
   step,
   unit,
-  accentColor = '#38BDF8',
+  accentColor = 'var(--color-cyan, #38BDF8)',
+  align = 'left',
   ariaLabel,
-}: NumberStepperInputProps) {
+}: CockpitMetricColumnProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const [localVal, setLocalVal] = useState<string>(String(value));
+  const [localVal, setLocalVal] = useState<string>(formatMetricVal(value, step));
 
   useEffect(() => {
     if (!isFocused) {
-      setLocalVal(String(value));
+      setLocalVal(formatMetricVal(value, step));
     }
-  }, [value, isFocused]);
+  }, [value, step, isFocused]);
 
   const handleDecrement = () => {
-    const next = Math.max(min, Math.round((value - step) * 1000) / 1000);
+    const precision = step < 0.1 ? 100 : step < 1 ? 10 : 1;
+    const next = Math.max(min, Math.round((value - step) * precision) / precision);
     onChange(next);
-    setLocalVal(String(next));
+    setLocalVal(formatMetricVal(next, step));
   };
 
   const handleIncrement = () => {
-    const next = Math.min(max, Math.round((value + step) * 1000) / 1000);
+    const precision = step < 0.1 ? 100 : step < 1 ? 10 : 1;
+    const next = Math.min(max, Math.round((value + step) * precision) / precision);
     onChange(next);
-    setLocalVal(String(next));
+    setLocalVal(formatMetricVal(next, step));
   };
 
   const handleBlur = () => {
     setIsFocused(false);
     const parsed = parseFloat(localVal);
     if (isNaN(parsed)) {
-      setLocalVal(String(value));
+      setLocalVal(formatMetricVal(value, step));
     } else {
-      const clamped = Math.min(max, Math.max(min, Math.round(parsed * 1000) / 1000));
+      const precision = step < 0.1 ? 100 : step < 1 ? 10 : 1;
+      const clamped = Math.min(max, Math.max(min, Math.round(parsed * precision) / precision));
       onChange(clamped);
-      setLocalVal(String(clamped));
+      setLocalVal(formatMetricVal(clamped, step));
     }
   };
 
   return (
     <div
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        background: 'rgba(255, 255, 255, 0.04)',
-        border: `1px solid ${isFocused ? accentColor : 'rgba(255, 255, 255, 0.12)'}`,
-        borderRadius: 8,
-        padding: '2px 4px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: align === 'right' ? 'flex-end' : 'flex-start',
         gap: 3,
       }}
     >
-      <button
-        type="button"
-        onClick={handleDecrement}
-        disabled={value <= min}
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 6,
-          background: 'rgba(255, 255, 255, 0.06)',
-          border: 'none',
-          color: value <= min ? '#475569' : '#FFFFFF',
-          cursor: value <= min ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 16,
-          fontWeight: 700,
-        }}
-        aria-label={`ลดค่า ${ariaLabel}`}
-      >
-        -
-      </button>
-
-      <input
-        type="number"
-        value={localVal}
-        step={step}
-        min={min}
-        max={max}
-        aria-label={ariaLabel}
-        onFocus={() => setIsFocused(true)}
-        onBlur={handleBlur}
-        onChange={(e) => {
-          setLocalVal(e.target.value);
-          const num = parseFloat(e.target.value);
-          if (!isNaN(num)) onChange(num);
-        }}
-        className="tabular-nums font-mono"
-        style={{
-          width: 52,
-          background: 'transparent',
-          border: 'none',
-          outline: 'none',
-          color: '#FFFFFF',
-          fontSize: 13,
-          fontWeight: 700,
-          textAlign: 'center',
-          padding: '2px 0',
-        }}
-      />
-
-      <button
-        type="button"
-        onClick={handleIncrement}
-        disabled={value >= max}
-        style={{
-          width: 26,
-          height: 26,
-          borderRadius: 6,
-          background: 'rgba(255, 255, 255, 0.06)',
-          border: 'none',
-          color: value >= max ? '#475569' : '#FFFFFF',
-          cursor: value >= max ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 16,
-          fontWeight: 700,
-        }}
-        aria-label={`เพิ่มค่า ${ariaLabel}`}
-      >
-        +
-      </button>
-
       <span
         style={{
-          padding: '2px 6px',
-          borderRadius: 5,
-          background: `${accentColor}15`,
-          color: accentColor,
           fontSize: 11,
-          fontWeight: 700,
-          marginLeft: 2,
+          fontWeight: 600,
+          color: 'var(--text-muted, #64748B)',
+          letterSpacing: '0.01em',
         }}
       >
-        {unit}
+        {label}
       </span>
+
+      <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+        <input
+          type="number"
+          step={step}
+          min={min}
+          max={max}
+          value={localVal}
+          onChange={(e) => {
+            setLocalVal(e.target.value);
+            const p = parseFloat(e.target.value);
+            if (!isNaN(p)) onChange(p);
+          }}
+          onFocus={() => setIsFocused(true)}
+          onBlur={handleBlur}
+          aria-label={ariaLabel}
+          className="tabular-nums font-mono"
+          style={{
+            width: step < 0.1 ? '68px' : step < 1 ? '58px' : '54px',
+            background: isFocused ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+            border: 'none',
+            borderBottom: isFocused ? `1.5px solid ${accentColor}` : '1.5px solid transparent',
+            borderRadius: 4,
+            color: accentColor,
+            fontSize: 20,
+            fontWeight: 800,
+            textAlign: align === 'right' ? 'right' : 'left',
+            padding: '1px 2px',
+            outline: 'none',
+            lineHeight: 1.2,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'var(--text-secondary, #94A3B8)',
+          }}
+        >
+          {unit}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+        <button
+          type="button"
+          onClick={handleDecrement}
+          disabled={value <= min}
+          className="tactile-press"
+          aria-label={`ลดค่า ${ariaLabel}`}
+          style={{
+            width: 32,
+            height: 28,
+            borderRadius: 6,
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: value <= min ? 'var(--text-muted, #475569)' : 'var(--text-primary, #F8FAFC)',
+            cursor: value <= min ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 15,
+            fontWeight: 700,
+            lineHeight: 1,
+            padding: 0,
+            transition: 'all 0.12s ease',
+          }}
+        >
+          -
+        </button>
+
+        <button
+          type="button"
+          onClick={handleIncrement}
+          disabled={value >= max}
+          className="tactile-press"
+          aria-label={`เพิ่มค่า ${ariaLabel}`}
+          style={{
+            width: 32,
+            height: 28,
+            borderRadius: 6,
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: value >= max ? 'var(--text-muted, #475569)' : 'var(--text-primary, #F8FAFC)',
+            cursor: value >= max ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 15,
+            fontWeight: 700,
+            lineHeight: 1,
+            padding: 0,
+            transition: 'all 0.12s ease',
+          }}
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
@@ -195,7 +226,16 @@ function ToggleSwitch({
   ariaLabel?: string;
 }) {
   return (
-    <label style={{ position: 'relative', display: 'inline-block', width: 40, height: 22, cursor: 'pointer', flexShrink: 0 }}>
+    <label
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        width: 44,
+        height: 24,
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+    >
       <input
         type="checkbox"
         checked={checked}
@@ -213,19 +253,20 @@ function ToggleSwitch({
           bottom: 0,
           background: checked ? '#0284C7' : 'rgba(255, 255, 255, 0.12)',
           transition: 'all 0.18s ease',
-          borderRadius: 22,
+          borderRadius: 24,
         }}
       >
         <span
           style={{
             position: 'absolute',
-            height: 16,
-            width: 16,
-            left: checked ? 21 : 3,
+            height: 18,
+            width: 18,
+            left: checked ? 23 : 3,
             bottom: 3,
             backgroundColor: '#FFFFFF',
             transition: 'all 0.18s ease',
             borderRadius: '50%',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
           }}
         />
       </span>
@@ -233,154 +274,152 @@ function ToggleSwitch({
   );
 }
 
-interface ConditionCardProps {
-  icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
-  title: string;
-  description?: string;
+interface BoldCockpitTileProps {
+  id: string;
+  name: string;
+  code: string;
+  dotColor: string;
   enabled: boolean;
   onToggle: (checked: boolean) => void;
-  thresholdLabel: string;
-  thresholdValue: number;
-  onThresholdChange: (val: number) => void;
-  thresholdMin: number;
-  thresholdMax: number;
-  thresholdStep: number;
-  thresholdUnit: string;
-  thresholdAccent: string;
-  cooldownValue: number;
-  onCooldownChange: (val: number) => void;
-  cooldownMin?: number;
-  cooldownMax?: number;
-  cooldownStep?: number;
+  // Param 1 (Threshold)
+  param1Label: string;
+  val1: number;
+  onVal1Change: (val: number) => void;
+  min1: number;
+  max1: number;
+  step1: number;
+  unit1: string;
+  accent1?: string;
+  // Param 2 (Cooldown)
+  param2Label: string;
+  val2: number;
+  onVal2Change: (val: number) => void;
+  min2?: number;
+  max2?: number;
+  step2?: number;
+  unit2?: string;
 }
 
-function ConditionCard({
-  icon,
-  iconBg,
-  iconColor,
-  title,
-  description,
+function BoldCockpitTile({
+  name,
+  code,
+  dotColor,
   enabled,
   onToggle,
-  thresholdLabel,
-  thresholdValue,
-  onThresholdChange,
-  thresholdMin,
-  thresholdMax,
-  thresholdStep,
-  thresholdUnit,
-  thresholdAccent,
-  cooldownValue,
-  onCooldownChange,
-  cooldownMin = 15,
-  cooldownMax = 1440,
-  cooldownStep = 15,
-}: ConditionCardProps) {
+  param1Label,
+  val1,
+  onVal1Change,
+  min1,
+  max1,
+  step1,
+  unit1,
+  accent1 = 'var(--color-cyan, #38BDF8)',
+  param2Label,
+  val2,
+  onVal2Change,
+  min2 = 15,
+  max2 = 1440,
+  step2 = 15,
+  unit2 = 'นาที',
+}: BoldCockpitTileProps) {
   return (
     <div
       style={{
-        padding: '12px 14px',
-        borderRadius: 10,
-        background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
+        background: enabled ? '#10141E' : 'rgba(15, 20, 30, 0.5)',
+        border: `1px solid ${enabled ? 'rgba(56, 189, 248, 0.28)' : 'rgba(255, 255, 255, 0.07)'}`,
+        borderRadius: 12,
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        gap: 14,
+        transition: 'all 0.2s ease',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-          <div
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                backgroundColor: dotColor,
+                boxShadow: enabled ? `0 0 8px ${dotColor}` : 'none',
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: 'var(--text-primary, #F8FAFC)',
+                lineHeight: 1.3,
+              }}
+            >
+              {name}
+            </span>
+          </div>
+          <span
+            className="font-mono tabular-nums"
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: iconBg,
-              color: iconColor,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              fontSize: 10.5,
+              fontWeight: 600,
+              color: 'var(--text-muted, #64748B)',
+              letterSpacing: '0.04em',
+              paddingLeft: 16,
             }}
           >
-            {icon}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>
-              {title}
-            </span>
-            {description && (
-              <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>
-                {description}
-              </span>
-            )}
-          </div>
+            {code}
+          </span>
         </div>
 
-        <ToggleSwitch checked={enabled} onChange={onToggle} ariaLabel={`เปิด/ปิด ${title}`} />
+        <ToggleSwitch
+          checked={enabled}
+          onChange={onToggle}
+          ariaLabel={`เปิดหรือปิด ${name}`}
+        />
       </div>
 
+      {/* Metrics Grid */}
       <div
         style={{
-          marginTop: 10,
-          paddingTop: 10,
-          borderTop: '1px solid rgba(255, 255, 255, 0.04)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: 8,
+          gridTemplateColumns: '1fr 1fr',
+          gap: 12,
+          paddingTop: 12,
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
           opacity: enabled ? 1 : 0.35,
           pointerEvents: enabled ? 'auto' : 'none',
+          transition: 'opacity 0.15s ease',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            background: 'rgba(9, 14, 23, 0.6)',
-            padding: '6px 10px',
-            borderRadius: 8,
-          }}
-        >
-          <span style={{ fontSize: 11.5, color: '#94A3B8' }}>{thresholdLabel}</span>
-          <NumberStepperInput
-            value={thresholdValue}
-            onChange={onThresholdChange}
-            min={thresholdMin}
-            max={thresholdMax}
-            step={thresholdStep}
-            unit={thresholdUnit}
-            accentColor={thresholdAccent}
-            ariaLabel={thresholdLabel}
-          />
-        </div>
+        <CockpitMetricColumn
+          label={param1Label}
+          value={val1}
+          onChange={onVal1Change}
+          min={min1}
+          max={max1}
+          step={step1}
+          unit={unit1}
+          accentColor={accent1}
+          align="left"
+          ariaLabel={`${param1Label} สำหรับ ${name}`}
+        />
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            background: 'rgba(9, 14, 23, 0.6)',
-            padding: '6px 10px',
-            borderRadius: 8,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: '#94A3B8' }}>
-            <ClockIcon size={12} style={{ color: '#64748B' }} />
-            <span>เตือนซ้ำทุก</span>
-          </div>
-          <NumberStepperInput
-            value={cooldownValue}
-            onChange={onCooldownChange}
-            min={cooldownMin}
-            max={cooldownMax}
-            step={cooldownStep}
-            unit="นาที"
-            accentColor="#0284C7"
-            ariaLabel={`ความถี่เตือนซ้ำสำหรับ ${title}`}
-          />
-        </div>
+        <CockpitMetricColumn
+          label={param2Label}
+          value={val2}
+          onChange={onVal2Change}
+          min={min2}
+          max={max2}
+          step={step2}
+          unit={unit2}
+          accentColor="var(--text-primary, #F8FAFC)"
+          align="right"
+          ariaLabel={`${param2Label} สำหรับ ${name}`}
+        />
       </div>
     </div>
   );
@@ -396,6 +435,7 @@ export default function StationNotificationModal({
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [triggeredAlerts, setTriggeredAlerts] = useState<DbAlert[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'water' | 'device'>('water');
   const [lineQuota, setLineQuota] = useState<LineQuotaStatus | null>(null);
@@ -423,6 +463,7 @@ export default function StationNotificationModal({
     setLoading(true);
     setErrorMsg(null);
     setSaveSuccess(false);
+    setTriggeredAlerts([]);
     try {
       const [data, quotaData] = await Promise.allSettled([
         fetchNotificationSettings(station?.id),
@@ -454,15 +495,21 @@ export default function StationNotificationModal({
     setSaving(true);
     setErrorMsg(null);
     setSaveSuccess(false);
+    setTriggeredAlerts([]);
     try {
-      const updated = await updateNotificationSettings(settings, station?.id);
-      setSettings(updated);
+      const res = await updateNotificationSettings(settings, station?.id);
+      setSettings(res.settings);
       setSaveSuccess(true);
       if (onSaved) onSaved();
-      setTimeout(() => {
-        setSaveSuccess(false);
-        onClose();
-      }, 1000);
+
+      if (res.triggeredAlerts && res.triggeredAlerts.length > 0) {
+        setTriggeredAlerts(res.triggeredAlerts);
+      } else {
+        setTimeout(() => {
+          setSaveSuccess(false);
+          onClose();
+        }, 1200);
+      }
     } catch (err: any) {
       setErrorMsg(err.message || 'บันทึกการตั้งค่าไม่สำเร็จ');
     } finally {
@@ -477,6 +524,7 @@ export default function StationNotificationModal({
 
     setResetting(true);
     setErrorMsg(null);
+    setTriggeredAlerts([]);
     try {
       await resetStationNotificationSettings(station.id);
       await loadSettings();
@@ -490,49 +538,92 @@ export default function StationNotificationModal({
     }
   };
 
-  const modalTitle = station
-    ? `ตั้งค่าการแจ้งเตือน · ${station.name}`
-    : 'ตั้งค่าการแจ้งเตือนส่วนกลาง';
+  const modalTitle = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span>ตั้งค่าการแจ้งเตือน</span>
+      {station && (
+        <>
+          <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+          <span style={{ color: 'var(--color-cyan, #38BDF8)', fontWeight: 600 }}>{station.name}</span>
+        </>
+      )}
+    </span>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={modalTitle}
-      maxWidth="680px"
+      maxWidth="720px"
       footer={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: 10 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            width: '100%',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
           <div>
             {station && settings.is_custom && (
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary tactile-press"
                 onClick={handleResetToGlobal}
                 disabled={resetting || saving}
-                style={{ fontSize: 11.5, padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                style={{
+                  minHeight: 40,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  padding: '0 14px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  lineHeight: 1,
+                }}
               >
-                <RefreshCwIcon size={12} />
+                <RefreshCwIcon size={13} className={resetting ? 'animate-spin' : ''} />
                 <span>{resetting ? 'กำลังคืนค่า...' : 'คืนค่าส่วนกลาง'}</span>
               </button>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary tactile-press"
               onClick={onClose}
               disabled={saving}
-              style={{ padding: '6px 14px' }}
+              style={{
+                minHeight: 40,
+                padding: '0 18px',
+                fontSize: 13,
+                fontWeight: 600,
+                lineHeight: 1,
+              }}
             >
-              ยกเลิก
+              {triggeredAlerts.length > 0 ? 'ปิดหน้าต่าง' : 'ยกเลิก'}
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary tactile-press"
               onClick={handleSave}
               disabled={saving || loading}
-              style={{ padding: '6px 18px', minWidth: 100, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{
+                minHeight: 40,
+                padding: '0 20px',
+                fontSize: 13,
+                fontWeight: 700,
+                minWidth: 120,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                lineHeight: 1,
+              }}
             >
               <BellIcon size={14} />
               <span>{saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}</span>
@@ -541,51 +632,103 @@ export default function StationNotificationModal({
         </div>
       }
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {saveSuccess && (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Triggered Alerts Banner (Immediate Dispatch Confirmation) */}
+        {triggeredAlerts.length > 0 && (
           <div
             style={{
-              padding: '8px 12px',
+              padding: '14px 16px',
+              borderRadius: 10,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-critical, #EF4444)' }}>
+              <AlertTriangleIcon size={18} />
+              <span style={{ fontSize: 14, fontWeight: 700 }}>
+                ตรงตามเกณฑ์ใหม่ ระบบส่งการแจ้งเตือนทันที {triggeredAlerts.length} รายการ
+              </span>
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--text-secondary, #94A3B8)', margin: 0, lineHeight: 1.5 }}>
+              ตรวจพบค่าตรวจวัดล่าสุดเข้าเงื่อนไขวิกฤตตามเกณฑ์ใหม่ จึงได้บันทึกลงประวัติการเตือนภัยและส่งข้อความพุชเข้า LINE OA เรียบร้อยแล้ว
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+              {triggeredAlerts.map((a, idx) => (
+                <div
+                  key={a.alert_id || a.id || idx}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#FCA5A5',
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                  }}
+                >
+                  <span className="font-mono">{a.alert_type}</span>
+                  {a.message && <span style={{ opacity: 0.85 }}>({a.message})</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Regular Save Success Banner */}
+        {saveSuccess && triggeredAlerts.length === 0 && (
+          <div
+            style={{
+              padding: '10px 14px',
               borderRadius: 8,
               background: 'rgba(16, 185, 129, 0.12)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#10B981',
+              color: 'var(--color-normal, #10B981)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              fontSize: 12.5,
+              gap: 8,
+              fontSize: 13,
               fontWeight: 600,
+              lineHeight: 1.45,
             }}
           >
-            <CheckCircleIcon size={15} />
+            <CheckCircleIcon size={16} />
             <span>บันทึกการตั้งค่าเกณฑ์การแจ้งเตือนเรียบร้อยแล้ว</span>
           </div>
         )}
 
+        {/* Error Banner */}
         {errorMsg && (
           <div
             style={{
-              padding: '8px 12px',
+              padding: '10px 14px',
               borderRadius: 8,
               background: 'rgba(239, 68, 68, 0.12)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              color: '#F87171',
+              color: 'var(--color-critical, #EF4444)',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
-              fontSize: 12.5,
+              gap: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              lineHeight: 1.45,
             }}
           >
-            <AlertTriangleIcon size={15} />
+            <AlertTriangleIcon size={16} />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* LINE Quota Alert Banner */}
+        {/* LINE Quota Alert Banner when Exceeded */}
         {lineQuota?.isExceeded && (
           <div
             style={{
-              padding: '10px 14px',
+              padding: '12px 14px',
               borderRadius: 10,
               background: 'rgba(239, 68, 68, 0.08)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
@@ -596,11 +739,11 @@ export default function StationNotificationModal({
           >
             <div
               style={{
-                width: 26,
-                height: 26,
-                borderRadius: 6,
+                width: 28,
+                height: 28,
+                borderRadius: 7,
                 background: 'rgba(239, 68, 68, 0.2)',
-                color: '#EF4444',
+                color: 'var(--color-critical, #EF4444)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -608,228 +751,301 @@ export default function StationNotificationModal({
                 marginTop: 1,
               }}
             >
-              <AlertTriangleIcon size={14} />
+              <AlertTriangleIcon size={15} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: '#F87171' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--color-critical, #EF4444)', lineHeight: 1.35 }}>
                   โควตาส่งข้อความ LINE OA ประจำเดือนเต็มแล้ว
                 </span>
                 <span
+                  className="tabular-nums font-mono"
                   style={{
                     fontSize: 11,
-                    padding: '1px 6px',
+                    padding: '2px 8px',
                     borderRadius: 9999,
                     background: 'rgba(239, 68, 68, 0.2)',
                     color: '#FCA5A5',
                     fontWeight: 700,
-                    fontFamily: 'monospace',
                   }}
                 >
                   {lineQuota.used}/{lineQuota.total} ข้อความ
                 </span>
               </div>
-              <span style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, lineHeight: 1.4 }}>
-                ระบบไม่สามารถส่งการแจ้งเตือนพุชเข้า LINE ได้เนื่องจากแพ็กเกจฟรีเต็ม 300 ข้อความ กรุณาอัปเกรดบน LINE Official Account Manager หรือรอรีเซ็ตวันแรกของเดือนถัดไป
+              <span style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)', marginTop: 3, lineHeight: 1.45 }}>
+                ระบบไม่สามารถส่งข้อความพุชเข้า LINE ได้เนื่องจากแพ็กเกจฟรีเต็ม 300 ข้อความ กรุณาอัปเกรดบน LINE Official Account Manager
               </span>
             </div>
           </div>
         )}
 
-        {lineQuota && !lineQuota.isExceeded && typeof lineQuota.total === 'number' && lineQuota.total > 0 && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '6px 12px',
-              borderRadius: 8,
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              fontSize: 11.5,
-              color: '#94A3B8',
-            }}
-          >
-            <span>โควตาส่งข้อความ LINE OA ประจำเดือน</span>
-            <span style={{ color: '#38BDF8', fontWeight: 600, fontFamily: 'monospace' }}>
-              ใช้ไป {lineQuota.used}/{lineQuota.total} · คงเหลือ {lineQuota.remaining}
-            </span>
-          </div>
-        )}
-
-        {/* Category Tabs */}
+        {/* Clean Sub-Bar: Underline Tabs + Minimal Quota */}
         <div
           style={{
             display: 'flex',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: 10,
-            padding: 3,
-            gap: 4,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            paddingBottom: 0,
+            gap: 12,
+            flexWrap: 'wrap',
           }}
-          role="tablist"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'water'}
-            onClick={() => setActiveTab('water')}
+          <div
             style={{
-              flex: 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              borderRadius: 8,
-              border: 'none',
-              background: activeTab === 'water' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-              color: activeTab === 'water' ? '#38BDF8' : '#94A3B8',
-              fontWeight: activeTab === 'water' ? 700 : 500,
-              fontSize: 12.5,
-              cursor: 'pointer',
+              display: 'flex',
+              gap: 20,
             }}
+            role="tablist"
           >
-            <DropletsIcon size={14} />
-            <span>ระดับน้ำและอุทกวิทยา</span>
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'water'}
+              onClick={() => setActiveTab('water')}
+              className="tactile-press"
+              style={{
+                position: 'relative',
+                padding: '8px 0 10px',
+                border: 'none',
+                background: 'transparent',
+                color: activeTab === 'water' ? 'var(--text-primary, #F8FAFC)' : 'var(--text-secondary, #94A3B8)',
+                fontFamily: 'inherit',
+                fontSize: 13,
+                fontWeight: activeTab === 'water' ? 700 : 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'color 0.15s ease',
+              }}
+            >
+              <DropletsIcon size={14} style={{ color: activeTab === 'water' ? 'var(--color-cyan, #38BDF8)' : 'currentColor' }} />
+              <span>ระดับน้ำและอุทกวิทยา</span>
+              {activeTab === 'water' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: -1,
+                    left: 0,
+                    right: 0,
+                    height: 2,
+                    backgroundColor: 'var(--color-cyan, #38BDF8)',
+                    borderRadius: 2,
+                  }}
+                />
+              )}
+            </button>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'device'}
-            onClick={() => setActiveTab('device')}
-            style={{
-              flex: 1,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              borderRadius: 8,
-              border: 'none',
-              background: activeTab === 'device' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
-              color: activeTab === 'device' ? '#C084FC' : '#94A3B8',
-              fontWeight: activeTab === 'device' ? 700 : 500,
-              fontSize: 12.5,
-              cursor: 'pointer',
-            }}
-          >
-            <ActivityIcon size={14} />
-            <span>อุปกรณ์และระบบเครือข่าย</span>
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'device'}
+              onClick={() => setActiveTab('device')}
+              className="tactile-press"
+              style={{
+                position: 'relative',
+                padding: '8px 0 10px',
+                border: 'none',
+                background: 'transparent',
+                color: activeTab === 'device' ? 'var(--text-primary, #F8FAFC)' : 'var(--text-secondary, #94A3B8)',
+                fontFamily: 'inherit',
+                fontSize: 13,
+                fontWeight: activeTab === 'device' ? 700 : 500,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'color 0.15s ease',
+              }}
+            >
+              <ActivityIcon size={14} style={{ color: activeTab === 'device' ? '#C084FC' : 'currentColor' }} />
+              <span>อุปกรณ์และระบบเครือข่าย</span>
+              {activeTab === 'device' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: -1,
+                    left: 0,
+                    right: 0,
+                    height: 2,
+                    backgroundColor: '#C084FC',
+                    borderRadius: 2,
+                  }}
+                />
+              )}
+            </button>
+          </div>
+
+          {/* Minimal Quota Indicator */}
+          {lineQuota && !lineQuota.isExceeded && typeof lineQuota.total === 'number' && lineQuota.total > 0 && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 11.5,
+                color: 'var(--text-muted, #64748B)',
+                paddingBottom: 4,
+              }}
+            >
+              <span>โควตา LINE OA</span>
+              <span
+                className="tabular-nums font-mono"
+                style={{
+                  fontWeight: 700,
+                  color: 'var(--color-cyan, #38BDF8)',
+                }}
+              >
+                {lineQuota.used}/{lineQuota.total}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Tab Content: Water Level */}
+        {/* Tab 1 Content: ระดับน้ำและอุทกวิทยา (Hydrology & Water Level) */}
         {activeTab === 'water' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <ConditionCard
-              icon={<DropletsIcon size={16} />}
-              iconBg="rgba(14, 165, 233, 0.12)"
-              iconColor="#0EA5E9"
-              title="ระดับน้ำแตะเกณฑ์เฝ้าระวังหรือวิกฤต"
-              description="เตือนเมื่อระดับน้ำแตะหรือเกินเกณฑ์ของสถานี"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {/* Tile 1: ระดับน้ำแตะเกณฑ์วิกฤต */}
+            <BoldCockpitTile
+              id="water-level"
+              name="ระดับน้ำแตะเกณฑ์วิกฤต"
+              code="CRITICAL WATER"
+              dotColor="#38BDF8"
               enabled={settings.water_level_enabled}
               onToggle={(checked) => setSettings((prev) => ({ ...prev, water_level_enabled: checked }))}
-              thresholdLabel="ระยะชดเชยความปลอดภัย"
-              thresholdValue={settings.safety_offset}
-              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, safety_offset: val }))}
-              thresholdMin={-2.0}
-              thresholdMax={2.0}
-              thresholdStep={0.05}
-              thresholdUnit="ม."
-              thresholdAccent="#0EA5E9"
-              cooldownValue={settings.water_level_cooldown_minutes ?? 30}
-              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, water_level_cooldown_minutes: val }))}
+              param1Label="ระยะชดเชย"
+              val1={settings.safety_offset}
+              onVal1Change={(val) => setSettings((prev) => ({ ...prev, safety_offset: val }))}
+              min1={-2.0}
+              max1={2.0}
+              step1={0.05}
+              unit1="ม."
+              accent1="#38BDF8"
+              param2Label="เตือนซ้ำ"
+              val2={settings.water_level_cooldown_minutes ?? 30}
+              onVal2Change={(val) => setSettings((prev) => ({ ...prev, water_level_cooldown_minutes: val }))}
+              min2={15}
+              max2={1440}
+              step2={15}
+              unit2="นาที"
             />
 
-            <ConditionCard
-              icon={<TrendingUpIcon size={16} />}
-              iconBg="rgba(245, 158, 11, 0.12)"
-              iconColor="#F59E0B"
-              title="อัตราการเพิ่มขึ้นฉับพลัน (Rate of Rise)"
-              description="เตือนเมื่อระดับน้ำเพิ่มขึ้นรวดเร็วผิดปกติ"
+            {/* Tile 2: อัตราน้ำเพิ่มขึ้นฉับพลัน */}
+            <BoldCockpitTile
+              id="rate-of-rise"
+              name="อัตราน้ำเพิ่มขึ้นฉับพลัน"
+              code="RATE OF RISE"
+              dotColor="#F59E0B"
               enabled={settings.rate_of_rise_enabled}
               onToggle={(checked) => setSettings((prev) => ({ ...prev, rate_of_rise_enabled: checked }))}
-              thresholdLabel="น้ำเพิ่มขึ้นเกินกว่า"
-              thresholdValue={settings.rate_of_rise_threshold}
-              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_threshold: val }))}
-              thresholdMin={0.05}
-              thresholdMax={2.0}
-              thresholdStep={0.05}
-              thresholdUnit="ม./ชม."
-              thresholdAccent="#F59E0B"
-              cooldownValue={settings.rate_of_rise_cooldown_minutes ?? 30}
-              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_cooldown_minutes: val }))}
+              param1Label="อัตราเพิ่มขึ้น"
+              val1={settings.rate_of_rise_threshold}
+              onVal1Change={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_threshold: val }))}
+              min1={0.05}
+              max1={2.0}
+              step1={0.05}
+              unit1="ม./ชม."
+              accent1="#F59E0B"
+              param2Label="เตือนซ้ำ"
+              val2={settings.rate_of_rise_cooldown_minutes ?? 30}
+              onVal2Change={(val) => setSettings((prev) => ({ ...prev, rate_of_rise_cooldown_minutes: val }))}
+              min2={15}
+              max2={1440}
+              step2={15}
+              unit2="นาที"
             />
           </div>
         )}
 
-        {/* Tab Content: Device Health */}
+        {/* Tab 2 Content: อุปกรณ์และระบบเครือข่าย (Hardware & Network Health) */}
         {activeTab === 'device' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <ConditionCard
-              icon={<ClockIcon size={16} />}
-              iconBg="rgba(239, 68, 68, 0.12)"
-              iconColor="#EF4444"
-              title="ขาดการติดต่อเกินเวลาที่กำหนด (Offline Timeout)"
-              description="เตือนเมื่อสถานีหยุดส่งสัญญาณเข้าสู่ระบบ"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {/* Tile 3: ขาดการติดต่อเกินกำหนด */}
+            <BoldCockpitTile
+              id="offline-timeout"
+              name="ขาดการติดต่อเกินกำหนด"
+              code="OFFLINE TIMEOUT"
+              dotColor="#EF4444"
               enabled={settings.offline_timeout_enabled}
               onToggle={(checked) => setSettings((prev) => ({ ...prev, offline_timeout_enabled: checked }))}
-              thresholdLabel="หยุดส่งสัญญาณเกิน"
-              thresholdValue={settings.offline_timeout_minutes}
-              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, offline_timeout_minutes: val }))}
-              thresholdMin={5}
-              thresholdMax={720}
-              thresholdStep={5}
-              thresholdUnit="นาที"
-              thresholdAccent="#EF4444"
-              cooldownValue={settings.offline_cooldown_minutes ?? 60}
-              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, offline_cooldown_minutes: val }))}
+              param1Label="ขาดหายเกิน"
+              val1={settings.offline_timeout_minutes}
+              onVal1Change={(val) => setSettings((prev) => ({ ...prev, offline_timeout_minutes: val }))}
+              min1={5}
+              max1={720}
+              step1={5}
+              unit1="นาที"
+              accent1="#EF4444"
+              param2Label="เตือนซ้ำ"
+              val2={settings.offline_cooldown_minutes ?? 60}
+              onVal2Change={(val) => setSettings((prev) => ({ ...prev, offline_cooldown_minutes: val }))}
+              min2={15}
+              max2={1440}
+              step2={15}
+              unit2="นาที"
             />
 
-            <ConditionCard
-              icon={<ZapIcon size={16} />}
-              iconBg="rgba(245, 158, 11, 0.12)"
-              iconColor="#F59E0B"
-              title="ระดับแบตเตอรี่ต่ำ (Battery Low)"
-              description="เตือนเมื่อพลังงานสำรองของสถานีใกล้หมด"
+            {/* Tile 4: ระดับแบตเตอรี่ต่ำ */}
+            <BoldCockpitTile
+              id="battery-low"
+              name="ระดับแบตเตอรี่ต่ำ"
+              code="BATTERY LOW"
+              dotColor="#F59E0B"
               enabled={settings.battery_low_enabled}
               onToggle={(checked) => setSettings((prev) => ({ ...prev, battery_low_enabled: checked }))}
-              thresholdLabel="แบตเตอรี่ต่ำกว่า"
-              thresholdValue={settings.battery_low_threshold}
-              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, battery_low_threshold: val }))}
-              thresholdMin={5}
-              thresholdMax={50}
-              thresholdStep={5}
-              thresholdUnit="%"
-              thresholdAccent="#F59E0B"
-              cooldownValue={settings.battery_low_cooldown_minutes ?? 120}
-              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, battery_low_cooldown_minutes: val }))}
-              cooldownMin={30}
-              cooldownStep={30}
+              param1Label="ต่ำกว่า"
+              val1={settings.battery_low_threshold}
+              onVal1Change={(val) => setSettings((prev) => ({ ...prev, battery_low_threshold: val }))}
+              min1={5}
+              max1={50}
+              step1={5}
+              unit1="%"
+              accent1="#F59E0B"
+              param2Label="เตือนซ้ำ"
+              val2={settings.battery_low_cooldown_minutes ?? 120}
+              onVal2Change={(val) => setSettings((prev) => ({ ...prev, battery_low_cooldown_minutes: val }))}
+              min2={30}
+              max2={1440}
+              step2={30}
+              unit2="นาที"
             />
 
-            <ConditionCard
-              icon={<MapPinIcon size={16} />}
-              iconBg="rgba(168, 85, 247, 0.12)"
-              iconColor="#A855F7"
-              title="ตรวจจับการเคลื่อนที่ (Geofence)"
-              description="เตือนเมื่อเสาหรืออุปกรณ์ขยับออกนอกรัศมีพิกัด"
+            {/* Tile 5: ตรวจจับการเคลื่อนที่ */}
+            <BoldCockpitTile
+              id="geofence"
+              name="ตรวจจับการเคลื่อนที่"
+              code="GEOFENCE DRIFT"
+              dotColor="#A855F7"
               enabled={settings.geofence_enabled}
               onToggle={(checked) => setSettings((prev) => ({ ...prev, geofence_enabled: checked }))}
-              thresholdLabel="ขยับออกนอกรัศมีเกิน"
-              thresholdValue={settings.geofence_radius_meters}
-              onThresholdChange={(val) => setSettings((prev) => ({ ...prev, geofence_radius_meters: val }))}
-              thresholdMin={10}
-              thresholdMax={1000}
-              thresholdStep={10}
-              thresholdUnit="ม."
-              thresholdAccent="#A855F7"
-              cooldownValue={settings.geofence_cooldown_minutes ?? 60}
-              onCooldownChange={(val) => setSettings((prev) => ({ ...prev, geofence_cooldown_minutes: val }))}
-              cooldownMin={15}
-              cooldownStep={15}
+              param1Label="รัศมีเกิน"
+              val1={settings.geofence_radius_meters}
+              onVal1Change={(val) => setSettings((prev) => ({ ...prev, geofence_radius_meters: val }))}
+              min1={10}
+              max1={1000}
+              step1={10}
+              unit1="ม."
+              accent1="#A855F7"
+              param2Label="เตือนซ้ำ"
+              val2={settings.geofence_cooldown_minutes ?? 60}
+              onVal2Change={(val) => setSettings((prev) => ({ ...prev, geofence_cooldown_minutes: val }))}
+              min2={15}
+              max2={1440}
+              step2={15}
+              unit2="นาที"
             />
           </div>
         )}

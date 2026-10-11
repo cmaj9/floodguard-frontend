@@ -449,20 +449,33 @@ export async function fetchNotificationSettings(stationId?: string): Promise<Not
   return res.data.data;
 }
 
+export interface UpdateNotificationSettingsResult {
+  settings: NotificationSettings;
+  triggeredAlerts: DbAlert[];
+  message?: string;
+}
+
 /**
  * PUT /api/notifications/settings or /api/notifications/settings/:stationId
- * Save global or station-specific notification criteria
+ * Save global or station-specific notification criteria and evaluate immediate alerts
  */
 export async function updateNotificationSettings(
   settings: Partial<NotificationSettings>,
   stationId?: string
-): Promise<NotificationSettings> {
+): Promise<UpdateNotificationSettingsResult> {
   const url = stationId
     ? `/api/notifications/settings/${stationId}`
     : '/api/notifications/settings';
-  const res = await api.put<ApiResponse<NotificationSettings>>(url, settings);
+  const res = await api.put<ApiResponse<NotificationSettings> & { triggeredAlerts?: DbAlert[]; message?: string }>(
+    url,
+    settings
+  );
   if (!res.data.success) throw new Error(res.data.error ?? 'บันทึกการตั้งค่าแจ้งเตือนไม่สำเร็จ');
-  return res.data.data;
+  return {
+    settings: res.data.data,
+    triggeredAlerts: res.data.triggeredAlerts || [],
+    message: res.data.message,
+  };
 }
 
 /**

@@ -75,6 +75,15 @@ export interface StationWithReading {
   relative_total_tilt?: number | null;
   is_pole_tilted?: boolean;
   water_status: WaterStatus;
+  operating_status?: 'active' | 'offline' | 'maintenance';
+  manual_status?: 'active' | 'offline' | 'maintenance';
+  manual_offline_at?: string | null;
+  is_manual_offline?: boolean;
+  is_online?: boolean;
+  offline_timeout_minutes?: number;
+  minutes_since_last_reading?: number;
+  status_updated_at?: string | null;
+  minutes_since_status_update?: number | null;
   model?: string;
   mcu_id?: string;
   firmware_version?: string;
@@ -121,6 +130,7 @@ export interface User {
 }
 
 export interface DbAlert {
+  id?: string;
   alert_id: string;
   station_id: string;
   station_name?: string;
@@ -142,7 +152,7 @@ export interface Station {
   province: string;
   lat: number;
   lng: number;
-  currentLevel: number; // meters (relative to reference point, can be negative or positive)
+  currentLevel: number | null; // meters (relative to reference point, can be negative or positive, or null if no readings yet)
   sensorToRefDistance?: number;
   referencePointName?: string;
   rawDistance?: number | null;
@@ -155,6 +165,14 @@ export interface Station {
   criticalLevel?: number;
   status: WaterStatus;
   operatingStatus?: 'active' | 'offline' | 'maintenance';
+  manualStatus?: 'active' | 'offline' | 'maintenance';
+  manualOfflineAt?: string | null;
+  isManualOffline?: boolean;
+  isOnline?: boolean;
+  offlineTimeoutMinutes?: number;
+  minutesSinceLastReading?: number;
+  lastReadingTime?: string | null;
+  statusUpdatedAt?: string | null;
   lastUpdated: string;
   isActive: boolean;
   deviceId: string;
@@ -210,6 +228,7 @@ export interface AppNotification {
   read: boolean;
   stationId?: string;
   stationName?: string;
+  alertType?: DbAlert['alert_type'];
 }
 
 export interface NotificationSettings {

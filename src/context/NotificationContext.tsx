@@ -57,6 +57,7 @@ function mapAlertToNotification(a: DbAlert): AppNotification {
     read: a.status === 'acknowledged' || a.status === 'resolved',
     stationId: a.station_id,
     stationName: a.station_name,
+    alertType: a.alert_type,
   };
 }
 

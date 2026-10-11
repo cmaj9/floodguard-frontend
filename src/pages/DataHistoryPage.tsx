@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { fetchReadingsHistory, fetchStations } from "../services/apiService";
 import type { Reading, StationWithReading, WaterStatus } from "../types";
@@ -20,10 +21,11 @@ import {
   CompassIcon,
   ChevronDownIcon,
   CpuIcon,
-  ActivityIcon,
-  RefreshCwIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+  ExternalLinkIcon,
 } from "../components/ui/Icons";
 import Papa from "papaparse";
 import ManagementBackBar from "../components/ui/ManagementBackBar";
@@ -39,7 +41,6 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const PAGE_SIZE = 50;
 const REFRESH_INTERVAL_MS = 30_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -64,12 +65,28 @@ function fmtTimestamp(ts: string): string {
   }
 }
 
+// Calculate geodesic distance between two points in meters (Haversine formula)
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
 function getReadingWaterStatus(
   r: Reading,
   station?: StationWithReading
 ): { status: WaterStatus; label: string; color: string; bg: string; dot: string } {
   if (r.water_level == null) {
-    return { status: "unknown", label: "ไม่มีข้อมูล", color: "#94A3B8", bg: "rgba(148, 163, 184, 0.12)", dot: "#94A3B8" };
+    return { status: "unknown", label: "ไม่มีข้อมูล", color: "var(--text-muted, #94A3B8)", bg: "rgba(148, 163, 184, 0.12)", dot: "var(--text-muted, #94A3B8)" };
   }
 
   // 1. Primary: Use water_status computed by Backend SQL (Single Source of Truth)
@@ -89,17 +106,17 @@ function getReadingWaterStatus(
   }
 
   if (s === "critical") {
-    return { status: "critical", label: "วิกฤต", color: "#EF4444", bg: "rgba(239, 68, 68, 0.15)", dot: "#EF4444" };
+    return { status: "critical", label: "วิกฤต", color: "var(--color-critical, #EF4444)", bg: "rgba(239, 68, 68, 0.15)", dot: "var(--color-critical, #EF4444)" };
   }
   if (s === "warning") {
-    return { status: "warning", label: "เฝ้าระวัง", color: "#F59E0B", bg: "rgba(245, 158, 11, 0.15)", dot: "#F59E0B" };
+    return { status: "warning", label: "เฝ้าระวัง", color: "var(--color-warning, #F59E0B)", bg: "rgba(245, 158, 11, 0.15)", dot: "var(--color-warning, #F59E0B)" };
   }
-  return { status: "normal", label: "ปกติ", color: "#10B981", bg: "rgba(16, 185, 129, 0.15)", dot: "#10B981" };
+  return { status: "normal", label: "ปกติ", color: "var(--color-normal, #10B981)", bg: "rgba(16, 185, 129, 0.15)", dot: "var(--color-normal, #10B981)" };
 }
 
 function BatteryBar({ pct }: { pct: number | null }) {
   if (pct == null) return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
-  const color = pct > 50 ? "#10B981" : pct > 20 ? "#F59E0B" : "#EF4444";
+  const color = pct > 50 ? "var(--color-normal, #10B981)" : pct > 20 ? "var(--color-warning, #F59E0B)" : "var(--color-critical, #EF4444)";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <span className="font-mono tabular-nums" style={{ fontSize: 12, fontWeight: 700, color }}>
@@ -122,6 +139,65 @@ function BatteryBar({ pct }: { pct: number | null }) {
   );
 }
 
+interface HistoryTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      time: string;
+      fullTime: string;
+      water_level: number | null;
+      temperature: number | null;
+      humidity: number | null;
+      station: string;
+    };
+  }>;
+}
+
+function HistoryChartTooltip({ active, payload }: HistoryTooltipProps) {
+  if (!active || !payload || !payload.length) return null;
+  const data = payload[0]?.payload;
+  if (!data) return null;
+
+  return (
+    <div
+      style={{
+        background: "var(--card-surface, #15181E)",
+        border: "1px solid rgba(56, 189, 248, 0.28)",
+        borderRadius: 10,
+        padding: "10px 14px",
+        fontSize: 12,
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.6)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        minWidth: 170,
+      }}
+    >
+      <div className="tabular-nums font-mono" style={{ color: "var(--text-secondary, #94A3B8)", fontSize: 11, marginBottom: 4 }}>
+        {data.fullTime || data.time}
+      </div>
+      {data.station && (
+        <div style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+          {data.station}
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>ระดับน้ำ</span>
+        <span
+          className="tabular-nums font-mono"
+          style={{
+            color: "var(--color-cyan, #38BDF8)",
+            fontWeight: 700,
+            fontSize: 18,
+          }}
+        >
+          {data.water_level != null ? `${data.water_level >= 0 ? "+" : ""}${Number(data.water_level).toFixed(2)}` : "-"}
+        </span>
+        <span style={{ color: "var(--text-secondary, #94A3B8)", fontSize: 11 }}>ม.</span>
+      </div>
+    </div>
+  );
+}
+
 type TimePreset = "all" | "24h" | "7d" | "30d" | "custom";
 type StatusFilterType = "all" | "normal" | "warning" | "critical" | "anomaly";
 type HistoryViewMode = "table" | "chart";
@@ -130,15 +206,24 @@ export default function DataHistoryPage() {
   const { user, isGuest } = useAuth();
   const canExport = !isGuest && (user?.role === "admin" || user?.role === "staff");
 
-  const [readings, setReadings] = useState<Reading[]>([]);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [isExported, setIsExported] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem("floodguard_history_page_size");
+    if (saved === "100") return 100;
+    if (saved === "200") return 200;
+    if (saved === "500") return 500;
+    return 100;
+  });
 
-  const [stations, setStations] = useState<StationWithReading[]>([]);
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    localStorage.setItem("floodguard_history_page_size", String(newSize));
+    setPage(0);
+  };
+
+  const [exportError, setExportError] = useState("");
+  const [isExported, setIsExported] = useState(false);
+
   const [filterStation, setFilterStation] = useState("");
   const [timePreset, setTimePreset] = useState<TimePreset>("all");
   const [filterStart, setFilterStart] = useState("");
@@ -153,7 +238,10 @@ export default function DataHistoryPage() {
   // Inline Row Accordion Expansion (set of expanded reading_ids)
   const [expandedRowIds, setExpandedRowIds] = useState<Set<number>>(new Set());
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Modal accessibility refs for Focus Trap & Escape restoration
+  const modalPanelRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const exportBtnTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const toggleRowExpand = (id: number) => {
     setExpandedRowIds((prev) => {
@@ -171,6 +259,64 @@ export default function DataHistoryPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"all_filtered" | "current_page">("all_filtered");
   const [exportLoading, setExportLoading] = useState(false);
+
+  // Focus trap and Escape key listener for Export Modal
+  useEffect(() => {
+    if (!isExportModalOpen) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!exportLoading) {
+          setIsExportModalOpen(false);
+        }
+        return;
+      }
+
+      if (e.key === "Tab" && modalPanelRef.current) {
+        const focusableElements = modalPanelRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input[type="radio"]:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    // Auto focus first interactive element in modal
+    const focusTimer = setTimeout(() => {
+      if (modalPanelRef.current) {
+        const firstFocusable = modalPanelRef.current.querySelector<HTMLElement>(
+          'button:not([disabled]), input[type="radio"]:not([disabled])'
+        );
+        firstFocusable?.focus();
+      }
+    }, 50);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(focusTimer);
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === "function") {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [isExportModalOpen, exportLoading]);
 
   const triggerCSVDownload = (dataToExport: Reading[], customStationName?: string) => {
     const currentStation = stations.find((s) => s.station_id === filterStation);
@@ -258,7 +404,7 @@ export default function DataHistoryPage() {
         triggerCSVDownload(list);
         setIsExportModalOpen(false);
       } catch (err: unknown) {
-        setErrorMsg(err instanceof Error ? err.message : "ไม่สามารถดึงข้อมูลทั้งหมดสำหรับส่งออกได้");
+        setExportError(err instanceof Error ? err.message : "ไม่สามารถดึงข้อมูลทั้งหมดสำหรับส่งออกได้");
       } finally {
         setExportLoading(false);
       }
@@ -267,12 +413,14 @@ export default function DataHistoryPage() {
 
   const handleExportCSV = () => {
     if (total === 0 || loading) return;
+    setExportError("");
     setIsExportModalOpen(true);
   };
 
   // ── Handle Preset Switching ───────────────────────────────────
   const handleTimePresetChange = (preset: TimePreset) => {
     setTimePreset(preset);
+    setPage(0);
     const now = new Date();
     if (preset === "all") {
       setFilterStart("");
@@ -292,6 +440,54 @@ export default function DataHistoryPage() {
     }
   };
 
+  // ── TanStack Query: Stations ──────────────────────────────────────────────
+  const { data: stations = [], refetch: refetchStations } = useQuery<StationWithReading[]>({
+    queryKey: ['stations'],
+    queryFn: fetchStations,
+    staleTime: 30_000,
+  });
+
+  // ── TanStack Query: Readings History ──────────────────────────────────────
+  const queryParams = useMemo(() => {
+    const params: Record<string, string | number> = { limit: pageSize, offset: page * pageSize };
+    if (filterStation) params.stationId = filterStation;
+    if (filterStart)   params.start     = new Date(filterStart).toISOString();
+    if (filterEnd)     params.end       = new Date(filterEnd).toISOString();
+    return params;
+  }, [filterStation, filterStart, filterEnd, page, pageSize]);
+
+  const {
+    data: historyData,
+    isLoading,
+    error: queryError,
+    refetch: refetchHistory,
+  } = useQuery({
+    queryKey: ['readings-history', filterStation, filterStart, filterEnd, page, pageSize],
+    queryFn: () => fetchReadingsHistory(queryParams),
+    staleTime: 15_000,
+    refetchInterval: REFRESH_INTERVAL_MS,
+    placeholderData: keepPreviousData,
+  });
+
+  const readings = useMemo(() => historyData?.data ?? [], [historyData]);
+  const total = historyData?.total ?? 0;
+  const loading = isLoading;
+
+  const errorMsg = exportError || (queryError instanceof Error ? queryError.message : (queryError ? "ไม่สามารถโหลดข้อมูลได้" : ""));
+
+  useEffect(() => {
+    const handleGlobalRefresh = () => {
+      refetchHistory();
+      refetchStations();
+    };
+    window.addEventListener("app:refresh", handleGlobalRefresh);
+    return () => {
+      window.removeEventListener("app:refresh", handleGlobalRefresh);
+    };
+  }, [refetchHistory, refetchStations]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   // ─── Stats derived from current page (Zero Colon) ─────────────────────────────
   const stats = useMemo(() => {
     const validLevels = readings.map((r) => r.water_level).filter((v): v is number => v != null);
@@ -308,63 +504,13 @@ export default function DataHistoryPage() {
     };
   }, [readings, total]);
 
-  useEffect(() => {
-    const load = () => { fetchStations().then(setStations).catch(() => {}); };
-    load();
-    window.addEventListener("app:refresh", load);
-    return () => {
-      window.removeEventListener("app:refresh", load);
-    };
-  }, []);
-
-  const loadReadings = useCallback(async (p: number, silent = false) => {
-    if (!silent) setLoading(true);
-    setErrorMsg("");
-    try {
-      const params: Record<string, string | number> = { limit: PAGE_SIZE, offset: p * PAGE_SIZE };
-      if (filterStation) params.stationId = filterStation;
-      if (filterStart)   params.start     = new Date(filterStart).toISOString();
-      if (filterEnd)     params.end       = new Date(filterEnd).toISOString();
-      const result = await fetchReadingsHistory(params);
-      setReadings(result.data);
-      setTotal(result.total);
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลได้");
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [filterStation, filterStart, filterEnd]);
-
-  const handleManualRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await loadReadings(page, false);
-    setTimeout(() => setIsRefreshing(false), 500);
-  }, [loadReadings, page]);
-
-  useEffect(() => { setPage(0); loadReadings(0); }, [filterStation, filterStart, filterEnd]); // eslint-disable-line
-  useEffect(() => { loadReadings(page); }, [page]); // eslint-disable-line
-
-  useEffect(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => loadReadings(page, true), REFRESH_INTERVAL_MS);
-    const handleGlobalRefresh = () => {
-      loadReadings(page);
-    };
-    window.addEventListener("app:refresh", handleGlobalRefresh);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      window.removeEventListener("app:refresh", handleGlobalRefresh);
-    };
-  }, [loadReadings, page]);
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   // ── Station dropdown options (Zero Colon) ───────────────────────────────────
   const stationDropdownOptions: DropdownOption[] = useMemo(() => {
     const rawIds = user?.stationIds || (user as any)?.station_ids || [];
-    const userStationIds = (Array.isArray(rawIds) ? rawIds : []).map((id: string) =>
-      String(id).trim().toUpperCase()
-    );
+    const userStationIds = (Array.isArray(rawIds) ? rawIds : [])
+      .filter((id: any) => id != null)
+      .map((id: any) => String(id).trim().toUpperCase())
+      .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
     const isCitizen = !isGuest && user?.role === "citizen" && user?.id !== "citizen_guest";
     const isStaff = !isGuest && user?.role === "staff";
 
@@ -377,23 +523,25 @@ export default function DataHistoryPage() {
       },
     ];
     stations.forEach((s) => {
-      const isUserStation = userStationIds.includes(s.station_id.toUpperCase());
+      const isUserStation = Boolean(s?.station_id && userStationIds.includes(String(s.station_id).toUpperCase()));
       const sublabel = isUserStation
-        ? `${s.location_name ? s.location_name + " · " : ""}${isCitizen ? "สถานีที่ติดตาม" : isStaff ? "สถานีที่รับผิดชอบ" : ""}`
-        : (s.location_name || undefined);
+        ? `${s?.location_name ? s.location_name + " · " : ""}${isCitizen ? "สถานีที่ติดตาม" : isStaff ? "สถานีที่รับผิดชอบ" : ""}`
+        : (s?.location_name || undefined);
 
-      opts.push({
-        value: s.station_id,
-        label: `${s.station_id} · ${s.station_name}`,
-        sublabel,
-        statusDotColor:
-          s.water_status === "critical"
-            ? "#EF4444"
-            : s.water_status === "warning"
-            ? "#F59E0B"
-            : "#10B981",
-        badge: s.water_level != null ? `${Number(s.water_level).toFixed(2)}m` : undefined,
-      });
+      if (s?.station_id) {
+        opts.push({
+          value: s.station_id,
+          label: `${s.station_id} · ${s.station_name || s.station_id}`,
+          sublabel,
+          statusDotColor:
+            s.water_status === "critical"
+              ? "var(--color-critical, #EF4444)"
+              : s.water_status === "warning"
+              ? "var(--color-warning, #F59E0B)"
+              : "var(--color-normal, #10B981)",
+          badge: s.water_level != null ? `${Number(s.water_level).toFixed(2)}m` : undefined,
+        });
+      }
     });
     return opts;
   }, [stations, total, user, isGuest]);
@@ -468,76 +616,57 @@ export default function DataHistoryPage() {
 
   // Chart data formatting
   const chartData = useMemo(() => {
-    return [...filteredReadings]
-      .reverse()
-      .map((r) => ({
-        time: new Date(r.timestamp).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" }),
+    const reversed = [...filteredReadings].reverse();
+    if (reversed.length === 0) return [];
+
+    const firstTime = new Date(reversed[0].timestamp).getTime();
+    const lastTime = new Date(reversed[reversed.length - 1].timestamp).getTime();
+    const isMultiDay = Math.abs(lastTime - firstTime) > 24 * 3600 * 1000;
+
+    return reversed.map((r) => {
+      const d = new Date(r.timestamp);
+      const isValid = !isNaN(d.getTime());
+
+      let timeLabel = r.timestamp;
+      let fullTime = r.timestamp;
+
+      if (isValid) {
+        const timeStr = d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+        const dateStr = d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+        timeLabel = isMultiDay ? `${dateStr} ${timeStr}` : timeStr;
+
+        const fullDate = d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+        fullTime = `${fullDate} ${timeStr} น.`;
+      }
+
+      return {
+        timestamp: r.timestamp,
+        time: timeLabel,
+        fullTime,
         water_level: r.water_level,
         temperature: r.temperature,
         humidity: r.humidity,
         station: r.station_name || r.station_id,
-      }));
+      };
+    });
   }, [filteredReadings]);
 
   return (
     <div className="page-container" style={{ paddingBottom: 60 }}>
       {/* ── TOP MANAGEMENT BAR ── */}
-      <ManagementBackBar
-        title="ประวัติข้อมูลโทรมาตร"
-        actions={
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {/* Live Auto-sync heartbeat beacon */}
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "4px 12px",
-                borderRadius: "9999px",
-                background: "rgba(16, 185, 129, 0.08)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-                fontSize: 11,
-                color: "#34D399",
-                fontWeight: 600,
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: "#10B981",
-                  boxShadow: "0 0 8px rgba(16, 185, 129, 0.6)",
-                }}
-                className="heartbeat-dot"
-              />
-              <span>ซิงค์สดอัตโนมัติ 30 วินาที</span>
-            </div>
-
-            {/* Manual refresh button */}
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              disabled={loading || isRefreshing}
-              className="btn btn-secondary btn-sm tactile-press"
-              style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, gap: 5 }}
-              title="ดึงข้อมูลล่าสุดเดี๋ยวนี้"
-            >
-              <RefreshCwIcon size={13} className={isRefreshing || loading ? "spin-animate" : ""} />
-              <span>รีเฟรช</span>
-            </button>
-          </div>
-        }
-      />
+      <ManagementBackBar title="ประวัติข้อมูลโทรมาตร" />
 
       {/* ══ 1. CONNECTED TACTICAL CONTROL BAR (ZERO-GLOW & ZERO-COLON) ════════ */}
       <div className="history-toolbar-tactical">
         {/* Left: Station Selector & Reset Button */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="history-filter-station-wrap" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <CompactFilterDropdown
             options={stationDropdownOptions}
             value={filterStation}
-            onChange={(val) => setFilterStation(val)}
+            onChange={(val) => {
+              setFilterStation(val);
+              setPage(0);
+            }}
             placeholder="เลือกสถานีตรวจวัด..."
             width={240}
             variant="tactical"
@@ -553,15 +682,19 @@ export default function DataHistoryPage() {
                 setFilterStart("");
                 setFilterEnd("");
                 setStatusFilter("all");
+                setPage(0);
               }}
               style={{
                 fontSize: 12,
-                padding: "6px 10px",
+                minHeight: 38,
+                padding: "8px 12px",
                 borderRadius: 8,
                 color: "var(--color-critical)",
                 gap: 4,
                 border: "1px solid rgba(239, 68, 68, 0.2)",
                 background: "rgba(239, 68, 68, 0.05)",
+                display: "inline-flex",
+                alignItems: "center",
               }}
               title="ล้างการตั้งค่าตัวกรองทั้งหมด"
             >
@@ -572,25 +705,27 @@ export default function DataHistoryPage() {
         </div>
 
         {/* Center: Connected Tactical Button Group for Time Presets */}
-        <div className="tactical-btn-group" role="tablist" aria-label="ช่วงเวลาของประวัติข้อมูล">
-          {timePresetOptions.map((opt, idx) => (
-            <React.Fragment key={opt.value}>
-              {idx > 0 && <div className="tactical-btn-divider" />}
-              <button
-                type="button"
-                role="tab"
-                aria-selected={timePreset === opt.value}
-                className={`tactical-btn-item tactile-press ${timePreset === opt.value ? "active" : ""}`}
-                onClick={() => handleTimePresetChange(opt.value)}
-              >
-                {opt.label}
-              </button>
-            </React.Fragment>
-          ))}
+        <div className="history-time-presets-wrap">
+          <div className="tactical-btn-group" role="tablist" aria-label="ช่วงเวลาของประวัติข้อมูล">
+            {timePresetOptions.map((opt, idx) => (
+              <React.Fragment key={opt.value}>
+                {idx > 0 && <div className="tactical-btn-divider" />}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={timePreset === opt.value}
+                  className={`tactical-btn-item tactile-press ${timePreset === opt.value ? "active" : ""}`}
+                  onClick={() => handleTimePresetChange(opt.value)}
+                >
+                  {opt.label}
+                </button>
+              </React.Fragment>
+            ))}
+          </div>
         </div>
 
         {/* Right: Connected Tactical Button Group for View Mode & CSV Export */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="history-view-mode-wrap" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <div className="tactical-btn-group" role="tablist" aria-label="สลับมุมมองตารางหรือกราฟ">
             {viewModeOptions.map((opt, idx) => (
               <React.Fragment key={opt.value}>
@@ -611,10 +746,13 @@ export default function DataHistoryPage() {
 
           {canExport && (
             <button
+              ref={exportBtnTriggerRef}
               type="button"
               onClick={handleExportCSV}
               disabled={readings.length === 0 || loading}
               className={`csv-flight-button tactile-press ${isExported ? "success" : ""}`}
+              aria-haspopup="dialog"
+              aria-expanded={isExportModalOpen}
               title={
                 readings.length === 0
                   ? "ไม่มีข้อมูลสำหรับส่งออก"
@@ -664,7 +802,7 @@ export default function DataHistoryPage() {
             flexWrap: "wrap",
           }}
         >
-          <span style={{ fontSize: 12, color: "#38bdf8", fontWeight: 600 }}>กำหนดช่วงวันเวลา</span>
+          <span style={{ fontSize: 12, color: "var(--accent-cyan, #38bdf8)", fontWeight: 600 }}>กำหนดช่วงวันเวลา</span>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <label htmlFor="history-filter-start" style={{ fontSize: 11, color: "var(--text-muted)" }}>ตั้งแต่</label>
             <input
@@ -672,7 +810,10 @@ export default function DataHistoryPage() {
               type="datetime-local"
               className="input"
               value={filterStart}
-              onChange={(e) => setFilterStart(e.target.value)}
+              onChange={(e) => {
+                setFilterStart(e.target.value);
+                setPage(0);
+              }}
               aria-label="ตั้งแต่วันที่และเวลา"
               style={{ fontSize: 12, padding: "4px 8px", width: "auto" }}
             />
@@ -684,7 +825,10 @@ export default function DataHistoryPage() {
               type="datetime-local"
               className="input"
               value={filterEnd}
-              onChange={(e) => setFilterEnd(e.target.value)}
+              onChange={(e) => {
+                setFilterEnd(e.target.value);
+                setPage(0);
+              }}
               aria-label="ถึงวันที่และเวลา"
               style={{ fontSize: 12, padding: "4px 8px", width: "auto" }}
             />
@@ -699,7 +843,7 @@ export default function DataHistoryPage() {
           <div className="history-kpi-card-header">
             <div className="history-kpi-card-left">
               <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(56, 189, 248, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <BarChart3Icon size={14} style={{ color: "#38bdf8" }} />
+                <BarChart3Icon size={14} style={{ color: "var(--accent-cyan, #38bdf8)" }} />
               </div>
               <span className="history-kpi-card-title">บันทึกในระบบ</span>
             </div>
@@ -708,13 +852,13 @@ export default function DataHistoryPage() {
             </span>
           </div>
           <div className="history-kpi-card-val-row">
-            <span className="history-kpi-card-val" style={{ color: "#ffffff" }}>
+            <span className="history-kpi-card-val" style={{ color: "var(--text-primary, #ffffff)" }}>
               {total.toLocaleString()}
             </span>
             <span className="history-kpi-card-unit">รายการ</span>
           </div>
           <div className="history-kpi-card-subtitle">
-            <span>แสดงผลหน้าละ 50 รายการ</span>
+            <span>แสดงผลหน้าละ {pageSize} รายการ</span>
           </div>
         </div>
 
@@ -722,17 +866,17 @@ export default function DataHistoryPage() {
         <div className="history-kpi-card">
           <div className="history-kpi-card-header">
             <div className="history-kpi-card-left">
-              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(248, 113, 113, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <TrendingUpIcon size={14} style={{ color: "#F87171" }} />
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(239, 68, 68, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingUpIcon size={14} style={{ color: "var(--color-critical, #F87171)" }} />
               </div>
               <span className="history-kpi-card-title">ระดับสูงสุด</span>
             </div>
-            <span style={{ fontSize: 10, color: "#F87171", fontFamily: "monospace", padding: "1px 6px", background: "rgba(248, 113, 113, 0.1)", borderRadius: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--color-critical, #F87171)", fontFamily: "monospace", padding: "1px 6px", background: "rgba(239, 68, 68, 0.1)", borderRadius: 4 }}>
               MAX
             </span>
           </div>
           <div className="history-kpi-card-val-row">
-            <span className="history-kpi-card-val" style={{ color: "#F87171" }}>
+            <span className="history-kpi-card-val" style={{ color: "var(--color-critical, #F87171)" }}>
               {stats.maxLevel != null ? `${stats.maxLevel > 0 ? "+" : ""}${stats.maxLevel.toFixed(2)}` : "—"}
             </span>
             <span className="history-kpi-card-unit">ม.</span>
@@ -746,17 +890,17 @@ export default function DataHistoryPage() {
         <div className="history-kpi-card">
           <div className="history-kpi-card-header">
             <div className="history-kpi-card-left">
-              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(52, 211, 153, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <TrendingDownIcon size={14} style={{ color: "#34D399" }} />
+              <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(16, 185, 129, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <TrendingDownIcon size={14} style={{ color: "var(--color-normal, #34D399)" }} />
               </div>
               <span className="history-kpi-card-title">ระดับต่ำสุด</span>
             </div>
-            <span style={{ fontSize: 10, color: "#34D399", fontFamily: "monospace", padding: "1px 6px", background: "rgba(52, 211, 153, 0.1)", borderRadius: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--color-normal, #34D399)", fontFamily: "monospace", padding: "1px 6px", background: "rgba(16, 185, 129, 0.1)", borderRadius: 4 }}>
               MIN
             </span>
           </div>
           <div className="history-kpi-card-val-row">
-            <span className="history-kpi-card-val" style={{ color: "#34D399" }}>
+            <span className="history-kpi-card-val" style={{ color: "var(--color-normal, #34D399)" }}>
               {stats.minLevel != null ? `${stats.minLevel > 0 ? "+" : ""}${stats.minLevel.toFixed(2)}` : "—"}
             </span>
             <span className="history-kpi-card-unit">ม.</span>
@@ -771,16 +915,16 @@ export default function DataHistoryPage() {
           <div className="history-kpi-card-header">
             <div className="history-kpi-card-left">
               <div style={{ width: 26, height: 26, borderRadius: 6, background: "rgba(129, 140, 248, 0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <DropletsIcon size={14} style={{ color: "#818cf8" }} />
+                <DropletsIcon size={14} style={{ color: "var(--accent-indigo, #818cf8)" }} />
               </div>
               <span className="history-kpi-card-title">ระดับเฉลี่ย</span>
             </div>
-            <span style={{ fontSize: 10, color: "#818cf8", fontFamily: "monospace", padding: "1px 6px", background: "rgba(129, 140, 248, 0.1)", borderRadius: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--accent-indigo, #818cf8)", fontFamily: "monospace", padding: "1px 6px", background: "rgba(129, 140, 248, 0.1)", borderRadius: 4 }}>
               AVG
             </span>
           </div>
           <div className="history-kpi-card-val-row">
-            <span className="history-kpi-card-val" style={{ color: "#818cf8" }}>
+            <span className="history-kpi-card-val" style={{ color: "var(--accent-indigo, #818cf8)" }}>
               {stats.avgLevel != null ? `${stats.avgLevel > 0 ? "+" : ""}${stats.avgLevel.toFixed(2)}` : "—"}
             </span>
             <span className="history-kpi-card-unit">ม.</span>
@@ -817,7 +961,7 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "all"}
-              className={`table-tab-item tactile-press ${statusFilter === "all" ? "active" : ""}`}
+              className={`table-tab-item tab-all tactile-press ${statusFilter === "all" ? "active" : ""}`}
               onClick={() => setStatusFilter("all")}
             >
               <span>ทั้งหมด</span>
@@ -830,10 +974,10 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "normal"}
-              className={`table-tab-item tactile-press ${statusFilter === "normal" ? "active" : ""}`}
+              className={`table-tab-item tab-normal tactile-press ${statusFilter === "normal" ? "active" : ""}`}
               onClick={() => setStatusFilter("normal")}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981", flexShrink: 0 }} />
+              <span className="table-tab-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-normal, #10B981)", flexShrink: 0 }} />
               <span>ปกติ</span>
               <span className={`table-tab-badge ${statusCounts.normal === 0 ? "dimmed" : ""}`}>
                 {statusCounts.normal}
@@ -844,10 +988,10 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "warning"}
-              className={`table-tab-item tactile-press ${statusFilter === "warning" ? "active" : ""}`}
+              className={`table-tab-item tab-warning tactile-press ${statusFilter === "warning" ? "active" : ""}`}
               onClick={() => setStatusFilter("warning")}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#F59E0B", flexShrink: 0 }} />
+              <span className="table-tab-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-warning, #F59E0B)", flexShrink: 0 }} />
               <span>เฝ้าระวัง</span>
               <span className={`table-tab-badge ${statusCounts.warning === 0 ? "dimmed" : ""}`}>
                 {statusCounts.warning}
@@ -858,10 +1002,10 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "critical"}
-              className={`table-tab-item tactile-press ${statusFilter === "critical" ? "active" : ""}`}
+              className={`table-tab-item tab-critical tactile-press ${statusFilter === "critical" ? "active" : ""}`}
               onClick={() => setStatusFilter("critical")}
             >
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#EF4444", flexShrink: 0 }} />
+              <span className="table-tab-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-critical, #EF4444)", flexShrink: 0 }} />
               <span>วิกฤต</span>
               <span className={`table-tab-badge ${statusCounts.critical === 0 ? "dimmed" : ""}`}>
                 {statusCounts.critical}
@@ -872,11 +1016,11 @@ export default function DataHistoryPage() {
               type="button"
               role="tab"
               aria-selected={statusFilter === "anomaly"}
-              className={`table-tab-item tactile-press ${statusFilter === "anomaly" ? "active" : ""}`}
+              className={`table-tab-item tab-anomaly tactile-press ${statusFilter === "anomaly" ? "active" : ""}`}
               onClick={() => setStatusFilter("anomaly")}
               title="บันทึกที่พบจุดบอด Blind Zone หรือเสาเอียง หรือแบตเตอรี่วิกฤต"
             >
-              <AlertTriangleIcon size={13} style={{ color: "#F59E0B", flexShrink: 0 }} />
+              <AlertTriangleIcon size={13} className="table-tab-icon" style={{ color: "var(--color-warning, #F59E0B)", flexShrink: 0 }} />
               <span>แจ้งเตือนผิดปกติ</span>
               <span className={`table-tab-badge ${statusCounts.anomaly === 0 ? "dimmed" : ""}`}>
                 {statusCounts.anomaly}
@@ -884,17 +1028,44 @@ export default function DataHistoryPage() {
             </button>
           </div>
 
-          {/* Right: Page Indicator & Count */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+          {/* Right: Page Indicator & Page Size Selector (Top) */}
+          <div className="table-header-right-meta">
             <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
               {loading
                 ? "กำลังโหลดข้อมูล..."
-                : `แสดง ${filteredReadings.length} จาก ${readings.length} รายการ`}
+                : `แสดง ${filteredReadings.length.toLocaleString()} รายการ`}
             </span>
             <span style={{ color: "rgba(255, 255, 255, 0.15)" }}>•</span>
             <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-              หน้า {page + 1} จาก {totalPages}
+              จากทั้งหมด {total.toLocaleString()} รายการ
             </span>
+            <span style={{ color: "rgba(255, 255, 255, 0.15)" }}>•</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
+              หน้า {totalPages === 0 ? 0 : page + 1} จาก {totalPages}
+            </span>
+
+            <span style={{ color: "rgba(255, 255, 255, 0.15)" }}>|</span>
+
+            {/* Tactical Page Size Selector (Top) */}
+            <div className="tactical-page-size-wrap">
+              <span className="tactical-page-size-label">แสดงต่อหน้า</span>
+              <div className="tactical-btn-group" role="group" aria-label="เลือกจำนวนรายการต่อหน้า (ส่วนบน)">
+                {[50, 100, 200].map((sz, idx) => (
+                  <React.Fragment key={sz}>
+                    {idx > 0 && <div className="tactical-btn-divider" />}
+                    <button
+                      type="button"
+                      onClick={() => handlePageSizeChange(sz)}
+                      className={`tactical-btn-item tactile-press ${pageSize === sz ? "active" : ""}`}
+                      style={{ minWidth: 32, padding: "3px 8px", fontSize: 11, minHeight: 26 }}
+                      aria-pressed={pageSize === sz}
+                    >
+                      {sz}
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -990,6 +1161,39 @@ export default function DataHistoryPage() {
                           const relTotal = r.relative_total_tilt != null ? Number(r.relative_total_tilt) : null;
                           const isTilted = Boolean(r.is_pole_tilted || (relTotal != null && relTotal > 15));
 
+                          const readLat = r.latitude != null ? Number(r.latitude) : null;
+                          const readLng = r.longitude != null ? Number(r.longitude) : null;
+                          const stLat = st?.latitude != null ? Number(st.latitude) : null;
+                          const stLng = st?.longitude != null ? Number(st.longitude) : null;
+
+                          const hasReadingGps = readLat != null && readLng != null && (readLat !== 0 || readLng !== 0);
+                          const hasStationGps = stLat != null && stLng != null && (stLat !== 0 || stLng !== 0);
+                          const activeLat = hasReadingGps ? readLat : (hasStationGps ? stLat : null);
+                          const activeLng = hasReadingGps ? readLng : (hasStationGps ? stLng : null);
+
+                          const driftMeters = hasReadingGps && hasStationGps
+                            ? getDistanceMeters(readLat!, readLng!, stLat!, stLng!)
+                            : null;
+
+                          const isMoved = driftMeters != null && driftMeters > 15;
+                          const isStationary = driftMeters != null && driftMeters <= 15;
+
+                          const locationStatusText = isMoved
+                            ? "ตรวจพบการเคลื่อนที่"
+                            : isStationary
+                            ? "ตำแหน่งคงที่ (ไม่เคลื่อนที่)"
+                            : hasReadingGps
+                            ? "พิกัดโทรมาตรสด"
+                            : hasStationGps
+                            ? "พิกัดติดตั้งสถานี (คงที่)"
+                            : "ไม่มีข้อมูลพิกัด";
+
+                          const locationStatusColor = isMoved
+                            ? "var(--color-critical, #EF4444)"
+                            : (isStationary || hasStationGps)
+                            ? "var(--color-normal, #10B981)"
+                            : "var(--text-muted, #94A3B8)";
+
                           return (
                             <React.Fragment key={r.reading_id}>
                               <tr
@@ -1018,7 +1222,7 @@ export default function DataHistoryPage() {
                                         fontSize: 10,
                                         fontWeight: 700,
                                         fontFamily: "monospace",
-                                        color: "#38bdf8",
+                                        color: "var(--accent-cyan, #38bdf8)",
                                         background: "rgba(56, 189, 248, 0.08)",
                                         padding: "1px 6px",
                                         borderRadius: 4,
@@ -1040,7 +1244,7 @@ export default function DataHistoryPage() {
                                           fontSize: 14,
                                           fontWeight: 700,
                                           color: r.water_level != null
-                                            ? (status.status === "critical" ? "#EF4444" : status.status === "warning" ? "#F59E0B" : "var(--text-primary)")
+                                            ? (status.status === "critical" ? "var(--color-critical, #EF4444)" : status.status === "warning" ? "var(--color-warning, #F59E0B)" : "var(--text-primary)")
                                             : "var(--text-muted)",
                                         }}
                                       >
@@ -1058,7 +1262,7 @@ export default function DataHistoryPage() {
                                             borderRadius: 4,
                                             background: "rgba(239, 68, 68, 0.15)",
                                             border: "1px solid rgba(239, 68, 68, 0.3)",
-                                            color: "#EF4444",
+                                            color: "var(--color-critical, #EF4444)",
                                           }}
                                           title="ระยะห่างเซนเซอร์น้อยกว่า 28 ซม."
                                         >
@@ -1075,9 +1279,9 @@ export default function DataHistoryPage() {
                                 {/* Atmosphere (Temp / Humid) */}
                                 <td>
                                   <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-                                    <span style={{ color: "#F59E0B", fontWeight: 600 }}>{fmt(r.temperature, "°C", 1)}</span>
+                                    <span style={{ color: "var(--color-warning, #F59E0B)", fontWeight: 600 }}>{fmt(r.temperature, "°C", 1)}</span>
                                     <span style={{ color: "rgba(255,255,255,0.2)" }}>/</span>
-                                    <span style={{ color: "#38bdf8", fontWeight: 600 }}>{fmt(r.humidity, "%", 0)}</span>
+                                    <span style={{ color: "var(--accent-cyan, #38bdf8)", fontWeight: 600 }}>{fmt(r.humidity, "%", 0)}</span>
                                   </div>
                                 </td>
 
@@ -1113,7 +1317,7 @@ export default function DataHistoryPage() {
                                           width: 6,
                                           height: 6,
                                           borderRadius: "50%",
-                                          background: isTilted ? "#EF4444" : "#10B981",
+                                          background: isTilted ? "var(--color-critical, #EF4444)" : "var(--color-normal, #10B981)",
                                           flexShrink: 0,
                                         }}
                                       />
@@ -1121,7 +1325,7 @@ export default function DataHistoryPage() {
                                         style={{
                                           fontSize: 12,
                                           fontWeight: 600,
-                                          color: isTilted ? "#EF4444" : "var(--text-primary)",
+                                          color: isTilted ? "var(--color-critical, #EF4444)" : "var(--text-primary)",
                                           fontVariantNumeric: "tabular-nums",
                                         }}
                                       >
@@ -1158,15 +1362,27 @@ export default function DataHistoryPage() {
                                   <button
                                     type="button"
                                     className="btn btn-ghost tactile-press"
-                                    style={{ padding: "4px 6px", color: "var(--text-muted)", cursor: "pointer", borderRadius: 6 }}
+                                    style={{
+                                      minWidth: 38,
+                                      minHeight: 38,
+                                      padding: "6px 8px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      color: "var(--text-muted)",
+                                      cursor: "pointer",
+                                      borderRadius: 6,
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleRowExpand(r.reading_id);
                                     }}
-                                    aria-label="ขยายดูรายละเอียดเชิงลึก"
+                                    aria-expanded={isExpanded}
+                                    aria-controls={`telemetry-detail-${r.reading_id}`}
+                                    aria-label={isExpanded ? "ย่อรายละเอียดเซนเซอร์" : "ขยายดูรายละเอียดเชิงลึก"}
                                   >
                                     <ChevronDownIcon
-                                      size={14}
+                                      size={15}
                                       style={{
                                         transform: isExpanded ? "rotate(180deg)" : "none",
                                         transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -1178,95 +1394,189 @@ export default function DataHistoryPage() {
 
                               {/* Accordion Sub-row Details (Zero Colon) */}
                               {isExpanded && (
-                                <tr className="tactical-accordion-row">
+                                <tr id={`telemetry-detail-${r.reading_id}`} className="tactical-accordion-row">
                                   <td colSpan={9} style={{ padding: 0 }}>
                                     <div className="tactical-telemetry-grid">
-                                      {/* Telemetry Card 1: Ultrasonic & Water Level */}
+                                      {/* Panel 1: Hydraulics & Environment */}
                                       <div className="tactical-telemetry-card">
                                         <div className="tactical-telemetry-card-title">
-                                          <DropletsIcon size={12} style={{ color: "#38bdf8" }} />
-                                          <span>ระบบตรวจวัดระดับน้ำ</span>
+                                          <DropletsIcon size={12} style={{ color: "var(--accent-cyan, #38bdf8)" }} />
+                                          <span>ระบบตรวจวัดระดับน้ำและสภาพแวดล้อม</span>
                                         </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">จุดอ้างอิงสถานี</span>
-                                          <span className="tactical-telemetry-item-val">{r.reference_point_name || "ระดับพื้นผิวมาตรฐาน"}</span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ระดับน้ำคำนวณได้</span>
-                                          <span className="tactical-telemetry-item-val" style={{ color: status.color }}>
-                                            {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)} ม.` : "—"}
-                                          </span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ระยะที่เซนเซอร์วัดได้</span>
-                                          <span className="tactical-telemetry-item-val">
-                                            {r.raw_distance != null ? `${Number(r.raw_distance).toFixed(2)} ม.` : "—"}
-                                          </span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ระยะบอดเซนเซอร์</span>
-                                          <span
-                                            className="tactical-telemetry-item-val"
-                                            style={{ color: r.is_blind_zone ? "#EF4444" : "#10B981" }}
-                                          >
-                                            {r.is_blind_zone ? "ระยะบอด (< 28 ซม.)" : "ระยะปกติ"}
-                                          </span>
-                                        </div>
-                                      </div>
 
-                                      {/* Telemetry Card 2: Power & Environment */}
-                                      <div className="tactical-telemetry-card">
-                                        <div className="tactical-telemetry-card-title">
-                                          <BatteryChargingIcon size={12} style={{ color: "#10B981" }} />
+                                        <div className="tactical-metric-tiles">
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">จุดอ้างอิงสถานี</span>
+                                            <span className="tactical-metric-tile-val">{r.reference_point_name || "ระดับพื้นผิวมาตรฐาน"}</span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ระดับน้ำคำนวณได้</span>
+                                            <span className="tactical-metric-tile-val" style={{ color: status.color }}>
+                                              {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)} ม.` : "—"}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ระยะที่เซนเซอร์วัดได้</span>
+                                            <span className="tactical-metric-tile-val">
+                                              {r.raw_distance != null ? `${Number(r.raw_distance).toFixed(2)} ม.` : "—"}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ระยะบอดเซนเซอร์</span>
+                                            <span
+                                              className="tactical-metric-tile-val"
+                                              style={{ color: r.is_blind_zone ? "var(--color-critical, #EF4444)" : "var(--color-normal, #10B981)" }}
+                                            >
+                                              {r.is_blind_zone ? "ระยะบอด (< 28 ซม.)" : "ระยะปกติ"}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Power & Environment Subhead */}
+                                        <div className="tactical-telemetry-subhead">
+                                          <BatteryChargingIcon size={12} style={{ color: "var(--color-normal, #10B981)" }} />
                                           <span>พลังงานและสภาพแวดล้อม</span>
                                         </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ระดับแบตเตอรี่</span>
-                                          <span className="tactical-telemetry-item-val">{r.battery_percent != null ? `${r.battery_percent.toFixed(0)}%` : "—"}</span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">แรงดันไฟแบตเตอรี่</span>
-                                          <span className="tactical-telemetry-item-val">{r.battery_voltage != null ? `${Number(r.battery_voltage).toFixed(2)} V` : "—"}</span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">อุณหภูมิแวดล้อม</span>
-                                          <span className="tactical-telemetry-item-val" style={{ color: "#F59E0B" }}>{fmt(r.temperature, "°C", 1)}</span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ความชื้นสัมพัทธ์</span>
-                                          <span className="tactical-telemetry-item-val" style={{ color: "#38bdf8" }}>{fmt(r.humidity, "%", 1)}</span>
+
+                                        <div className="tactical-metric-tiles cols-3">
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ระดับแบตเตอรี่</span>
+                                            <span className="tactical-metric-tile-val">
+                                              {r.battery_percent != null ? `${r.battery_percent.toFixed(0)}%` : "—"}
+                                              {r.battery_voltage != null ? ` (${Number(r.battery_voltage).toFixed(2)} V)` : ""}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">อุณหภูมิแวดล้อม</span>
+                                            <span className="tactical-metric-tile-val" style={{ color: "var(--color-warning, #F59E0B)" }}>
+                                              {fmt(r.temperature, "°C", 1)}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ความชื้นสัมพัทธ์</span>
+                                            <span className="tactical-metric-tile-val" style={{ color: "var(--accent-cyan, #38bdf8)" }}>
+                                              {fmt(r.humidity, "%", 1)}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
 
-                                      {/* Telemetry Card 3: Gyro Stability & RF Signal */}
+                                      {/* Panel 2: Node Integrity & Geolocation */}
                                       <div className="tactical-telemetry-card">
                                         <div className="tactical-telemetry-card-title">
-                                          <ActivityIcon size={12} style={{ color: "#818cf8" }} />
+                                          <ShieldCheckIcon size={12} style={{ color: "var(--accent-indigo, #818cf8)" }} />
+                                          <span>ความสมบูรณ์ของเสาและตำแหน่งโหนด</span>
+                                        </div>
+
+                                        {/* Geolocation & Movement Drift Status */}
+                                        <div className="tactical-metric-tiles">
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">สถานะตำแหน่งโหนด</span>
+                                            <div style={{ marginTop: 2 }}>
+                                              <span
+                                                style={{
+                                                  display: "inline-flex",
+                                                  alignItems: "center",
+                                                  gap: 5,
+                                                  padding: "2px 8px",
+                                                  borderRadius: 6,
+                                                  fontSize: 11,
+                                                  fontWeight: 700,
+                                                  background: isMoved ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.12)",
+                                                  color: locationStatusColor,
+                                                  border: `1px solid ${isMoved ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.25)"}`,
+                                                }}
+                                              >
+                                                <span style={{ width: 5, height: 5, borderRadius: "50%", background: locationStatusColor }} />
+                                                {locationStatusText}
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ระยะขยับตัว (Drift)</span>
+                                            <span
+                                              className="tactical-metric-tile-val"
+                                              style={{ color: isMoved ? "var(--color-critical, #EF4444)" : "var(--text-primary)" }}
+                                            >
+                                              {driftMeters != null
+                                                ? isMoved
+                                                  ? `เคลื่อนย้ายไป ${driftMeters.toFixed(1)} ม.`
+                                                  : `ขยับ ${driftMeters.toFixed(1)} ม. (เกณฑ์ปกติ)`
+                                                : hasStationGps
+                                                ? "จุดติดตั้งสถานี"
+                                                : "—"}
+                                            </span>
+                                          </div>
+
+                                          <div className="tactical-metric-tile col-span-2">
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                              <span className="tactical-metric-tile-label">พิกัด GPS ตรวจวัด</span>
+                                              {activeLat != null && activeLng != null && (
+                                                <a
+                                                  href={`https://www.google.com/maps?q=${activeLat},${activeLng}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="tactile-press"
+                                                  style={{
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: 5,
+                                                    padding: "2px 8px",
+                                                    borderRadius: 5,
+                                                    fontSize: 11,
+                                                    fontWeight: 600,
+                                                    color: "var(--accent-cyan, #38bdf8)",
+                                                    background: "rgba(56, 189, 248, 0.08)",
+                                                    border: "1px solid rgba(56, 189, 248, 0.22)",
+                                                    textDecoration: "none",
+                                                  }}
+                                                  title="เปิดพิกัดจริงบนแผนที่ Google Maps"
+                                                >
+                                                  <MapPinIcon size={11} />
+                                                  <span>เปิดดูบนแผนที่</span>
+                                                  <ExternalLinkIcon size={10} style={{ opacity: 0.7 }} />
+                                                </a>
+                                              )}
+                                            </div>
+                                            <span className="tactical-metric-tile-val" style={{ fontSize: 12.5, marginTop: 2 }}>
+                                              {activeLat != null && activeLng != null
+                                                ? `${activeLat.toFixed(6)}° N, ${activeLng.toFixed(6)}° E`
+                                                : "—"}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Stability & Network Subhead */}
+                                        <div className="tactical-telemetry-subhead">
+                                          <RadioIcon size={12} style={{ color: "var(--accent-indigo, #818cf8)" }} />
                                           <span>ความนิ่งของเสาและเครือข่าย</span>
                                         </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">มุมเอียงระนาบ (X / Y)</span>
-                                          <span className="tactical-telemetry-item-val">
-                                            {tX != null && tY != null ? `${tX.toFixed(1)}° / ${tY.toFixed(1)}°` : "—"}
-                                          </span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ความเอียงสัมพัทธ์สุทธิ</span>
-                                          <span
-                                            className="tactical-telemetry-item-val"
-                                            style={{ color: isTilted ? "#EF4444" : "var(--text-primary)" }}
-                                          >
-                                            {relTotal != null ? `${relTotal.toFixed(1)}°` : "—"}
-                                            {isTilted ? " (เสาเอียง)" : " (ระนาบปกติ)"}
-                                          </span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">ความแรงสัญญาณ LoRa</span>
-                                          <span className="tactical-telemetry-item-val">{r.rssi != null ? `${r.rssi.toFixed(0)} dBm` : "—"}</span>
-                                        </div>
-                                        <div className="tactical-telemetry-item">
-                                          <span className="tactical-telemetry-item-label">Signal-to-Noise (SNR)</span>
-                                          <span className="tactical-telemetry-item-val">{r.snr != null ? `${r.snr.toFixed(1)} dB` : "—"}</span>
+
+                                        <div className="tactical-metric-tiles cols-3">
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">มุมเอียง (X / Y)</span>
+                                            <span className="tactical-metric-tile-val">
+                                              {tX != null && tY != null ? `${tX.toFixed(1)}° / ${tY.toFixed(1)}°` : "—"}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">ความเอียงสัมพัทธ์</span>
+                                            <span
+                                              className="tactical-metric-tile-val"
+                                              style={{ color: isTilted ? "var(--color-critical, #EF4444)" : "var(--text-primary)" }}
+                                            >
+                                              {relTotal != null ? `${relTotal.toFixed(1)}°` : "—"}
+                                              {isTilted ? " (เสาเอียง)" : " (ปกติ)"}
+                                            </span>
+                                          </div>
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">สัญญาณ LoRa</span>
+                                            <span className="tactical-metric-tile-val">
+                                              {r.rssi != null ? `${r.rssi.toFixed(0)} dBm` : "—"}
+                                              {r.snr != null ? ` · SNR ${r.snr.toFixed(1)} dB` : ""}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
@@ -1292,6 +1602,39 @@ export default function DataHistoryPage() {
                     const tY = r.tilt_y != null ? Number(r.tilt_y) : null;
                     const relTotal = r.relative_total_tilt != null ? Number(r.relative_total_tilt) : null;
                     const isTilted = Boolean(r.is_pole_tilted || (relTotal != null && relTotal > 15));
+
+                    const readLat = r.latitude != null ? Number(r.latitude) : null;
+                    const readLng = r.longitude != null ? Number(r.longitude) : null;
+                    const stLat = st?.latitude != null ? Number(st.latitude) : null;
+                    const stLng = st?.longitude != null ? Number(st.longitude) : null;
+
+                    const hasReadingGps = readLat != null && readLng != null && (readLat !== 0 || readLng !== 0);
+                    const hasStationGps = stLat != null && stLng != null && (stLat !== 0 || stLng !== 0);
+                    const activeLat = hasReadingGps ? readLat : (hasStationGps ? stLat : null);
+                    const activeLng = hasReadingGps ? readLng : (hasStationGps ? stLng : null);
+
+                    const driftMeters = hasReadingGps && hasStationGps
+                      ? getDistanceMeters(readLat!, readLng!, stLat!, stLng!)
+                      : null;
+
+                    const isMoved = driftMeters != null && driftMeters > 15;
+                    const isStationary = driftMeters != null && driftMeters <= 15;
+
+                    const locationStatusText = isMoved
+                      ? "ตรวจพบการเคลื่อนที่"
+                      : isStationary
+                      ? "ตำแหน่งคงที่ (ไม่เคลื่อนที่)"
+                      : hasReadingGps
+                      ? "พิกัดโทรมาตรสด"
+                      : hasStationGps
+                      ? "พิกัดติดตั้งสถานี (คงที่)"
+                      : "ไม่มีข้อมูลพิกัด";
+
+                    const locationStatusColor = isMoved
+                      ? "var(--color-critical, #EF4444)"
+                      : (isStationary || hasStationGps)
+                      ? "var(--color-normal, #10B981)"
+                      : "var(--text-muted, #94A3B8)";
 
                     return (
                       <div
@@ -1331,7 +1674,7 @@ export default function DataHistoryPage() {
                               fontSize: 10,
                               fontFamily: "monospace",
                               fontWeight: 700,
-                              color: "#38bdf8",
+                              color: "var(--accent-cyan, #38bdf8)",
                               background: "rgba(56, 189, 248, 0.08)",
                               padding: "2px 6px",
                               borderRadius: 4,
@@ -1391,22 +1734,26 @@ export default function DataHistoryPage() {
                           type="button"
                           className="btn btn-ghost tactile-press"
                           onClick={() => toggleRowExpand(r.reading_id)}
+                          aria-expanded={isExpanded}
+                          aria-controls={`mobile-telemetry-detail-${r.reading_id}`}
+                          aria-label={isExpanded ? "ซ่อนข้อมูลเซนเซอร์เชิงลึก" : "ดูข้อมูลเซนเซอร์เชิงลึก"}
                           style={{
                             width: "100%",
+                            minHeight: 44,
                             justifyContent: "space-between",
                             fontSize: 12,
-                            padding: "7px 10px",
+                            padding: "10px 14px",
                             borderRadius: 8,
                             color: "var(--text-secondary)",
                             background: "rgba(255, 255, 255, 0.03)",
                           }}
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            <CpuIcon size={13} style={{ color: "#38bdf8" }} />
+                            <CpuIcon size={14} style={{ color: "var(--accent-cyan, #38bdf8)" }} />
                             <span>{isExpanded ? "ซ่อนข้อมูลเซนเซอร์เชิงลึก" : "ดูข้อมูลเซนเซอร์เชิงลึก"}</span>
                           </span>
                           <ChevronDownIcon
-                            size={14}
+                            size={15}
                             style={{
                               transform: isExpanded ? "rotate(180deg)" : "none",
                               transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -1417,6 +1764,7 @@ export default function DataHistoryPage() {
                         {/* Expanded Mobile Telemetry (Zero Colon) */}
                         {isExpanded && (
                           <div
+                            id={`mobile-telemetry-detail-${r.reading_id}`}
                             style={{
                               marginTop: 10,
                               paddingTop: 10,
@@ -1426,62 +1774,162 @@ export default function DataHistoryPage() {
                               gap: 10,
                             }}
                           >
+                            {/* Mobile Panel 1: Hydraulics & Environment */}
                             <div className="tactical-telemetry-card">
                               <div className="tactical-telemetry-card-title">
-                                <DropletsIcon size={12} style={{ color: "#38bdf8" }} />
-                                <span>เซนเซอร์ระดับน้ำ</span>
+                                <DropletsIcon size={12} style={{ color: "var(--accent-cyan, #38bdf8)" }} />
+                                <span>ระบบตรวจวัดระดับน้ำและสภาพแวดล้อม</span>
                               </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">ระยะที่วัดได้</span>
-                                <span className="tactical-telemetry-item-val">{r.raw_distance != null ? `${Number(r.raw_distance).toFixed(2)} ม.` : "—"}</span>
+
+                              <div className="tactical-metric-tiles">
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">ระยะที่วัดได้</span>
+                                  <span className="tactical-metric-tile-val">{r.raw_distance != null ? `${Number(r.raw_distance).toFixed(2)} ม.` : "—"}</span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">จุดบอดเซนเซอร์</span>
+                                  <span className="tactical-metric-tile-val" style={{ color: r.is_blind_zone ? "var(--color-critical, #EF4444)" : "var(--color-normal, #10B981)" }}>
+                                    {r.is_blind_zone ? "จุดบอด" : "ปกติ"}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">จุดบอดเซนเซอร์</span>
-                                <span className="tactical-telemetry-item-val" style={{ color: r.is_blind_zone ? "#EF4444" : "#10B981" }}>
-                                  {r.is_blind_zone ? "ตรวจพบจุดบอด" : "ปกติ"}
-                                </span>
+
+                              <div className="tactical-telemetry-subhead">
+                                <BatteryChargingIcon size={12} style={{ color: "var(--color-normal, #10B981)" }} />
+                                <span>พลังงานและสภาพแวดล้อม</span>
+                              </div>
+
+                              <div className="tactical-metric-tiles cols-3">
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">แรงดันแบตฯ</span>
+                                  <span className="tactical-metric-tile-val">{r.battery_voltage != null ? `${Number(r.battery_voltage).toFixed(2)} V` : "—"}</span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">อุณหภูมิ</span>
+                                  <span className="tactical-metric-tile-val">{fmt(r.temperature, "°C", 1)}</span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">ความชื้น</span>
+                                  <span className="tactical-metric-tile-val">{fmt(r.humidity, "%", 0)}</span>
+                                </div>
                               </div>
                             </div>
 
+                            {/* Mobile Panel 2: Node Integrity & Geolocation */}
                             <div className="tactical-telemetry-card">
                               <div className="tactical-telemetry-card-title">
-                                <BatteryChargingIcon size={12} style={{ color: "#10B981" }} />
-                                <span>สภาพแวดล้อมและไฟเลี้ยง</span>
+                                <ShieldCheckIcon size={12} style={{ color: "var(--accent-indigo, #818cf8)" }} />
+                                <span>ความสมบูรณ์ของเสาและตำแหน่งโหนด</span>
                               </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">แรงดันไฟแบตฯ</span>
-                                <span className="tactical-telemetry-item-val">{r.battery_voltage != null ? `${Number(r.battery_voltage).toFixed(2)} V` : "—"}</span>
-                              </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">อุณหภูมิ</span>
-                                <span className="tactical-telemetry-item-val">{fmt(r.temperature, "°C", 1)}</span>
-                              </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">ความชื้น</span>
-                                <span className="tactical-telemetry-item-val">{fmt(r.humidity, "%", 0)}</span>
-                              </div>
-                            </div>
 
-                            <div className="tactical-telemetry-card">
-                              <div className="tactical-telemetry-card-title">
-                                <ActivityIcon size={12} style={{ color: "#818cf8" }} />
-                                <span>ความมั่นคงเสาและสัญญาณ</span>
+                              <div className="tactical-metric-tiles">
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">สถานะตำแหน่งโหนด</span>
+                                  <div style={{ marginTop: 2 }}>
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 5,
+                                        padding: "2px 7px",
+                                        borderRadius: 5,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        background: isMoved ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.12)",
+                                        color: locationStatusColor,
+                                        border: `1px solid ${isMoved ? "rgba(239, 68, 68, 0.3)" : "rgba(16, 185, 129, 0.25)"}`,
+                                      }}
+                                    >
+                                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: locationStatusColor }} />
+                                      {locationStatusText}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">ระยะขยับตัว (Drift)</span>
+                                  <span
+                                    className="tactical-metric-tile-val"
+                                    style={{ color: isMoved ? "var(--color-critical, #EF4444)" : "var(--text-primary)" }}
+                                  >
+                                    {driftMeters != null
+                                      ? isMoved
+                                        ? `ย้าย ${driftMeters.toFixed(1)} ม.`
+                                        : `ขยับ ${driftMeters.toFixed(1)} ม.`
+                                      : hasStationGps
+                                      ? "จุดติดตั้งสถานี"
+                                      : "—"}
+                                  </span>
+                                </div>
+
+                                <div className="tactical-metric-tile col-span-2">
+                                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                                    <span className="tactical-metric-tile-label">พิกัด GPS</span>
+                                    {activeLat != null && activeLng != null && (
+                                      <a
+                                        href={`https://www.google.com/maps?q=${activeLat},${activeLng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="tactile-press"
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          padding: "3px 8px",
+                                          borderRadius: 5,
+                                          fontSize: 11,
+                                          fontWeight: 600,
+                                          color: "var(--accent-cyan, #38bdf8)",
+                                          background: "rgba(56, 189, 248, 0.08)",
+                                          border: "1px solid rgba(56, 189, 248, 0.22)",
+                                          textDecoration: "none",
+                                          minHeight: 28,
+                                        }}
+                                        title="เปิดพิกัดจริงบนแผนที่ Google Maps"
+                                      >
+                                        <MapPinIcon size={11} />
+                                        <span>เปิดดูบนแผนที่</span>
+                                        <ExternalLinkIcon size={10} style={{ opacity: 0.7 }} />
+                                      </a>
+                                    )}
+                                  </div>
+                                  <span className="tactical-metric-tile-val" style={{ fontSize: 11.5, marginTop: 2 }}>
+                                    {activeLat != null && activeLng != null
+                                      ? `${activeLat.toFixed(5)}°, ${activeLng.toFixed(5)}°`
+                                      : "—"}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">มุมเอียง Gyro (X / Y)</span>
-                                <span className="tactical-telemetry-item-val">
-                                  {tX != null && tY != null ? `${tX.toFixed(1)}° / ${tY.toFixed(1)}°` : "—"}
-                                </span>
+
+                              <div className="tactical-telemetry-subhead">
+                                <RadioIcon size={12} style={{ color: "var(--accent-indigo, #818cf8)" }} />
+                                <span>ความนิ่งของเสาและเครือข่าย</span>
                               </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">สถานะเสา</span>
-                                <span className="tactical-telemetry-item-val" style={{ color: isTilted ? "#EF4444" : "var(--text-primary)" }}>
-                                  {isTilted ? "เสาเอียง (>15°)" : "ปกติ"}
-                                </span>
-                              </div>
-                              <div className="tactical-telemetry-item">
-                                <span className="tactical-telemetry-item-label">SNR</span>
-                                <span className="tactical-telemetry-item-val">{r.snr != null ? `${r.snr.toFixed(1)} dB` : "—"}</span>
+
+                              <div className="tactical-metric-tiles cols-3">
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">มุมเอียง (X/Y)</span>
+                                  <span className="tactical-metric-tile-val">
+                                    {tX != null && tY != null ? `${tX.toFixed(1)}° / ${tY.toFixed(1)}°` : "—"}
+                                  </span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">เอียงสุทธิ</span>
+                                  <span
+                                    className="tactical-metric-tile-val"
+                                    style={{ color: isTilted ? "var(--color-critical, #EF4444)" : "var(--text-primary)" }}
+                                  >
+                                    {relTotal != null ? `${relTotal.toFixed(1)}°` : "—"}
+                                    {isTilted ? " (เอียง)" : " (ปกติ)"}
+                                  </span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">สัญญาณ LoRa</span>
+                                  <span className="tactical-metric-tile-val">
+                                    {r.rssi != null ? `${r.rssi.toFixed(0)} dBm` : "—"}
+                                    {r.snr != null ? ` · SNR ${r.snr.toFixed(1)} dB` : ""}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1513,18 +1961,24 @@ export default function DataHistoryPage() {
                       <stop offset="95%" stopColor="#0284c7" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
-                  <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={11} tickLine={false} />
-                  <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} domain={["dataMin - 0.2", "dataMax + 0.2"]} />
-                  <Tooltip
-                    contentStyle={{
-                      background: "rgba(12, 14, 18, 0.95)",
-                      border: "1px solid rgba(255, 255, 255, 0.1)",
-                      borderRadius: "0.5rem",
-                      fontSize: "0.75rem",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                    }}
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
+                  <XAxis
+                    dataKey="time"
+                    minTickGap={75}
+                    interval="preserveStartEnd"
+                    tick={{ fill: "var(--text-muted, #94A3B8)", fontSize: 11 }}
+                    axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
+                    tickLine={false}
                   />
+                  <YAxis
+                    stroke="var(--text-muted)"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={{ stroke: "rgba(255, 255, 255, 0.1)" }}
+                    domain={["dataMin - 0.2", "dataMax + 0.2"]}
+                    tickFormatter={(v) => `${Number(v).toFixed(2)}`}
+                  />
+                  <Tooltip content={<HistoryChartTooltip />} />
                   <Area
                     type="monotone"
                     dataKey="water_level"
@@ -1573,8 +2027,29 @@ export default function DataHistoryPage() {
             </button>
           </div>
 
+          {/* Tactical Page Size Selector */}
+          <div className="tactical-page-size-wrap">
+            <span className="tactical-page-size-label">แสดงต่อหน้า</span>
+            <div className="tactical-btn-group" role="group" aria-label="เลือกจำนวนรายการต่อหน้า">
+              {[50, 100, 200].map((sz, idx) => (
+                <React.Fragment key={sz}>
+                  {idx > 0 && <div className="tactical-btn-divider" />}
+                  <button
+                    type="button"
+                    onClick={() => handlePageSizeChange(sz)}
+                    className={`tactical-btn-item tactile-press ${pageSize === sz ? "active" : ""}`}
+                    style={{ minWidth: 38, padding: "4px 10px", fontSize: 12 }}
+                    aria-pressed={pageSize === sz}
+                  >
+                    {sz}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
           <span className="tactical-page-meta">
-            แสดงผล {PAGE_SIZE} รายการต่อหน้า · ทั้งหมด {total.toLocaleString()} รายการ
+            รวม {total.toLocaleString()} รายการ
           </span>
         </div>
       </div>
@@ -1582,20 +2057,39 @@ export default function DataHistoryPage() {
       {/* ══ TACTICAL EXPORT SCOPE MODAL ══ */}
       {isExportModalOpen && (
         <div className="export-modal-backdrop" onClick={() => !exportLoading && setIsExportModalOpen(false)}>
-          <div className="export-modal-panel" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={modalPanelRef}
+            className="export-modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div style={{ padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
+              <h3 id="export-modal-title" style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", margin: 0 }}>
                 ส่งออก CSV
               </h3>
               <button
                 type="button"
                 className="btn btn-ghost tactile-press"
-                style={{ padding: 4, color: "var(--text-muted)", borderRadius: 6 }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  minWidth: 40,
+                  minHeight: 40,
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text-muted)",
+                  borderRadius: 8,
+                }}
                 onClick={() => !exportLoading && setIsExportModalOpen(false)}
                 disabled={exportLoading}
+                aria-label="ปิดหน้าต่างส่งออก CSV"
               >
-                <XIcon size={16} />
+                <XIcon size={18} />
               </button>
             </div>
 
@@ -1608,18 +2102,19 @@ export default function DataHistoryPage() {
               >
                 <input
                   type="radio"
+                  id="export-scope-all"
                   name="exportScope"
                   checked={exportScope === "all_filtered"}
                   onChange={() => setExportScope("all_filtered")}
                 />
-                <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label htmlFor="export-scope-all" style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                     ข้อมูลทั้งหมดตามตัวกรอง
                   </span>
-                  <span style={{ color: "#38bdf8", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                  <span style={{ color: "var(--accent-cyan, #38bdf8)", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
                     {total.toLocaleString()} รายการ
                   </span>
-                </div>
+                </label>
               </div>
 
               {/* Option 2: Current Page Only */}
@@ -1629,18 +2124,19 @@ export default function DataHistoryPage() {
               >
                 <input
                   type="radio"
+                  id="export-scope-page"
                   name="exportScope"
                   checked={exportScope === "current_page"}
                   onChange={() => setExportScope("current_page")}
                 />
-                <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label htmlFor="export-scope-page" style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                     เฉพาะข้อมูลในหน้านี้
                   </span>
                   <span style={{ color: "var(--text-muted)", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
                     {filteredReadings.length} รายการ
                   </span>
-                </div>
+                </label>
               </div>
             </div>
 
@@ -1651,7 +2147,7 @@ export default function DataHistoryPage() {
                 className="btn btn-secondary btn-sm tactile-press"
                 onClick={() => setIsExportModalOpen(false)}
                 disabled={exportLoading}
-                style={{ fontSize: 12, borderRadius: 8 }}
+                style={{ fontSize: 12, borderRadius: 8, minHeight: 38, padding: "8px 16px" }}
               >
                 ยกเลิก
               </button>
@@ -1660,11 +2156,11 @@ export default function DataHistoryPage() {
                 className="btn btn-primary btn-sm tactile-press"
                 onClick={handleConfirmExport}
                 disabled={exportLoading || (exportScope === "current_page" ? filteredReadings.length === 0 : total === 0)}
-                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8 }}
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8, minHeight: 38, padding: "8px 16px" }}
               >
                 {exportLoading ? (
                   <>
-                    <div style={{ width: 12, height: 12, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    <div style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
                     <span>กำลังดึงข้อมูล...</span>
                   </>
                 ) : (

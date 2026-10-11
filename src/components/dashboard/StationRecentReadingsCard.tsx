@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -59,30 +60,18 @@ function formatChartTime(timestamp: unknown): string {
 export default function StationRecentReadingsCard({
   station,
 }: StationRecentReadingsCardProps) {
-  const [readings, setReadings] = useState<Reading[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<CockpitViewMode>("chart");
 
-  useEffect(() => {
-    let isMounted = true;
-    setIsLoading(true);
-
-    // Fetch up to 20 recent readings for smooth 24h trend visualization + 5 latest table
-    fetchReadingsByStation(station.id, 20)
-      .then((data) => {
-        if (isMounted) setReadings(data || []);
-      })
-      .catch(() => {
-        if (isMounted) setReadings([]);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [station.id]);
+  // TanStack Query: Shares cache key ['station-readings', station.id] with StationTelemetryHub for zero duplicate network requests
+  const { data: readings = [], isLoading } = useQuery<Reading[]>({
+    queryKey: ['station-readings', station.id],
+    queryFn: async () => {
+      const data = await fetchReadingsByStation(station.id, 20).catch(() => []);
+      return data || [];
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
 
   const hasWarn =
     station.warningLevel !== undefined &&
@@ -254,21 +243,22 @@ export default function StationRecentReadingsCard({
             onClick={() => setViewMode("chart")}
             className="tactile-press"
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "5px",
-              padding: "5px 12px",
+              gap: "6px",
+              padding: "8px 14px",
+              minHeight: "38px",
               borderRadius: "6px",
               background: viewMode === "chart" ? "rgba(56, 189, 248, 0.15)" : "transparent",
               color: viewMode === "chart" ? "#38BDF8" : "var(--text-secondary)",
               border: viewMode === "chart" ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid transparent",
-              fontSize: "0.75rem",
+              fontSize: "0.8125rem",
               fontWeight: viewMode === "chart" ? 700 : 500,
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
           >
-            <BarChart3Icon size={13} />
+            <BarChart3Icon size={14} />
             <span>กราฟ 24 ชม.</span>
           </button>
 
@@ -279,21 +269,22 @@ export default function StationRecentReadingsCard({
             onClick={() => setViewMode("table")}
             className="tactile-press"
             style={{
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: "5px",
-              padding: "5px 12px",
+              gap: "6px",
+              padding: "8px 14px",
+              minHeight: "38px",
               borderRadius: "6px",
               background: viewMode === "table" ? "rgba(56, 189, 248, 0.15)" : "transparent",
               color: viewMode === "table" ? "#38BDF8" : "var(--text-secondary)",
               border: viewMode === "table" ? "1px solid rgba(56, 189, 248, 0.35)" : "1px solid transparent",
-              fontSize: "0.75rem",
+              fontSize: "0.8125rem",
               fontWeight: viewMode === "table" ? 700 : 500,
               cursor: "pointer",
               transition: "all 0.15s ease",
             }}
           >
-            <LayersIcon size={13} />
+            <LayersIcon size={14} />
             <span>5 ค่าล่าสุด</span>
           </button>
         </div>

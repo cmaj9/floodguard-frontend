@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -57,7 +57,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     lng: Number(swr.longitude) || 100.72516,
     currentLevel: swr.raw_distance !== null && swr.raw_distance !== undefined
       ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
-      : (swr.water_level !== null ? Number(swr.water_level) : 0),
+      : (swr.water_level !== null && swr.water_level !== undefined ? Number(swr.water_level) : null),
     sensorToRefDistance: sToRef,
     referencePointName: refName,
     rawDistance: swr.raw_distance !== null && swr.raw_distance !== undefined ? Number(swr.raw_distance) : null,
@@ -69,28 +69,36 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     warningLevel: swr.warning_level !== null && swr.warning_level !== undefined ? Number(swr.warning_level) : undefined,
     criticalLevel: swr.critical_level !== null && swr.critical_level !== undefined ? Number(swr.critical_level) : undefined,
     status: swr.water_status || 'unknown',
-    operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
-    lastUpdated: swr.last_reading_time || new Date().toISOString(),
-    isActive: swr.status === 'active',
+    operatingStatus: (swr.operating_status || (swr.status as 'active' | 'offline' | 'maintenance')) || 'active',
+    manualStatus: (swr.manual_status as 'active' | 'offline' | 'maintenance') || (swr.status as any) || 'active',
+    manualOfflineAt: swr.manual_offline_at || null,
+    isManualOffline: swr.is_manual_offline !== undefined ? Boolean(swr.is_manual_offline) : Boolean(swr.manual_offline_at),
+    isOnline: swr.is_online !== undefined ? Boolean(swr.is_online) : (swr.status === 'active'),
+    offlineTimeoutMinutes: swr.offline_timeout_minutes ? Number(swr.offline_timeout_minutes) : 30,
+    minutesSinceLastReading: swr.minutes_since_last_reading != null ? Number(swr.minutes_since_last_reading) : undefined,
+    lastReadingTime: swr.last_reading_time || null,
+    statusUpdatedAt: swr.status_updated_at || null,
+    lastUpdated: swr.last_reading_time || '',
+    isActive: swr.is_online !== undefined ? Boolean(swr.is_online) : (swr.status === 'active'),
     deviceId: swr.station_id,
-    batteryPercent: swr.battery_percent !== null ? Number(swr.battery_percent) : 100,
-    batteryVoltage: swr.battery_voltage !== null ? Number(swr.battery_voltage) : 13.0,
-    temperature: swr.temperature !== null ? Number(swr.temperature) : 31.4,
-    humidity: swr.humidity !== null ? Number(swr.humidity) : 62.5,
-    rssi: swr.rssi !== null ? Number(swr.rssi) : -60,
-    snr: swr.snr !== null ? Number(swr.snr) : 14.5,
-    tiltX: swr.tilt_x !== null ? Number(swr.tilt_x) : 4.3,
-    tiltY: swr.tilt_y !== null ? Number(swr.tilt_y) : -1.1,
+    batteryPercent: swr.battery_percent !== null && swr.battery_percent !== undefined ? Number(swr.battery_percent) : undefined,
+    batteryVoltage: swr.battery_voltage !== null && swr.battery_voltage !== undefined ? Number(swr.battery_voltage) : undefined,
+    temperature: swr.temperature !== null && swr.temperature !== undefined ? Number(swr.temperature) : undefined,
+    humidity: swr.humidity !== null && swr.humidity !== undefined ? Number(swr.humidity) : undefined,
+    rssi: swr.rssi !== null && swr.rssi !== undefined ? Number(swr.rssi) : undefined,
+    snr: swr.snr !== null && swr.snr !== undefined ? Number(swr.snr) : undefined,
+    tiltX: swr.tilt_x !== null && swr.tilt_x !== undefined ? Number(swr.tilt_x) : undefined,
+    tiltY: swr.tilt_y !== null && swr.tilt_y !== undefined ? Number(swr.tilt_y) : undefined,
     tiltOffsetX: swr.tilt_offset_x != null ? Number(swr.tilt_offset_x) : undefined,
     tiltOffsetY: swr.tilt_offset_y != null ? Number(swr.tilt_offset_y) : undefined,
     relTiltX: swr.rel_tilt_x != null ? Number(swr.rel_tilt_x) : undefined,
     relTiltY: swr.rel_tilt_y != null ? Number(swr.rel_tilt_y) : undefined,
     relativeTotalTilt: swr.relative_total_tilt != null ? Number(swr.relative_total_tilt) : undefined,
     isPoleTilted: swr.is_pole_tilted,
-    gatewayName: swr.gateway_name || 'Gateway_01',
-    gatewayStatus: swr.gateway_status || 'online',
+    gatewayName: swr.gateway_name || undefined,
+    gatewayStatus: swr.gateway_status || undefined,
     model: swr.model || 'Heltec-WiFi-LoRa-32(V3)',
-    firmwareVersion: swr.firmware_version || 'v1.2.0',
+    firmwareVersion: swr.firmware_version || undefined,
     stationType: sType,
   };
 };
@@ -112,6 +120,7 @@ const FALLBACK_STATIONS: Station[] = [
     warningLevel: 4.5,
     criticalLevel: 5.5,
     status: 'normal',
+    lastReadingTime: new Date().toISOString(),
     lastUpdated: new Date().toISOString(),
     isActive: true,
     deviceId: 'ST-001',
@@ -138,27 +147,17 @@ const FALLBACK_STATIONS: Station[] = [
     province: 'ปทุมธานี',
     lat: 14.0208,
     lng: 100.7594,
-    currentLevel: 1.15,
+    currentLevel: null,
     maxLevel: 4.5,
     normalMax: 2.0,
     warningLevel: 3.0,
     criticalLevel: 3.8,
-    status: 'normal',
-    lastUpdated: new Date().toISOString(),
-    isActive: true,
+    status: 'unknown',
+    lastReadingTime: null,
+    lastUpdated: '',
+    isActive: false,
     deviceId: 'ST-002',
-    batteryPercent: 92,
-    batteryVoltage: 12.8,
-    temperature: 32.0,
-    humidity: 60.2,
-    rssi: -68,
-    snr: 13.2,
-    tiltX: 2.1,
-    tiltY: 0.5,
-    gatewayName: 'Gateway_01',
-    gatewayStatus: 'online',
     model: 'Heltec-WiFi-LoRa-32(V3)',
-    firmwareVersion: 'v1.2.0',
     stationType: 'คลอง (Canal)',
   },
 ];
@@ -172,6 +171,61 @@ export default function DashboardPage() {
   const [mobileTab, setMobileTab] = useState<'telemetry' | 'map'>('telemetry');
   const [isBroadcasting, setIsBroadcasting] = useState<boolean>(false);
   const [showBroadcastConfirm, setShowBroadcastConfirm] = useState<boolean>(false);
+  const [, setTimeTick] = useState<number>(Date.now());
+
+  // Real-time ticker to evaluate offline thresholds immediately without page refresh
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Modal accessibility refs
+  const broadcastTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const modalCardRef = useRef<HTMLDivElement | null>(null);
+  const modalCancelBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Manage Keyboard Focus Trap & Escape Dismissal for Modal
+  useEffect(() => {
+    if (!showBroadcastConfirm) return;
+
+    const timer = setTimeout(() => {
+      modalCancelBtnRef.current?.focus();
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (!isBroadcasting) {
+          setShowBroadcastConfirm(false);
+          broadcastTriggerRef.current?.focus();
+        }
+        return;
+      }
+
+      if (e.key === 'Tab' && modalCardRef.current) {
+        const focusable = modalCardRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showBroadcastConfirm, isBroadcasting]);
 
   // ── TanStack Query: Auto-refreshes every 30s silently without skeleton flash ──
   const {
@@ -206,14 +260,23 @@ export default function DashboardPage() {
     // Priority 1: Direct from user profile in AuthContext
     const rawIds = user?.stationIds ?? (user as any)?.station_ids;
     if (Array.isArray(rawIds) && rawIds.length > 0) {
-      return rawIds.map((id: string) => String(id).trim()).filter(Boolean);
+      return rawIds
+        .filter((id: any) => id != null)
+        .map((id: any) => String(id).trim().toUpperCase())
+        .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
     }
     if (typeof rawIds === 'string' && rawIds.trim()) {
-      return rawIds.split(',').map((id: string) => id.trim()).filter(Boolean);
+      return rawIds
+        .split(',')
+        .map((id: string) => id.trim().toUpperCase())
+        .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
     }
     // Priority 2: From navigation state (e.g. redirected from subscription/registration)
     if (location.state?.subscribedStationIds && Array.isArray(location.state.subscribedStationIds) && location.state.subscribedStationIds.length > 0) {
-      return location.state.subscribedStationIds.map((id: string) => String(id).trim()).filter(Boolean);
+      return location.state.subscribedStationIds
+        .filter((id: any) => id != null)
+        .map((id: any) => String(id).trim().toUpperCase())
+        .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
     }
     // Priority 3: Fallback to localStorage
     try {
@@ -221,7 +284,10 @@ export default function DashboardPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((id: string) => String(id).trim()).filter(Boolean);
+          return parsed
+            .filter((id: any) => id != null)
+            .map((id: any) => String(id).trim().toUpperCase())
+            .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
         }
       }
     } catch {}
@@ -281,10 +347,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (stations && stations.length > 0) {
       setSelectedStationId((prev) => {
-        if (prev && stations.some((s) => s.id === prev)) return prev;
+        if (prev && stations.some((s) => s?.id === prev)) return prev;
         if (userStationIds.length > 0) {
-          const upperUser = userStationIds.map((id: string) => id.toUpperCase());
-          const matched = stations.find((s) => upperUser.includes(s.id.toUpperCase()));
+          const matched = stations.find((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()));
           if (matched) return matched.id;
         }
         if (location.state?.subscribedStationIds?.[0]) return location.state.subscribedStationIds[0];
@@ -298,9 +363,8 @@ export default function DashboardPage() {
     if (location.state?.subscribedStationNames && Array.isArray(location.state.subscribedStationNames)) {
       return location.state.subscribedStationNames;
     }
-    const upperUser = userStationIds.map((id: string) => id.toUpperCase());
     return stations
-      .filter((s) => upperUser.includes(s.id.toUpperCase()))
+      .filter((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()))
       .map((s) => s.name || s.id);
   }, [location.state, stations, userStationIds]);
 
@@ -313,8 +377,7 @@ export default function DashboardPage() {
     }
     if (isRegisteredCitizen || isStaff) {
       if (userStationIds.length > 0) {
-        const upperIds = userStationIds.map((id: string) => id.toUpperCase());
-        const filtered = stations.filter((s) => upperIds.includes(s.id.toUpperCase()));
+        const filtered = stations.filter((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()));
         return filtered;
       }
       return [];
@@ -416,17 +479,20 @@ export default function DashboardPage() {
             style={{
               background: 'rgba(255, 255, 255, 0.06)',
               border: 'none',
-              borderRadius: '6px',
+              borderRadius: '8px',
               color: 'var(--text-secondary)',
-              padding: '6px',
+              padding: '10px',
               cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
+              minWidth: '44px',
+              minHeight: '44px',
             }}
             title="ปิดแถบแจ้งเตือน"
+            aria-label="ปิดแถบแจ้งเตือน"
           >
-            <XCircleIcon size={16} />
+            <XCircleIcon size={18} />
           </button>
         </div>
       )}
@@ -469,26 +535,31 @@ export default function DashboardPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
-                fontSize: 12.5,
+                fontSize: 13,
                 fontWeight: 600,
                 background: 'rgba(255, 255, 255, 0.06)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 color: '#FFFFFF',
                 borderRadius: 8,
-                padding: '6px 12px',
+                padding: '10px 16px',
+                minHeight: '44px',
               }}
               title="โทรสายด่วนนิรภัย ปภ. 1784 (โทรฟรี 24 ชม.)"
+              aria-label="โทรสายด่วน 1784"
             >
-              <PhoneIcon size={14} style={{ color: '#F87171' }} />
+              <PhoneIcon size={16} style={{ color: '#F87171' }} />
               <span>สายด่วน 1784</span>
             </a>
 
             {(isAdmin || isStaff) && (
               <button
+                ref={broadcastTriggerRef}
                 type="button"
                 className="btn-radar-beacon tactile-press"
                 onClick={() => setShowBroadcastConfirm(true)}
                 title="ส่งข้อความแจ้งเตือนด่วนผ่าน LINE OA ไปยังประชาชนที่ติดตามสถานีในพื้นที่วิกฤต"
+                style={{ minHeight: '44px', padding: '10px 18px' }}
+                aria-haspopup="dialog"
               >
                 <div className="radar-pulse-dot" />
                 <span>ยิงแจ้งเตือนด่วน LINE OA</span>
@@ -499,7 +570,7 @@ export default function DashboardPage() {
               type="button"
               className="btn btn-danger btn-sm tactile-press"
               onClick={() => setSelectedStationId(criticalStations[0].id)}
-              style={{ borderRadius: 8, fontWeight: 700 }}
+              style={{ borderRadius: 8, fontWeight: 700, minHeight: '44px', padding: '10px 18px' }}
             >
               ดูจุดวิกฤต
             </button>
@@ -521,9 +592,15 @@ export default function DashboardPage() {
             justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => !isBroadcasting && setShowBroadcastConfirm(false)}
+          onClick={() => {
+            if (!isBroadcasting) {
+              setShowBroadcastConfirm(false);
+              broadcastTriggerRef.current?.focus();
+            }
+          }}
         >
           <div
+            ref={modalCardRef}
             style={{
               background: '#0C0E12',
               border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -536,6 +613,8 @@ export default function DashboardPage() {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            aria-labelledby="broadcast-modal-title"
+            aria-describedby="broadcast-modal-desc"
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
               <div
@@ -554,7 +633,7 @@ export default function DashboardPage() {
                 <RadioIcon size={20} />
               </div>
               <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+                <h3 id="broadcast-modal-title" style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
                   ยืนยันการยิงแจ้งเตือนฉุกเฉิน
                 </h3>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -563,35 +642,51 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 20px' }}>
+            <p id="broadcast-modal-desc" style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 20px' }}>
               ระบบจะส่งข้อความแจ้งเตือนระดับวิกฤตและคำแนะนำการอพยพทันทีไปยัง LINE OA ของประชาชนทุกคนที่ลงทะเบียนติดตามสถานีในพื้นที่วิกฤต ({criticalStations.map((s) => s.name).join(', ')})
             </p>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <Button
-                variant="secondary"
-                size="sm"
+              <button
+                ref={modalCancelBtnRef}
+                type="button"
+                className="btn btn-secondary tactile-press"
+                style={{ minHeight: '44px', padding: '10px 18px', borderRadius: '8px' }}
                 disabled={isBroadcasting}
-                onClick={() => setShowBroadcastConfirm(false)}
+                onClick={() => {
+                  setShowBroadcastConfirm(false);
+                  broadcastTriggerRef.current?.focus();
+                }}
               >
                 ยกเลิก
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger tactile-press"
+                style={{ minHeight: '44px', padding: '10px 18px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 disabled={isBroadcasting}
                 onClick={() => {
                   setIsBroadcasting(true);
                   setTimeout(() => {
                     setIsBroadcasting(false);
                     setShowBroadcastConfirm(false);
+                    broadcastTriggerRef.current?.focus();
                     showToast('ส่งสัญญาณแจ้งเตือนภัยฉุกเฉินระดับวิกฤตไปยัง LINE OA ของประชาชนเรียบร้อยแล้ว', 'line');
                   }, 800);
                 }}
-                leftIcon={isBroadcasting ? <RefreshCwIcon size={14} className="animate-spin" /> : <RadioIcon size={14} />}
               >
-                {isBroadcasting ? 'กำลังส่งสัญญาณ...' : 'ยืนยันส่งข้อความด่วน'}
-              </Button>
+                {isBroadcasting ? (
+                  <>
+                    <RefreshCwIcon size={16} className="animate-spin" />
+                    <span>กำลังส่งสัญญาณ...</span>
+                  </>
+                ) : (
+                  <>
+                    <RadioIcon size={16} />
+                    <span>ยืนยันส่งข้อความด่วน</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

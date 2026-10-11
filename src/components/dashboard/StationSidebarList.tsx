@@ -1,5 +1,6 @@
 import { useState, useMemo, memo } from 'react';
 import type { Station } from '../../types';
+import { isStationOnline } from '../../utils/stationStatus';
 import { SearchIcon, GaugeIcon, ArrowRightIcon } from '../ui/Icons';
 
 interface StationSidebarListProps {
@@ -264,10 +265,15 @@ export const StationSidebarList = memo(function StationSidebarList({
                 ) : (
                   group.items.map((station) => {
                     const isSelected = selectedStation === station.id;
+                    const hasReading = Boolean(
+                      station.lastReadingTime ||
+                      station.rawDistance !== null && station.rawDistance !== undefined ||
+                      station.currentLevel !== null && station.currentLevel !== undefined
+                    );
                     const formattedLevel =
-                      typeof station.currentLevel === 'number'
+                      hasReading && typeof station.currentLevel === 'number'
                         ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
-                        : '0.00';
+                        : '-';
 
                     return (
                       <div
@@ -356,7 +362,7 @@ export const StationSidebarList = memo(function StationSidebarList({
                                 fontSize: '0.875rem',
                                 fontWeight: 700,
                                 color:
-                                  station.currentLevel < 0
+                                  station.currentLevel !== null && station.currentLevel < 0
                                     ? '#22D3EE'
                                     : station.status === 'critical'
                                     ? '#EF4444'
@@ -364,9 +370,9 @@ export const StationSidebarList = memo(function StationSidebarList({
                                 fontVariantNumeric: 'tabular-nums',
                               }}
                             >
-                              {formattedLevel} m
+                              {formattedLevel}{hasReading ? ' m' : ''}
                             </div>
-                            {!station.isActive && (
+                            {!isStationOnline(station) ? (
                               <span
                                 style={{
                                   display: 'inline-block',
@@ -381,7 +387,22 @@ export const StationSidebarList = memo(function StationSidebarList({
                               >
                                 ออฟไลน์
                               </span>
-                            )}
+                            ) : !hasReading ? (
+                              <span
+                                style={{
+                                  display: 'inline-block',
+                                  padding: '0.1rem 0.35rem',
+                                  borderRadius: '0.25rem',
+                                  background: 'rgba(16, 185, 129, 0.2)',
+                                  color: '#10B981',
+                                  fontSize: '0.625rem',
+                                  fontWeight: 600,
+                                  marginTop: '0.15rem',
+                                }}
+                              >
+                                รอข้อมูล
+                              </span>
+                            ) : null}
                           </div>
 
                           {/* Arrow Chevron Button */}

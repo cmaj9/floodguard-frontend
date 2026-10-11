@@ -155,7 +155,7 @@ export function Modal({
                 fontWeight: 700,
                 color: 'var(--text-primary)',
                 margin: 0,
-                letterSpacing: '-0.01em',
+                lineHeight: 1.4,
               }}
             >
               {title}
@@ -167,6 +167,7 @@ export function Modal({
                   color: 'var(--text-secondary)',
                   marginTop: '4px',
                   fontWeight: 400,
+                  lineHeight: 1.45,
                 }}
               >
                 {subtitle}
@@ -177,14 +178,14 @@ export function Modal({
           {/* 44x44px accessible touch target close button */}
           <button
             type="button"
-            className="btn-icon"
+            className="btn-icon tactile-press"
             onClick={onClose}
             aria-label="ปิดหน้าต่าง"
             style={{
-              width: '40px',
-              height: '40px',
-              minWidth: '40px',
-              minHeight: '40px',
+              width: '44px',
+              height: '44px',
+              minWidth: '44px',
+              minHeight: '44px',
               borderRadius: '8px',
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.08)',

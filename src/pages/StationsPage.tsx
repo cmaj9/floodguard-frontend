@@ -7,6 +7,7 @@ import StationNotificationModal from '../components/stations/StationNotification
 import StationDeleteModal from '../components/stations/StationDeleteModal';
 import StationStatusConfirmModal from '../components/stations/StationStatusConfirmModal';
 import type { Station, StationWithReading, WaterStatus } from '../types';
+import { isStationOnline, formatRelativeTimeThai } from '../utils/stationStatus';
 import {
   fetchStations,
   updateStation,
@@ -86,7 +87,7 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
         ? Number((sToRef - Number(swr.raw_distance)).toFixed(3))
         : swr.water_level != null
         ? Number(swr.water_level)
-        : 0,
+        : null,
     sensorToRefDistance: sToRef,
     referencePointName: refName,
     rawDistance: swr.raw_distance != null ? Number(swr.raw_distance) : null,
@@ -99,8 +100,16 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     criticalLevel: swr.critical_level != null ? Number(swr.critical_level) : undefined,
     status: swr.water_status || 'unknown',
     operatingStatus: (swr.status as 'active' | 'offline' | 'maintenance') || 'active',
-    lastUpdated: swr.last_reading_time || new Date().toISOString(),
+    lastReadingTime: swr.last_reading_time || null,
+    statusUpdatedAt: swr.status_updated_at || null,
+    lastUpdated: swr.last_reading_time || '',
     isActive: swr.status === 'active',
+    isOnline: swr.is_online !== undefined ? Boolean(swr.is_online) : swr.status === 'active',
+    manualStatus: (swr.manual_status || swr.status || 'active') as 'active' | 'offline' | 'maintenance',
+    manualOfflineAt: swr.manual_offline_at || null,
+    isManualOffline: swr.is_manual_offline !== undefined ? Boolean(swr.is_manual_offline) : Boolean(swr.manual_offline_at),
+    offlineTimeoutMinutes: swr.offline_timeout_minutes != null ? Number(swr.offline_timeout_minutes) : 30,
+    minutesSinceLastReading: swr.minutes_since_last_reading != null ? Number(swr.minutes_since_last_reading) : undefined,
     deviceId: swr.station_id,
     batteryPercent: swr.battery_percent != null ? Number(swr.battery_percent) : undefined,
     batteryVoltage: swr.battery_voltage != null ? Number(swr.battery_voltage) : undefined,
@@ -128,6 +137,7 @@ export default function StationsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
+  const isStaff = user?.role === 'admin' || user?.role === 'staff';
 
   const [stations, setStations] = useState<Station[]>([]);
   const [loading, setLoading] = useState(false);
@@ -158,6 +168,13 @@ export default function StationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'map'>('grid');
 
+  // Real-time time tick for accurate offline timeout calculation
+  const [timeTick, setTimeTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Status Change Confirmation Modal State
   const [statusConfirmModalOpen, setStatusConfirmModalOpen] = useState(false);
   const [statusConfirmStation, setStatusConfirmStation] = useState<Station | null>(null);
@@ -166,7 +183,8 @@ export default function StationsPage() {
   // Trigger Confirmation Modal for Operating Status Change
   const handleRequestStatusToggle = (station: Station, newStatus: 'active' | 'offline') => {
     const isTargetActive = newStatus === 'active';
-    if (station.isActive === isTargetActive) return;
+    const isManualActive = (station.manualStatus || station.operatingStatus) === 'active';
+    if (isManualActive === isTargetActive) return;
     setStatusConfirmStation(station);
     setStatusConfirmTarget(newStatus);
     setStatusConfirmModalOpen(true);
@@ -184,7 +202,18 @@ export default function StationsPage() {
       await updateStationStatus(stationId, targetStatus);
       setStations((prev) =>
         prev.map((s) =>
-          s.id === stationId ? { ...s, isActive: isTargetActive, operatingStatus: targetStatus } : s
+          s.id === stationId
+            ? {
+                ...s,
+                isActive: isTargetActive,
+                manualStatus: targetStatus,
+                operatingStatus: targetStatus,
+                isOnline:
+                  isTargetActive &&
+                  (s.minutesSinceLastReading == null ||
+                    s.minutesSinceLastReading < (s.offlineTimeoutMinutes || 30)),
+              }
+            : s
         )
       );
       window.dispatchEvent(new Event('app:refresh'));
@@ -231,23 +260,25 @@ export default function StationsPage() {
   // Fleet Statistics for Briefing & Delight
   const stats = useMemo(() => {
     const total = stations.length;
-    const active = stations.filter((s) => s.isActive).length;
+    const onlineStations = stations.filter((s) => isStationOnline(s, timeTick));
+    const active = onlineStations.length;
     const offline = total - active;
-    const normal = stations.filter((s) => s.isActive && s.status === 'normal').length;
-    const warning = stations.filter((s) => s.isActive && s.status === 'warning').length;
-    const critical = stations.filter((s) => s.isActive && s.status === 'critical').length;
+    const normal = onlineStations.filter((s) => s.status === 'normal').length;
+    const warning = onlineStations.filter((s) => s.status === 'warning').length;
+    const critical = onlineStations.filter((s) => s.status === 'critical').length;
     return { total, active, offline, normal, warning, critical };
-  }, [stations]);
+  }, [stations, timeTick]);
 
   // Filtered & Sorted Stations List
   const filteredStations = useMemo(() => {
     return stations
       .filter((s) => {
+        const isOnline = isStationOnline(s, timeTick);
         // Status filter
         if (filterStatus === 'offline') {
-          if (s.isActive) return false;
+          if (isOnline) return false;
         } else if (filterStatus !== 'all') {
-          if (!s.isActive || s.status !== filterStatus) return false;
+          if (!isOnline || s.status !== filterStatus) return false;
         }
 
         // Search query
@@ -425,7 +456,7 @@ export default function StationsPage() {
       <div
         style={{
           background: 'var(--card-surface, #0C0E12)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          border: '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
           borderRadius: 14,
           padding: '14px 18px',
           margin: '16px 0 20px',
@@ -443,12 +474,17 @@ export default function StationsPage() {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: stats.critical > 0 ? '#EF4444' : stats.warning > 0 ? '#F59E0B' : '#10B981',
+              backgroundColor:
+                stats.critical > 0
+                  ? 'var(--color-critical, #EF4444)'
+                  : stats.warning > 0
+                  ? 'var(--color-warning, #F59E0B)'
+                  : 'var(--color-normal, #10B981)',
               flexShrink: 0,
             }}
             className="heartbeat-dot"
           />
-          <span style={{ fontSize: 13, color: '#F1F5F9', fontWeight: 600 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-primary, #F8FAFC)', fontWeight: 600 }}>
             {stats.critical > 0
               ? `ตรวจพบ ${stats.critical} สถานีในเกณฑ์วิกฤต โปรดติดตามสถานการณ์อย่างใกล้ชิด`
               : stats.warning > 0
@@ -458,110 +494,63 @@ export default function StationsPage() {
         </div>
 
         {/* Right: Quick Telemetry Filter Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <div className="telemetry-filter-track" role="tablist" aria-label="กรองสถานะสถานี">
           <button
             type="button"
+            role="tab"
+            aria-selected={filterStatus === 'all'}
+            aria-label={`สถานีทั้งหมด ${stats.total} สถานี`}
             onClick={() => setFilterStatus('all')}
-            className="tactile-press"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: filterStatus === 'all' ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-              background: filterStatus === 'all' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: filterStatus === 'all' ? '#38BDF8' : '#94A3B8',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
+            className={`telemetry-filter-pill tactile-press ${filterStatus === 'all' ? 'active-all' : ''}`}
           >
             ทั้งหมด {stats.total}
           </button>
 
           <button
             type="button"
+            role="tab"
+            aria-selected={filterStatus === 'normal'}
+            aria-label={`สถานะปกติ ${stats.normal} สถานี`}
             onClick={() => setFilterStatus('normal')}
-            className="tactile-press"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: filterStatus === 'normal' ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-              background: filterStatus === 'normal' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: filterStatus === 'normal' ? '#10B981' : '#94A3B8',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
+            className={`telemetry-filter-pill tactile-press ${filterStatus === 'normal' ? 'active-normal' : ''}`}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-normal, #10B981)' }} />
             <span>ปกติ {stats.normal}</span>
           </button>
 
           <button
             type="button"
+            role="tab"
+            aria-selected={filterStatus === 'warning'}
+            aria-label={`สถานะเฝ้าระวัง ${stats.warning} สถานี`}
             onClick={() => setFilterStatus('warning')}
-            className="tactile-press"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: filterStatus === 'warning' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-              background: filterStatus === 'warning' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: filterStatus === 'warning' ? '#F59E0B' : '#94A3B8',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
+            className={`telemetry-filter-pill tactile-press ${filterStatus === 'warning' ? 'active-warning' : ''}`}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-warning, #F59E0B)' }} />
             <span>เฝ้าระวัง {stats.warning}</span>
           </button>
 
           <button
             type="button"
+            role="tab"
+            aria-selected={filterStatus === 'critical'}
+            aria-label={`สถานะวิกฤต ${stats.critical} สถานี`}
             onClick={() => setFilterStatus('critical')}
-            className="tactile-press"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: filterStatus === 'critical' ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-              background: filterStatus === 'critical' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: filterStatus === 'critical' ? '#EF4444' : '#94A3B8',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
+            className={`telemetry-filter-pill tactile-press ${filterStatus === 'critical' ? 'active-critical' : ''}`}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-critical, #EF4444)' }} />
             <span>วิกฤต {stats.critical}</span>
           </button>
 
           <button
             type="button"
+            role="tab"
+            aria-selected={filterStatus === 'offline'}
+            aria-label={`สถานะออฟไลน์ ${stats.offline} สถานี`}
             onClick={() => setFilterStatus('offline')}
-            className="tactile-press"
-            style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: filterStatus === 'offline' ? '1px solid rgba(148, 163, 184, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
-              background: filterStatus === 'offline' ? 'rgba(148, 163, 184, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-              color: filterStatus === 'offline' ? '#CBD5E1' : '#64748B',
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
+            className={`telemetry-filter-pill tactile-press ${filterStatus === 'offline' ? 'active-offline' : ''}`}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748B' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--text-muted, #64748B)' }} />
             <span>ออฟไลน์ {stats.offline}</span>
           </button>
         </div>
@@ -587,7 +576,7 @@ export default function StationsPage() {
               left: 12,
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#64748B',
+              color: 'var(--text-muted, #64748B)',
               pointerEvents: 'none',
             }}
           />
@@ -596,15 +585,17 @@ export default function StationsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ค้นหาตามรหัส, ชื่อสถานี, ตำแหน่ง หรือเกตเวย์..."
+            aria-label="ค้นหาสถานีตามรหัส ชื่อ หรือตำแหน่ง"
             className="input"
             style={{
               paddingLeft: 36,
               paddingRight: searchQuery ? 36 : 14,
               height: 38,
               fontSize: 13,
-              background: '#0C0E12',
-              borderColor: 'rgba(255, 255, 255, 0.08)',
+              background: 'var(--card-surface, #0C0E12)',
+              borderColor: 'var(--card-border, rgba(255, 255, 255, 0.08))',
               borderRadius: 10,
+              color: 'var(--text-primary, #F8FAFC)',
             }}
           />
           {searchQuery && (
@@ -619,7 +610,7 @@ export default function StationsPage() {
                 transform: 'translateY(-50%)',
                 background: 'none',
                 border: 'none',
-                color: '#94A3B8',
+                color: 'var(--text-secondary, #94A3B8)',
                 cursor: 'pointer',
                 padding: 4,
                 display: 'inline-flex',
@@ -627,6 +618,7 @@ export default function StationsPage() {
                 justifyContent: 'center',
               }}
               title="ล้างคำค้นหา"
+              aria-label="ล้างคำค้นหา"
             >
               <XIcon size={14} />
             </button>
@@ -635,19 +627,20 @@ export default function StationsPage() {
 
         {/* Sort selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#64748B' }}>เรียงลำดับ</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted, #64748B)' }}>เรียงลำดับ</span>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
+            aria-label="เรียงลำดับสถานี"
             className="input"
             style={{
               height: 38,
               padding: '0 12px',
               fontSize: 12.5,
-              background: '#0C0E12',
-              borderColor: 'rgba(255, 255, 255, 0.08)',
+              background: 'var(--card-surface, #0C0E12)',
+              borderColor: 'var(--card-border, rgba(255, 255, 255, 0.08))',
               borderRadius: 10,
-              color: '#F8FAFC',
+              color: 'var(--text-primary, #F8FAFC)',
               cursor: 'pointer',
             }}
           >
@@ -733,11 +726,16 @@ export default function StationsPage() {
               </div>
             ) : (
               /* ── TACTICAL STATION COCKPIT GRID ── */
-              <div
+              <ul
+                role="list"
+                className="tactical-station-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 420px), 1fr))',
                   gap: 18,
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
                 }}
               >
                 {filteredStations.map((s) => {
@@ -749,30 +747,39 @@ export default function StationsPage() {
                   const sToRef = s.sensorToRefDistance ?? 2.0;
                   const warnLevel = s.warningLevel ?? -0.5;
                   const critLevel = s.criticalLevel ?? 0.0;
-                  const rawDist = s.rawDistance ?? Number((sToRef - level).toFixed(3));
+                  const hasReading = Boolean(
+                    s.lastReadingTime ||
+                    s.rawDistance !== null && s.rawDistance !== undefined ||
+                    s.currentLevel !== null && s.currentLevel !== undefined
+                  );
+                  const effectiveLevel = hasReading && level !== null ? level : 0;
+                  const rawDist = s.rawDistance ?? (hasReading && level !== null ? Number((sToRef - level).toFixed(3)) : null);
 
                   const minExpected = -Math.max(1.5, sToRef * 0.85);
                   const maxExpected = Math.max(0.8, critLevel + 0.6);
                   const span = maxExpected - minExpected;
-                  const currentRatio = Math.max(0.04, Math.min(0.98, (level - minExpected) / (span || 1)));
+                  const currentRatio = Math.max(0.04, Math.min(0.98, (effectiveLevel - minExpected) / (span || 1)));
                   const gaugePct = Math.round(currentRatio * 100);
                   const datumPct = Math.max(12, Math.min(88, Math.round(((0 - minExpected) / (span || 1)) * 100)));
                   const warnPct = Math.max(15, Math.min(94, Math.round(((warnLevel - minExpected) / (span || 1)) * 100)));
                   const critPct = Math.max(18, Math.min(96, Math.round(((critLevel - minExpected) / (span || 1)) * 100)));
+                  const isOnline = isStationOnline(s, timeTick);
+                  const isManualActive = (s.manualStatus || s.operatingStatus) === 'active';
 
                   return (
-                    <div
+                    <li
                       key={s.id}
+                      role="article"
+                      aria-label={`สถานีตรวจวัด ${s.name}`}
                       className="tactical-station-card"
-                      onClick={() => navigate(`/stations/${s.id}`)}
-                      title="คลิกเพื่อดูข้อมูลเชิงลึกและกราฟเซนเซอร์"
                       style={{
                         background: 'var(--card-surface, #0C0E12)',
-                        border: s.isActive ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        border: isOnline ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid var(--card-border, rgba(255, 255, 255, 0.08))',
                         borderRadius: 16,
                         padding: '18px',
                         display: 'flex',
                         flexDirection: 'column',
+                        justifyContent: 'space-between',
                         gap: 14,
                         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.35)',
                         position: 'relative',
@@ -787,267 +794,294 @@ export default function StationsPage() {
                           left: 0,
                           right: 0,
                           height: 3,
-                          background: !s.isActive
-                            ? '#475569'
+                          background: !isOnline
+                            ? 'var(--text-muted, #475569)'
                             : s.status === 'critical'
-                            ? '#EF4444'
+                            ? 'var(--color-critical, #EF4444)'
                             : s.status === 'warning'
-                            ? '#F59E0B'
-                            : '#0EA5E9',
+                            ? 'var(--color-warning, #F59E0B)'
+                            : 'var(--color-cyan, #0EA5E9)',
                         }}
                       />
 
-                      {/* ── CARD HEADER ── */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span
-                              className="tabular-nums font-mono"
-                              style={{
-                                fontSize: 11.5,
-                                fontWeight: 800,
-                                padding: '2px 8px',
-                                borderRadius: 6,
-                                background: s.isActive ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.1)',
-                                border: s.isActive ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.2)',
-                                color: s.isActive ? '#38BDF8' : '#94A3B8',
-                                letterSpacing: '0.04em',
-                              }}
-                            >
-                              {s.deviceId}
-                            </span>
-                            <h2
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 800,
-                                color: '#F8FAFC',
-                                margin: 0,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {s.name}
-                            </h2>
-                            <ExternalLinkIcon
-                              size={14}
-                              className="station-card-explore-icon"
-                              style={{ color: '#64748B', flexShrink: 0 }}
-                            />
-                          </div>
-
-                          {/* Location Subtext */}
-                          <div style={{ fontSize: 12, color: '#94A3B8', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-                            <MapPinIcon size={13} style={{ color: '#64748B', flexShrink: 0 }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {s.location || `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}`}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div style={{ flexShrink: 0 }}>
-                          {s.isActive ? (
-                            <span className={`badge ${statusClass[s.status]}`} style={{ fontSize: 11.5, padding: '3px 10px' }}>
-                              <span className="badge-dot" style={{ width: 6, height: 6 }} />
-                              {statusLabel[s.status]}
-                            </span>
-                          ) : (
-                            <span
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                padding: '3px 9px',
-                                borderRadius: 6,
-                                background: 'rgba(148, 163, 184, 0.1)',
-                                border: '1px solid rgba(148, 163, 184, 0.2)',
-                                color: '#94A3B8',
-                                fontSize: 11.5,
-                                fontWeight: 500,
-                              }}
-                            >
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748B' }} />
-                              <span>ออฟไลน์</span>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* ── WATER LEVEL COCKPIT POD (32PX MONO + GAUGE) ── */}
+                      {/* ── CLICKABLE TELEMETRY BODY (SEPARATED FROM ACTIONS DOCK) ── */}
                       <div
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
-                          borderRadius: 12,
-                          padding: '12px 14px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 10,
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => navigate(`/stations/${s.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate(`/stations/${s.id}`);
+                          }
                         }}
+                        className="station-card-telemetry-body"
+                        aria-label={`ดูรายละเอียดและกราฟสถานี ${s.name}`}
+                        title="คลิกเพื่อดูข้อมูลเชิงลึกและกราฟเซนเซอร์"
                       >
-                        {/* Readout Header */}
-                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                          <div>
-                            <div style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600 }}>
-                              ระดับน้ำเทียบ{refName}
+                        {/* ── CARD HEADER ── */}
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <span
+                                className="tabular-nums font-mono"
+                                style={{
+                                  fontSize: 11.5,
+                                  fontWeight: 800,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: isOnline ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.1)',
+                                  border: isOnline ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(148, 163, 184, 0.2)',
+                                  color: isOnline ? 'var(--color-cyan, #38BDF8)' : 'var(--text-secondary, #94A3B8)',
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                {s.deviceId}
+                              </span>
+                              <h2
+                                style={{
+                                  fontSize: 16,
+                                  fontWeight: 800,
+                                  color: 'var(--text-primary, #F8FAFC)',
+                                  margin: 0,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {s.name}
+                              </h2>
+                              <ExternalLinkIcon
+                                size={14}
+                                className="station-card-explore-icon"
+                                style={{ color: 'var(--text-muted, #64748B)', flexShrink: 0 }}
+                              />
                             </div>
-                            {s.isActive ? (
+
+                            {/* Location Subtext */}
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary, #94A3B8)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <MapPinIcon size={13} style={{ color: 'var(--text-muted, #64748B)', flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {s.location || `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}`}
+                              </span>
+                              <span style={{ color: 'var(--text-muted, #64748B)', marginLeft: 'auto', fontSize: 11 }}>
+                                {formatRelativeTimeThai(s.lastUpdated, timeTick)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div style={{ flexShrink: 0 }}>
+                            {isOnline ? (
+                              <span className={`badge ${!hasReading ? 'badge-normal' : statusClass[s.status]}`} style={{ fontSize: 11.5, padding: '3px 10px' }}>
+                                <span className="badge-dot" style={{ width: 6, height: 6 }} />
+                                {!hasReading ? 'ออนไลน์ (รอข้อมูล)' : statusLabel[s.status]}
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 5,
+                                  padding: '3px 9px',
+                                  borderRadius: 6,
+                                  background: isStaff && s.isManualOffline ? 'rgba(245, 158, 11, 0.12)' : 'rgba(148, 163, 184, 0.1)',
+                                  border: isStaff && s.isManualOffline ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(148, 163, 184, 0.2)',
+                                  color: isStaff && s.isManualOffline ? '#F59E0B' : 'var(--text-secondary, #94A3B8)',
+                                  fontSize: 11.5,
+                                  fontWeight: 500,
+                                }}
+                              >
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: isStaff && s.isManualOffline ? '#F59E0B' : 'var(--text-muted, #64748B)' }} />
+                                <span>{isStaff && s.isManualOffline ? 'ออฟไลน์ (โหมดทดสอบ: ค่าสด)' : 'ออฟไลน์'}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* ── WATER LEVEL COCKPIT POD (32PX MONO + GAUGE) ── */}
+                        <div
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            borderRadius: 12,
+                            padding: '12px 14px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 10,
+                          }}
+                        >
+                          {/* Readout Header */}
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ fontSize: 11, color: 'var(--text-secondary, #94A3B8)', fontWeight: 600 }}>
+                                ระดับน้ำเทียบ{refName}
+                              </div>
                               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
                                 <span
                                   className="tabular-nums font-mono"
                                   style={{
                                     fontSize: 32,
                                     fontWeight: 900,
-                                    color:
-                                      s.status === 'critical'
-                                        ? '#EF4444'
-                                        : s.status === 'warning'
-                                        ? '#F59E0B'
-                                        : '#10B981',
+                                    color: !isOnline
+                                      ? 'var(--text-muted, #94A3B8)'
+                                      : s.status === 'critical'
+                                      ? 'var(--color-critical, #EF4444)'
+                                      : s.status === 'warning'
+                                      ? 'var(--color-warning, #F59E0B)'
+                                      : 'var(--color-normal, #10B981)',
                                     letterSpacing: '-0.03em',
                                     lineHeight: 1,
                                   }}
                                 >
-                                  {level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2)}
+                                  {hasReading && level !== null
+                                    ? (level >= 0 ? `+${level.toFixed(2)}` : level.toFixed(2))
+                                    : '-'}
                                 </span>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8' }}>เมตร</span>
+                                {hasReading && level !== null && (
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary, #94A3B8)' }}>เมตร</span>
+                                )}
                               </div>
-                            ) : (
-                              <div style={{ fontSize: 24, fontWeight: 700, color: '#64748B', marginTop: 2 }}>-</div>
-                            )}
-                          </div>
+                            </div>
 
-                          {/* Reference Datum Chip */}
-                          <div style={{ textAlign: 'right' }}>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                padding: '2px 8px',
-                                borderRadius: 6,
-                                background: 'rgba(56, 189, 248, 0.1)',
-                                border: '1px solid rgba(56, 189, 248, 0.25)',
-                                color: '#38BDF8',
-                                fontWeight: 700,
-                              }}
-                            >
-                              {refName}
-                            </span>
-                            <div className="tabular-nums font-mono" style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
-                              ระยะติดตั้ง {sToRef.toFixed(2)} ม.
+                            {/* Reference Datum Chip */}
+                            <div style={{ textAlign: 'right' }}>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(56, 189, 248, 0.1)',
+                                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                                  color: 'var(--color-cyan, #38BDF8)',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {refName}
+                              </span>
+                              <div className="tabular-nums font-mono" style={{ fontSize: 11, color: 'var(--text-muted, #64748B)', marginTop: 4 }}>
+                                ระยะติดตั้ง {sToRef.toFixed(2)} ม.
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Hydro-Tactical Water Depth Gauge */}
-                        <div style={{ position: 'relative', marginTop: 2 }}>
+                          {/* Hydro-Tactical Water Depth Gauge with Accessible Progressbar */}
                           <div
-                            style={{
-                              height: 12,
-                              borderRadius: 999,
-                              background: 'rgba(255, 255, 255, 0.08)',
-                              overflow: 'hidden',
-                              position: 'relative',
-                            }}
+                            style={{ position: 'relative', marginTop: 2 }}
+                            role="progressbar"
+                            aria-label={`ระดับน้ำเทียบ${refName}`}
+                            aria-valuenow={effectiveLevel}
+                            aria-valuemin={minExpected}
+                            aria-valuemax={maxExpected}
+                            aria-valuetext={hasReading && level !== null ? `${level >= 0 ? '+' : ''}${level.toFixed(2)} เมตร` : 'ไม่มีข้อมูล (ระดับอ้างอิง)'}
                           >
                             <div
                               style={{
-                                height: '100%',
-                                width: '100%',
-                                transform: `scaleX(${s.isActive ? gaugePct / 100 : 0})`,
-                                transformOrigin: 'left',
-                                background:
-                                  s.status === 'critical'
-                                    ? 'linear-gradient(90deg, #F59E0B 0%, #EF4444 100%)'
-                                    : s.status === 'warning'
-                                    ? 'linear-gradient(90deg, #0284C7 0%, #F59E0B 100%)'
-                                    : 'linear-gradient(90deg, #0284C7 0%, #38BDF8 60%, #10B981 100%)',
-                                transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                                height: 12,
                                 borderRadius: 999,
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                overflow: 'hidden',
+                                position: 'relative',
                               }}
+                            >
+                              <div
+                                style={{
+                                  height: '100%',
+                                  width: '100%',
+                                  transform: `scaleX(${gaugePct / 100})`,
+                                  transformOrigin: 'left',
+                                  background: !isOnline
+                                    ? 'linear-gradient(90deg, #475569 0%, #64748B 100%)'
+                                    : s.status === 'critical'
+                                    ? 'linear-gradient(90deg, var(--color-warning, #F59E0B) 0%, var(--color-critical, #EF4444) 100%)'
+                                    : s.status === 'warning'
+                                    ? 'linear-gradient(90deg, #0284C7 0%, var(--color-warning, #F59E0B) 100%)'
+                                    : 'linear-gradient(90deg, #0284C7 0%, var(--color-cyan, #38BDF8) 60%, var(--color-normal, #10B981) 100%)',
+                                  transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+                                  borderRadius: 999,
+                                }}
+                              />
+                            </div>
+
+                            {/* Datum Marker (0.00m) */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${datumPct}%`,
+                                top: -2,
+                                bottom: -2,
+                                width: 2,
+                                background: 'rgba(255, 255, 255, 0.8)',
+                                borderRadius: 1,
+                                zIndex: 2,
+                              }}
+                              title={`จุดอ้างอิง 0.00 ม. (${refName})`}
+                            />
+
+                            {/* Warning Marker Line */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${warnPct}%`,
+                                top: -2,
+                                bottom: -2,
+                                width: 2,
+                                background: 'var(--color-warning, #F59E0B)',
+                                borderRadius: 1,
+                                zIndex: 2,
+                              }}
+                              title={`เกณฑ์เฝ้าระวัง ${warnLevel.toFixed(2)} ม.`}
+                            />
+
+                            {/* Critical Marker Line */}
+                            <div
+                              style={{
+                                position: 'absolute',
+                                left: `${critPct}%`,
+                                top: -2,
+                                bottom: -2,
+                                width: 2,
+                                background: 'var(--color-critical, #EF4444)',
+                                borderRadius: 1,
+                                zIndex: 2,
+                              }}
+                              title={`เกณฑ์วิกฤต ${critLevel.toFixed(2)} ม.`}
                             />
                           </div>
-
-                          {/* Datum Marker (0.00m) */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${datumPct}%`,
-                              top: -2,
-                              bottom: -2,
-                              width: 2,
-                              background: 'rgba(255, 255, 255, 0.8)',
-                              borderRadius: 1,
-                              zIndex: 2,
-                            }}
-                            title={`จุดอ้างอิง 0.00 ม. (${refName})`}
-                          />
-
-                          {/* Warning Marker Line */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${warnPct}%`,
-                              top: -2,
-                              bottom: -2,
-                              width: 2,
-                              background: '#F59E0B',
-                              borderRadius: 1,
-                              zIndex: 2,
-                            }}
-                            title={`เกณฑ์เฝ้าระวัง ${warnLevel.toFixed(2)} ม.`}
-                          />
-
-                          {/* Critical Marker Line */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              left: `${critPct}%`,
-                              top: -2,
-                              bottom: -2,
-                              width: 2,
-                              background: '#EF4444',
-                              borderRadius: 1,
-                              zIndex: 2,
-                            }}
-                            title={`เกณฑ์วิกฤต ${critLevel.toFixed(2)} ม.`}
-                          />
                         </div>
-                      </div>
 
-                      {/* ── 4 HARDWARE TELEMETRY PODS ── */}
-                      <div
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(2, 1fr)',
-                          gap: 8,
-                        }}
-                      >
-                        {/* Pod 1: Ultrasonic Distance */}
+                        {/* ── 4 HARDWARE TELEMETRY PODS ── */}
                         <div
                           style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(2, 1fr)',
+                            gap: 8,
                           }}
                         >
-                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                            <DropletsIcon size={12} style={{ color: '#38BDF8' }} />
-                            <span>ระยะเซนเซอร์วัดได้</span>
-                          </div>
-                          {s.isActive ? (
+                          {/* Pod 1: Ultrasonic Distance */}
+                          <div
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.05)',
+                              borderRadius: 10,
+                              padding: '8px 10px',
+                            }}
+                          >
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                              <DropletsIcon size={12} style={{ color: 'var(--color-cyan, #38BDF8)' }} />
+                              <span>ระยะเซนเซอร์วัดได้</span>
+                            </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                              <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: '#F1F5F9' }}>
-                                {rawDist.toFixed(3)}
+                              <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)' }}>
+                                {rawDist !== null ? rawDist.toFixed(3) : '-'}
                               </span>
-                              <span style={{ fontSize: 11, color: '#64748B' }}>ม.</span>
+                              {rawDist !== null && <span style={{ fontSize: 11, color: 'var(--text-muted, #64748B)' }}>ม.</span>}
                               {s.isBlindZone && (
                                 <span
                                   style={{
                                     fontSize: 9.5,
                                     fontWeight: 700,
-                                    color: '#EF4444',
+                                    color: 'var(--color-critical, #EF4444)',
                                     padding: '1px 4px',
                                     borderRadius: 4,
                                     background: 'rgba(239, 68, 68, 0.15)',
@@ -1057,108 +1091,95 @@ export default function StationsPage() {
                                 </span>
                               )}
                             </div>
-                          ) : (
-                            <span style={{ fontSize: 13, color: '#64748B' }}>-</span>
-                          )}
-                        </div>
+                          </div>
 
-                        {/* Pod 2: Pole Tilt (ADXL345) */}
-                        <div
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                          }}
-                        >
-                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                            <CompassIcon size={12} style={{ color: '#38BDF8' }} />
-                            <span>ความเอียงเสา</span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.isPoleTilted ? '#EF4444' : '#F1F5F9' }}>
-                              {s.relativeTotalTilt != null ? `${s.relativeTotalTilt.toFixed(1)}°` : '0.0°'}
-                            </span>
-                            {s.isPoleTilted && (
-                              <span style={{ fontSize: 9.5, fontWeight: 700, color: '#EF4444' }}>เอียง</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Pod 3: Battery Level */}
-                        <div
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                          }}
-                        >
-                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                            {s.batteryPercent != null && s.batteryPercent < 20 ? (
-                              <BatteryLowIcon size={12} style={{ color: '#EF4444' }} />
-                            ) : (
-                              <BatteryChargingIcon size={12} style={{ color: '#10B981' }} />
-                            )}
-                            <span>แบตเตอรี่</span>
-                          </div>
-                          <div className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.batteryPercent != null && s.batteryPercent < 20 ? '#EF4444' : '#F1F5F9' }}>
-                            {s.batteryPercent != null ? `${s.batteryPercent}%` : '100%'}
-                          </div>
-                        </div>
-
-                        {/* Pod 4: Gateway & LoRa Signal */}
-                        <div
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                          }}
-                        >
-                          <div style={{ fontSize: 10.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                            <RadioIcon size={12} style={{ color: '#A855F7' }} />
-                            <span>เกตเวย์</span>
-                          </div>
+                          {/* Pod 2: Pole Tilt (ADXL345) */}
                           <div
                             style={{
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color: '#CBD5E1',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.05)',
+                              borderRadius: 10,
+                              padding: '8px 10px',
                             }}
                           >
-                            {s.gatewayName || 'Gateway_01'}
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                              <CompassIcon size={12} style={{ color: 'var(--color-cyan, #38BDF8)' }} />
+                              <span>ความเอียงเสา</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.isPoleTilted ? 'var(--color-critical, #EF4444)' : 'var(--text-primary, #F8FAFC)' }}>
+                                {s.relativeTotalTilt != null ? `${s.relativeTotalTilt.toFixed(1)}°` : '0.0°'}
+                              </span>
+                              {s.isPoleTilted && (
+                                <span style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--color-critical, #EF4444)' }}>เอียง</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Pod 3: Battery Level */}
+                          <div
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.05)',
+                              borderRadius: 10,
+                              padding: '8px 10px',
+                            }}
+                          >
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                              {s.batteryPercent != null && s.batteryPercent < 20 ? (
+                                <BatteryLowIcon size={12} style={{ color: 'var(--color-critical, #EF4444)' }} />
+                              ) : (
+                                <BatteryChargingIcon size={12} style={{ color: 'var(--color-normal, #10B981)' }} />
+                              )}
+                              <span>แบตเตอรี่</span>
+                            </div>
+                            <div className="tabular-nums font-mono" style={{ fontSize: 13.5, fontWeight: 700, color: s.batteryPercent != null && s.batteryPercent < 20 ? 'var(--color-critical, #EF4444)' : 'var(--text-primary, #F8FAFC)' }}>
+                              {s.batteryPercent != null ? `${s.batteryPercent}%` : '100%'}
+                            </div>
+                          </div>
+
+                          {/* Pod 4: Gateway & LoRa Signal */}
+                          <div
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.02)',
+                              border: '1px solid rgba(255, 255, 255, 0.05)',
+                              borderRadius: 10,
+                              padding: '8px 10px',
+                            }}
+                          >
+                            <div style={{ fontSize: 10.5, color: 'var(--text-muted, #64748B)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                              <RadioIcon size={12} style={{ color: '#A855F7' }} />
+                              <span>เกตเวย์</span>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-secondary, #CBD5E1)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {s.gatewayName || 'Gateway_01'}
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* ── TACTICAL CONTROL DOCK (SWITCH + ACTION BUTTONS) ── */}
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: 10,
-                          paddingTop: 12,
-                          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                        }}
-                      >
+                      {/* ── TACTICAL CONTROL DOCK (COMPLETELY SEPARATE FROM CARD CLICK) ── */}
+                      <div className="station-card-actions-dock">
                         {/* Operating Status Switch */}
-                        {/* Status Switch (6px Segmented Switch) */}
-                        <div className="status-switch-bar">
+                        <div className="status-switch-bar" role="group" aria-label={`สถานะให้บริการ ${s.name}`}>
                           <button
                             type="button"
                             disabled={isUpdating}
                             onClick={() => handleRequestStatusToggle(s, 'active')}
-                            className={`status-switch-btn tactile-press ${s.isActive ? 'active-online' : ''}`}
+                            className={`status-switch-btn tactile-press ${isManualActive ? 'active-online' : ''}`}
+                            aria-pressed={isManualActive}
                             title="เปิดให้บริการออนไลน์"
                           >
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.isActive ? '#10B981' : '#475569' }} />
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: isManualActive ? 'var(--color-normal, #10B981)' : 'var(--text-muted, #475569)' }} />
                             <span>ออนไลน์</span>
                           </button>
 
@@ -1166,24 +1187,26 @@ export default function StationsPage() {
                             type="button"
                             disabled={isUpdating}
                             onClick={() => handleRequestStatusToggle(s, 'offline')}
-                            className={`status-switch-btn tactile-press ${!s.isActive ? 'active-offline' : ''}`}
+                            className={`status-switch-btn tactile-press ${!isManualActive ? 'active-offline' : ''}`}
+                            aria-pressed={!isManualActive}
                             title="ปิดบริการชั่วคราว"
                           >
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: !s.isActive ? '#F59E0B' : '#475569' }} />
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: !isManualActive ? 'var(--color-warning, #F59E0B)' : 'var(--text-muted, #475569)' }} />
                             <span>ออฟไลน์</span>
                           </button>
                         </div>
 
-                        {/* Action Buttons: Compact Text Badges */}
+                        {/* Action Buttons: Text Badges with Full Touch Targets & ARIA */}
                         <div className="badge-action-cluster">
                           {/* จุดอ้างอิง */}
                           <button
                             type="button"
                             onClick={() => handleCalibrate(s)}
                             className="btn-badge-action calibrate tactile-press"
+                            aria-label={`ตั้งค่าจุดอ้างอิงสถานี ${s.name}`}
                             title="ตั้งค่าจุดอ้างอิงและระนาบเสา"
                           >
-                            <SlidersIcon size={13} />
+                            <SlidersIcon size={14} />
                             <span>จุดอ้างอิง</span>
                           </button>
 
@@ -1195,9 +1218,10 @@ export default function StationsPage() {
                               setNotificationModalOpen(true);
                             }}
                             className="btn-badge-action alert tactile-press"
+                            aria-label={`ตั้งค่าเกณฑ์การแจ้งเตือนสถานี ${s.name}`}
                             title="ตั้งค่าเกณฑ์การแจ้งเตือนสำหรับสถานีนี้"
                           >
-                            <BellIcon size={13} />
+                            <BellIcon size={14} />
                             <span>เตือนภัย</span>
                           </button>
 
@@ -1209,7 +1233,7 @@ export default function StationsPage() {
                             aria-label={`แก้ไขสถานี ${s.name}`}
                             title="แก้ไขข้อมูลสถานี"
                           >
-                            <Edit3Icon size={13} />
+                            <Edit3Icon size={14} />
                             <span>แก้ไข</span>
                           </button>
 
@@ -1222,16 +1246,16 @@ export default function StationsPage() {
                               aria-label={`ลบสถานี ${s.name}`}
                               title="ลบสถานี"
                             >
-                              <Trash2Icon size={13} />
+                              <Trash2Icon size={14} />
                               <span>ลบ</span>
                             </button>
                           )}
                         </div>
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )
           ) : (
             /* ── MAP VIEW ── */

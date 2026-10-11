@@ -114,6 +114,7 @@ typography:
     title-xl: "24px"
     display-sm: "28px"
     display-md: "32px"
+    display-lg: "42px"
     hero: "48px"
     rem-625: "0.625rem"
     rem-687: "0.6875rem"

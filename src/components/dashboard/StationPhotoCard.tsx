@@ -2,6 +2,7 @@ import { memo } from 'react';
 import type { Station } from '../../types';
 import { GaugeIcon } from '../ui/Icons';
 import { getStationImage, getStationTypeMeta } from '../../utils/stationImages';
+import { isStationOnline } from '../../utils/stationStatus';
 
 interface StationPhotoCardProps {
   station: Station;
@@ -17,25 +18,27 @@ export const StationPhotoCard = memo(function StationPhotoCard({
   const typeMeta = getStationTypeMeta(station.stationType);
   const imageUrl = station.imageUrl || getStationImage(station);
 
-  const isOnline = station.isActive && (station as any).operatingStatus !== 'offline';
+  const isOnline = isStationOnline(station);
   const battery = station.batteryPercent !== undefined ? Math.max(0, Math.min(100, station.batteryPercent)) : 80;
 
-  // Format water level
-  const formattedLevel = !isOnline
-    ? '-'
-    : typeof station.currentLevel === 'number'
+  const hasReading = Boolean(
+    station.lastReadingTime ||
+    station.rawDistance !== null && station.rawDistance !== undefined ||
+    station.currentLevel !== null && station.currentLevel !== undefined
+  );
+
+  // Format water level (retained and viewable even when station is offline)
+  const formattedLevel = hasReading && typeof station.currentLevel === 'number'
     ? (station.currentLevel > 0 ? '+' : '') + station.currentLevel.toFixed(2)
-    : '0.00';
+    : '-';
 
   // Value color: use cyan or green for normal, amber for warning, red for critical
   let levelColor = '#38bdf8'; // Sky cyan
-  if (!isOnline) {
-    levelColor = '#64748b';
-  } else if (station.status === 'critical') {
+  if (station.status === 'critical') {
     levelColor = '#ef4444';
   } else if (station.status === 'warning') {
     levelColor = '#f59e0b';
-  } else if (station.currentLevel < 0) {
+  } else if (station.currentLevel !== null && station.currentLevel < 0) {
     levelColor = '#38bdf8';
   } else {
     levelColor = '#818cf8';
@@ -151,7 +154,7 @@ export const StationPhotoCard = memo(function StationPhotoCard({
             letterSpacing: '0.02em',
           }}
         >
-          {isOnline ? 'ออนไลน์' : 'ออฟไลน์'}
+          {isOnline ? (!hasReading ? 'ออนไลน์ (รอข้อมูล)' : 'ออนไลน์') : 'ออฟไลน์'}
         </div>
       </div>
 
@@ -223,17 +226,15 @@ export const StationPhotoCard = memo(function StationPhotoCard({
               >
                 {formattedLevel}
               </span>
-              {isOnline && (
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#94A3B8',
-                    fontWeight: 500,
-                  }}
-                >
-                  m
-                </span>
-              )}
+              <span
+                style={{
+                  fontSize: '0.75rem',
+                  color: '#94A3B8',
+                  fontWeight: 500,
+                }}
+              >
+                m
+              </span>
             </div>
           </div>
 
@@ -258,11 +259,11 @@ export const StationPhotoCard = memo(function StationPhotoCard({
               style={{
                 fontSize: '0.6875rem',
                 fontWeight: 600,
-                color: isOnline && battery > 0 ? '#E2E8F0' : '#64748B',
+                color: battery > 0 ? '#E2E8F0' : '#64748B',
                 marginBottom: '0.25rem',
               }}
             >
-              {isOnline ? `${battery}%` : '0%'}
+              {`${battery}%`}
             </span>
             {/* Battery Mini Progress Bar */}
             <div
@@ -278,12 +279,12 @@ export const StationPhotoCard = memo(function StationPhotoCard({
                 style={{
                   width: '100%',
                   height: '100%',
-                  transform: `scaleX(${isOnline ? battery / 100 : 0})`,
+                  transform: `scaleX(${battery / 100})`,
                   transformOrigin: 'left',
                   background:
-                    isOnline && battery > 20
+                    battery > 20
                       ? '#10B981'
-                      : isOnline && battery > 0
+                      : battery > 0
                       ? '#F59E0B'
                       : '#475569',
                   borderRadius: '9999px',

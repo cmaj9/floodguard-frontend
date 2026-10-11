@@ -20,6 +20,7 @@ import {
   CheckCircleIcon,
   RefreshCwIcon,
   LinkIcon,
+  XIcon,
 } from '../components/ui/Icons';
 
 const roleLabel: Record<UserRole, string> = {
@@ -917,7 +918,7 @@ export default function ProfilePage() {
                 title="ปิดหน้าต่าง"
                 aria-label="ปิดหน้าต่าง"
               >
-                ✕
+                <XIcon size={16} />
               </button>
             </div>
 

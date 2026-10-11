@@ -10,6 +10,8 @@ import {
   LayersIcon,
   CompassIcon,
 } from '../ui/Icons';
+import { isStationOnline } from '../../utils/stationStatus';
+import { useAuth } from '../../context/AuthContext';
 
 // Fix default marker icon issue with Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -20,21 +22,21 @@ L.Icon.Default.mergeOptions({
 });
 
 function getMarkerColor(station: Station, isSelected: boolean) {
-  if (isSelected) return '#2563EB'; // Royal blue
-  if (station.status === 'critical') return '#ef4444'; // Red
-  if (station.status === 'warning') return '#f59e0b'; // Amber
-  if (!station.isActive) return '#64748b'; // Offline slate
+  if (isSelected) return '#0284C7'; // Marine blue
+  if (station.status === 'critical') return '#EF4444'; // Beacon red
+  if (station.status === 'warning') return '#F59E0B'; // Tactical amber
+  if (!isStationOnline(station)) return '#64748B'; // Offline slate
 
   const typeStr = (station.stationType || '').toLowerCase();
   const nameStr = station.name.toLowerCase();
 
   if (typeStr.includes('static') || typeStr.includes('rs') || nameStr.includes('laser') || nameStr.includes('radar')) {
-    return '#0EA5E9'; // Sky blue
+    return '#0284C7'; // Marine blue
   }
   if (typeStr.includes('ลอย') || typeStr.includes('float')) {
-    return '#38bdf8'; // Sky
+    return '#38BDF8'; // Telemetry cyan
   }
-  return '#c084fc'; // Purple
+  return '#818CF8'; // Sensor indigo
 }
 
 function createCustomIcon(station: Station, isSelected: boolean) {
@@ -55,7 +57,7 @@ function createCustomIcon(station: Station, isSelected: boolean) {
         ${
           isSelected || station.status === 'critical'
             ? `
-          <div style="
+          <div class="station-pin-ping-ring" style="
             position: absolute;
             width: 100%;
             height: 100%;
@@ -149,17 +151,17 @@ function ResetBoundsButton({ stations }: { stations: Station[] }) {
         bottom: '1rem',
         left: '1rem',
         zIndex: 400,
-        width: '36px',
-        height: '36px',
+        width: '44px',
+        height: '44px',
         borderRadius: '50%',
         background: '#15181E',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
+        border: '1px solid rgba(255, 255, 255, 0.18)',
         color: '#38bdf8',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
         transition: 'all 0.2s ease',
       }}
       onMouseEnter={(e) => {
@@ -171,7 +173,7 @@ function ResetBoundsButton({ stations }: { stations: Station[] }) {
         e.currentTarget.style.color = '#38bdf8';
       }}
     >
-      <CompassIcon size={18} />
+      <CompassIcon size={20} />
     </button>
   );
 }
@@ -191,6 +193,9 @@ export default function StationMap({
   height = '100%',
   showCardHeader = true,
 }: StationMapProps) {
+  const { user } = useAuth();
+  const isStaff = user?.role === 'admin' || user?.role === 'staff';
+
   // Default center around Ayutthaya / Chao Phraya basin
   const defaultCenter: [number, number] = [14.42, 100.388];
 
@@ -249,20 +254,21 @@ export default function StationMap({
               title="สลับเป็นแผนที่ดาร์กโหมด (Dark Gray)"
               aria-label="สลับเป็นแผนที่ดาร์กโหมด"
               style={{
-                background: mapLayer === 'dark' ? '#2563EB' : 'rgba(255, 255, 255, 0.06)',
-                border: `1px solid ${mapLayer === 'dark' ? '#2563EB' : 'rgba(255, 255, 255, 0.1)'}`,
+                background: mapLayer === 'dark' ? '#0284C7' : 'rgba(255, 255, 255, 0.06)',
+                border: `1px solid ${mapLayer === 'dark' ? '#0284C7' : 'rgba(255, 255, 255, 0.12)'}`,
                 color: mapLayer === 'dark' ? '#FFFFFF' : '#94A3B8',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '0.375rem',
-                display: 'flex',
+                padding: '0.45rem 0.85rem',
+                minHeight: '38px',
+                borderRadius: '0.5rem',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.375rem',
+                gap: '0.45rem',
                 cursor: 'pointer',
-                fontSize: '0.75rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
               }}
             >
-              <LayersIcon size={14} />
+              <LayersIcon size={15} />
               <span>แผนที่มืด</span>
             </button>
             <button
@@ -271,20 +277,21 @@ export default function StationMap({
               title="สลับเป็นภาพถ่ายดาวเทียม"
               aria-label="สลับเป็นภาพถ่ายดาวเทียม"
               style={{
-                background: mapLayer === 'satellite' ? '#2563EB' : 'rgba(255, 255, 255, 0.06)',
-                border: `1px solid ${mapLayer === 'satellite' ? '#2563EB' : 'rgba(255, 255, 255, 0.1)'}`,
+                background: mapLayer === 'satellite' ? '#0284C7' : 'rgba(255, 255, 255, 0.06)',
+                border: `1px solid ${mapLayer === 'satellite' ? '#0284C7' : 'rgba(255, 255, 255, 0.12)'}`,
                 color: mapLayer === 'satellite' ? '#FFFFFF' : '#94A3B8',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '0.375rem',
-                display: 'flex',
+                padding: '0.45rem 0.85rem',
+                minHeight: '38px',
+                borderRadius: '0.5rem',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.375rem',
+                gap: '0.45rem',
                 cursor: 'pointer',
-                fontSize: '0.75rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
               }}
             >
-              <GlobeIcon size={14} />
+              <GlobeIcon size={15} />
               <span>ดาวเทียม</span>
             </button>
           </div>
@@ -328,6 +335,11 @@ export default function StationMap({
             .filter((s) => s && !isNaN(Number(s.lat)) && !isNaN(Number(s.lng)) && Number(s.lat) !== 0 && Number(s.lng) !== 0)
             .map((station) => {
               const isSelected = selectedStation === station.id;
+              const hasReading = Boolean(
+                station.lastReadingTime ||
+                station.rawDistance !== null && station.rawDistance !== undefined ||
+                station.currentLevel !== null && station.currentLevel !== undefined
+              );
               return (
                 <Marker
                   key={station.id}
@@ -345,7 +357,7 @@ export default function StationMap({
                     <div
                       style={{
                         fontSize: 11,
-                        color: '#64748B',
+                        color: 'var(--text-muted, #8E9FB5)',
                         marginBottom: 8,
                         display: 'flex',
                         alignItems: 'center',
@@ -358,36 +370,40 @@ export default function StationMap({
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span>ระดับน้ำเทียบ{station.referencePointName || 'จุดอ้างอิง'}</span>
-                      <strong style={{ color: !station.isActive || station.operatingStatus === 'offline' ? '#64748B' : station.currentLevel > 0 ? '#EF4444' : '#0369A1' }}>
-                        {!station.isActive || station.operatingStatus === 'offline'
-                          ? '-'
-                          : `${station.currentLevel > 0 ? '+' : ''}${station.currentLevel.toFixed(2)} ม.`}
+                      <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>ระดับน้ำเทียบ{station.referencePointName || 'จุดอ้างอิง'}</span>
+                      <strong style={{ color: station.currentLevel !== null && station.currentLevel > 0 ? 'var(--beacon-red, #EF4444)' : 'var(--telemetry-cyan, #38BDF8)' }}>
+                        {station.currentLevel !== null && typeof station.currentLevel === 'number'
+                          ? `${station.currentLevel > 0 ? '+' : ''}${station.currentLevel.toFixed(2)} ม.`
+                          : '-'}
                       </strong>
                     </div>
-                    {station.rawDistance !== undefined && station.rawDistance !== null && station.isActive && station.operatingStatus !== 'offline' && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748B', marginBottom: 4 }}>
+                    {station.rawDistance !== undefined && station.rawDistance !== null && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted, #8E9FB5)', marginBottom: 4 }}>
                         <span>ระยะเซนเซอร์วัดได้</span>
-                        <span>{Number(station.rawDistance).toFixed(2)} ม.</span>
+                        <span style={{ color: 'var(--text-primary, #F8FAFC)', fontWeight: 600 }}>{Number(station.rawDistance).toFixed(2)} ม.</span>
                       </div>
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span>สถานะ</span>
+                      <span style={{ color: 'var(--text-secondary, #94A3B8)' }}>สถานะ</span>
                       <span
                         style={{
                           fontWeight: 600,
                           color:
-                            !station.isActive || station.operatingStatus === 'offline'
-                              ? '#64748B'
+                            !isStationOnline(station)
+                              ? (isStaff && station.isManualOffline ? '#F59E0B' : 'var(--text-muted, #8E9FB5)')
+                              : !hasReading
+                              ? 'var(--sonar-green, #10B981)'
                               : station.status === 'critical'
-                              ? '#EF4444'
+                              ? 'var(--beacon-red, #EF4444)'
                               : station.status === 'warning'
-                              ? '#F59E0B'
-                              : '#10B981',
+                              ? 'var(--tactical-amber, #F59E0B)'
+                              : 'var(--sonar-green, #10B981)',
                         }}
                       >
-                        {!station.isActive || station.operatingStatus === 'offline'
-                          ? 'ออฟไลน์'
+                        {!isStationOnline(station)
+                          ? (isStaff && station.isManualOffline ? 'ออฟไลน์ (ทดสอบ)' : 'ออฟไลน์')
+                          : !hasReading
+                          ? 'ออนไลน์ (รอข้อมูล)'
                           : station.status === 'critical'
                           ? 'วิกฤต'
                           : station.status === 'warning'
@@ -400,15 +416,19 @@ export default function StationMap({
                         style={{
                           marginTop: 8,
                           paddingTop: 6,
-                          borderTop: '1px solid #E2E8F0',
+                          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
                           fontSize: 11,
                           display: 'flex',
                           alignItems: 'center',
                           gap: 4,
-                          color: '#475569',
+                          color: 'var(--text-secondary, #94A3B8)',
                         }}
                       >
-                        {station.batteryPercent > 20 ? <BatteryChargingIcon size={12} /> : <BatteryLowIcon size={12} />}
+                        {station.batteryPercent > 20 ? (
+                          <BatteryChargingIcon size={12} style={{ color: 'var(--sonar-green, #10B981)' }} />
+                        ) : (
+                          <BatteryLowIcon size={12} style={{ color: 'var(--beacon-red, #EF4444)' }} />
+                        )}
                         <span>แบตเตอรี่ {station.batteryPercent}%</span>
                       </div>
                     )}

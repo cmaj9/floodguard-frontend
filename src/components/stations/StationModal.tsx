@@ -65,7 +65,7 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         criticalLevel: station.criticalLevel != null ? String(station.criticalLevel) : '',
         deviceId: station.deviceId || station.id || '',
         gatewayId: '',
-        operatingStatus: (station.isActive ? 'active' : 'offline') as 'active' | 'offline',
+        operatingStatus: ((station.manualStatus || (station.isActive ? 'active' : 'offline')) === 'offline' ? 'offline' : 'active') as 'active' | 'offline',
         tiltOffsetX:
           station.tiltOffsetX != null
             ? String(station.tiltOffsetX)
