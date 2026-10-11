@@ -1248,7 +1248,7 @@ export default function DataHistoryPage() {
                                             : "var(--text-muted)",
                                         }}
                                       >
-                                        {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)}` : "—"}
+                                        {r.water_level != null ? `${Number(r.water_level) > 0 ? "+" : ""}${Number(r.water_level).toFixed(2)}` : "—"}
                                       </span>
                                       {r.water_level != null && (
                                         <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>ม.</span>
@@ -1412,7 +1412,7 @@ export default function DataHistoryPage() {
                                           <div className="tactical-metric-tile">
                                             <span className="tactical-metric-tile-label">ระดับน้ำคำนวณได้</span>
                                             <span className="tactical-metric-tile-val" style={{ color: status.color }}>
-                                              {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)} ม.` : "—"}
+                                              {r.water_level != null ? `${Number(r.water_level) > 0 ? "+" : ""}${Number(r.water_level).toFixed(2)} ม.` : "—"}
                                             </span>
                                           </div>
                                           <div className="tactical-metric-tile">
@@ -1708,7 +1708,7 @@ export default function DataHistoryPage() {
                                   color: r.water_level != null ? status.color : "var(--text-muted)",
                                 }}
                               >
-                                {r.water_level != null ? `${r.water_level > 0 ? "+" : ""}${r.water_level.toFixed(2)}` : "—"}
+                                {r.water_level != null ? `${Number(r.water_level) > 0 ? "+" : ""}${Number(r.water_level).toFixed(2)}` : "—"}
                               </span>
                               {r.water_level != null && (
                                 <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 500 }}>ม.</span>

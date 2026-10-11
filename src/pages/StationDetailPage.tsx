@@ -153,15 +153,15 @@ function WaterTooltip({ active, payload, waterUnit = 'm' }: any) {
   const formattedVal =
     data.waterLevel != null
       ? isCm
-        ? `${data.waterLevel * 100 >= 0 ? '+' : ''}${(data.waterLevel * 100).toFixed(1)}`
-        : `${data.waterLevel >= 0 ? '+' : ''}${data.waterLevel.toFixed(3)}`
+        ? `${Number(data.waterLevel) * 100 >= 0 ? '+' : ''}${(Number(data.waterLevel) * 100).toFixed(1)}`
+        : `${Number(data.waterLevel) >= 0 ? '+' : ''}${Number(data.waterLevel).toFixed(3)}`
       : '-';
   const unitText = isCm ? 'ซม.' : 'เมตร';
   const formattedDist =
     data.rawDistance != null
       ? isCm
-        ? `${(data.rawDistance * 100).toFixed(1)} ซม.`
-        : `${data.rawDistance.toFixed(3)} ม.`
+        ? `${(Number(data.rawDistance) * 100).toFixed(1)} ซม.`
+        : `${Number(data.rawDistance).toFixed(3)} ม.`
       : null;
 
   return (

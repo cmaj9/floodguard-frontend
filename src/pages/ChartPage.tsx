@@ -709,7 +709,7 @@ export default function ChartPage() {
                       <span style={{ color: 'var(--text-muted)' }}>
                         ระยะเซนเซอร์วัดได้{' '}
                         <strong style={{ color: '#E2E8F0', fontFamily: 'monospace' }}>
-                          {selectedStation.rawDistance.toFixed(2)} ม.
+                          {Number(selectedStation.rawDistance).toFixed(2)} ม.
                         </strong>
                       </span>
                     </>
