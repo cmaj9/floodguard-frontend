@@ -201,6 +201,7 @@ export default function ChartPage() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<'current_station' | 'all_stations'>('current_station');
   const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Real-time time tick for accurate offline timeout calculation
   const [timeTick, setTimeTick] = useState(Date.now());
@@ -250,16 +251,26 @@ export default function ChartPage() {
 
   const handleExportCSV = () => {
     if (readingsLoading) return;
+    setExportError(null);
     setIsExportModalOpen(true);
   };
 
   const handleConfirmExport = async () => {
+    setExportError(null);
     if (exportScope === 'current_station') {
-      if (!selectedStation || readings.length === 0) return;
-      exportWaterLevelCSV(readings, selectedStation, timeRange);
-      setIsExportModalOpen(false);
-      setIsExported(true);
-      setTimeout(() => setIsExported(false), 2500);
+      if (!selectedStation || readings.length === 0) {
+        setExportError('ไม่มีข้อมูลของสถานีนี้ในช่วงเวลาที่เลือก');
+        return;
+      }
+      try {
+        exportWaterLevelCSV(readings, selectedStation, timeRange);
+        setIsExportModalOpen(false);
+        setIsExported(true);
+        setTimeout(() => setIsExported(false), 2500);
+      } catch (err: unknown) {
+        console.error('Export current station CSV failed', err);
+        setExportError(err instanceof Error ? err.message : 'ส่งออก CSV ไม่สำเร็จ');
+      }
     } else {
       setExportLoading(true);
       try {
@@ -271,13 +282,18 @@ export default function ChartPage() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         setIsExportModalOpen(false);
         setIsExported(true);
         setTimeout(() => setIsExported(false), 2500);
       } catch (err: unknown) {
         console.error('Export all stations CSV failed', err);
+        setExportError(
+          err instanceof Error && err.message.includes('Network')
+            ? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (ตรวจสอบว่า Backend ทำงานอยู่)'
+            : err instanceof Error ? err.message : 'ส่งออก CSV ไม่สำเร็จ'
+        );
       } finally {
         setExportLoading(false);
       }
@@ -1493,6 +1509,12 @@ export default function ChartPage() {
                   </span>
                 </div>
               </label>
+              {exportError && (
+                <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#F87171', marginTop: 4 }}>
+                  <AlertTriangleIcon size={14} />
+                  <span>{exportError}</span>
+                </div>
+              )}
             </div>
 
             {/* Footer */}

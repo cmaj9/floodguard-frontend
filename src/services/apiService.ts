@@ -201,6 +201,7 @@ export async function downloadReadingsCSV(params: {
   const res = await api.get('/api/readings/export/csv', {
     params,
     responseType: 'blob',
+    timeout: 60000,
   });
   return res.data;
 }

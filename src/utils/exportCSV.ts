@@ -7,7 +7,12 @@ export function exportWaterLevelCSV(
   station: Station,
   timeRange: TimeRange
 ) {
-  const rows = readings.map((r) => {
+  // Filter out gap-breaking markers inserted for chart disconnection (level === null or count === 0)
+  const validReadings = readings.filter(
+    (r) => r.level !== null && r.level !== undefined && !isNaN(Number(r.level))
+  );
+
+  const rows = validReadings.map((r) => {
     let timeValue = String(r.timestamp);
 
     try {
@@ -27,10 +32,12 @@ export function exportWaterLevelCSV(
     const hasWarn = station.warningLevel !== undefined && station.warningLevel !== null;
 
     let statusText = 'ปกติ';
-    if (hasCrit && val >= station.criticalLevel!) {
-      statusText = 'วิกฤต';
-    } else if (hasWarn && val >= station.warningLevel!) {
-      statusText = 'เฝ้าระวัง';
+    if (val != null) {
+      if (hasCrit && val >= station.criticalLevel!) {
+        statusText = 'วิกฤต';
+      } else if (hasWarn && val >= station.warningLevel!) {
+        statusText = 'เฝ้าระวัง';
+      }
     }
 
     const blindZoneText = r.isBlindZone ? 'อยู่ในระยะจุดบอด (Blind Zone)' : 'ปกติ';
@@ -41,20 +48,20 @@ export function exportWaterLevelCSV(
       'ชื่อสถานี': station.name,
       'ตำแหน่ง/สถานที่': station.location || station.province || '-',
       'จุดอ้างอิง': refName,
-      'ระยะเซนเซอร์ถึงจุดอ้างอิง (ม.)': sToRef !== undefined ? Number(sToRef).toFixed(2) : '-',
-      'ระดับน้ำตรวจวัดจริง (ม.)': (val > 0 ? '+' : '') + val.toFixed(3),
-      'ระยะห่างเซนเซอร์ถึงผิวน้ำ (ม.)': r.rawDistance != null ? Number(r.rawDistance).toFixed(3) : '-',
+      'ระยะเซนเซอร์ถึงจุดอ้างอิง (ม.)': sToRef != null && !isNaN(Number(sToRef)) ? Number(sToRef).toFixed(2) : '-',
+      'ระดับน้ำตรวจวัดจริง (ม.)': val != null && !isNaN(Number(val)) ? (Number(val) > 0 ? '+' : '') + Number(val).toFixed(3) : '-',
+      'ระยะห่างเซนเซอร์ถึงผิวน้ำ (ม.)': r.rawDistance != null && !isNaN(Number(r.rawDistance)) ? Number(r.rawDistance).toFixed(3) : '-',
       'สถานะจุดบอดเซนเซอร์': blindZoneText,
-      'อุณหภูมิ (°C)': r.temperature != null ? Number(r.temperature).toFixed(1) : '-',
-      'ความชื้นสัมพัทธ์ (%)': r.humidity != null ? Number(r.humidity).toFixed(1) : '-',
-      'แรงดันแบตเตอรี่ (V)': r.batteryVoltage != null ? Number(r.batteryVoltage).toFixed(2) : '-',
-      'ระดับแบตเตอรี่ (%)': r.batteryPercent != null ? Number(r.batteryPercent).toFixed(0) : '-',
-      'ความแรงสัญญาณ LoRa RSSI (dBm)': r.rssi != null ? Number(r.rssi).toFixed(0) : '-',
-      'อัตราสัญญาณต่อสัญญาณรบกวน SNR (dB)': r.snr != null ? Number(r.snr).toFixed(1) : '-',
-      'มุมเอียงแกน X (องศา)': r.tiltX != null ? Number(r.tiltX).toFixed(2) : '-',
-      'มุมเอียงแกน Y (องศา)': r.tiltY != null ? Number(r.tiltY).toFixed(2) : '-',
-      'ละติจูด': station.lat != null ? Number(station.lat).toFixed(6) : '-',
-      'ลองจิจูด': station.lng != null ? Number(station.lng).toFixed(6) : '-',
+      'อุณหภูมิ (°C)': r.temperature != null && !isNaN(Number(r.temperature)) ? Number(r.temperature).toFixed(1) : '-',
+      'ความชื้นสัมพัทธ์ (%)': r.humidity != null && !isNaN(Number(r.humidity)) ? Number(r.humidity).toFixed(1) : '-',
+      'แรงดันแบตเตอรี่ (V)': r.batteryVoltage != null && !isNaN(Number(r.batteryVoltage)) ? Number(r.batteryVoltage).toFixed(2) : '-',
+      'ระดับแบตเตอรี่ (%)': r.batteryPercent != null && !isNaN(Number(r.batteryPercent)) ? Number(r.batteryPercent).toFixed(0) : '-',
+      'ความแรงสัญญาณ LoRa RSSI (dBm)': r.rssi != null && !isNaN(Number(r.rssi)) ? Number(r.rssi).toFixed(0) : '-',
+      'อัตราสัญญาณต่อสัญญาณรบกวน SNR (dB)': r.snr != null && !isNaN(Number(r.snr)) ? Number(r.snr).toFixed(1) : '-',
+      'มุมเอียงแกน X (องศา)': r.tiltX != null && !isNaN(Number(r.tiltX)) ? Number(r.tiltX).toFixed(2) : '-',
+      'มุมเอียงแกน Y (องศา)': r.tiltY != null && !isNaN(Number(r.tiltY)) ? Number(r.tiltY).toFixed(2) : '-',
+      'ละติจูด': station.lat != null && !isNaN(Number(station.lat)) ? Number(station.lat).toFixed(6) : '-',
+      'ลองจิจูด': station.lng != null && !isNaN(Number(station.lng)) ? Number(station.lng).toFixed(6) : '-',
       'สถานะระดับน้ำ': statusText,
     };
   });
@@ -77,7 +84,7 @@ export function exportWaterLevelCSV(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 
