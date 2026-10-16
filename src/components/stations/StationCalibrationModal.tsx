@@ -181,7 +181,7 @@ export default function StationCalibrationModal({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
             gap: 14,
             alignItems: 'start',
           }}

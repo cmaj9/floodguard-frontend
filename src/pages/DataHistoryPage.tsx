@@ -199,12 +199,13 @@ function HistoryChartTooltip({ active, payload }: HistoryTooltipProps) {
 }
 
 type TimePreset = "all" | "24h" | "7d" | "30d" | "custom";
-type StatusFilterType = "all" | "normal" | "warning" | "critical" | "anomaly";
+type StatusFilterType = "all" | "normal" | "warning" | "critical" | "rate_of_rise" | "anomaly";
 type HistoryViewMode = "table" | "chart";
 
 export default function DataHistoryPage() {
   const { user, isGuest } = useAuth();
   const canExport = !isGuest && (user?.role === "admin" || user?.role === "staff");
+  const isStaff = !isGuest && user?.role === "staff";
 
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(() => {
@@ -389,6 +390,9 @@ export default function DataHistoryPage() {
             if (statusFilter === "normal") return s.status === "normal";
             if (statusFilter === "warning") return s.status === "warning";
             if (statusFilter === "critical") return s.status === "critical";
+            if (statusFilter === "rate_of_rise") {
+              return Boolean(r.is_rate_of_rise || (r.rate_of_rise != null && r.rate_of_rise >= 0.30));
+            }
             if (statusFilter === "anomaly") {
               return Boolean(
                 r.is_blind_zone ||
@@ -517,8 +521,10 @@ export default function DataHistoryPage() {
     const opts: DropdownOption[] = [
       {
         value: "",
-        label: `ทุกสถานี (${stations.length} สถานี)`,
-        sublabel: "ดึงข้อมูลจากทุกสถานีตรวจวัดในระบบ",
+        label: isStaff
+          ? (stations.length === 0 ? "ยังไม่มีสถานีที่รับผิดชอบ" : `สถานีที่รับผิดชอบทั้งหมด (${stations.length} สถานี)`)
+          : `ทุกสถานี (${stations.length} สถานี)`,
+        sublabel: isStaff ? "ดึงข้อมูลเฉพาะสถานีที่ได้รับมอบหมาย" : "ดึงข้อมูลจากทุกสถานีตรวจวัดในระบบ",
         count: total,
       },
     ];
@@ -551,6 +557,7 @@ export default function DataHistoryPage() {
     let normalCount = 0;
     let warningCount = 0;
     let criticalCount = 0;
+    let rateOfRiseCount = 0;
     let anomalyCount = 0;
 
     readings.forEach((r) => {
@@ -559,6 +566,11 @@ export default function DataHistoryPage() {
       if (s.status === "normal") normalCount++;
       if (s.status === "warning") warningCount++;
       if (s.status === "critical") criticalCount++;
+
+      const isRapidRise = Boolean(
+        r.is_rate_of_rise || (r.rate_of_rise != null && r.rate_of_rise >= 0.30)
+      );
+      if (isRapidRise) rateOfRiseCount++;
 
       const isAnomaly = Boolean(
         r.is_blind_zone ||
@@ -576,6 +588,9 @@ export default function DataHistoryPage() {
       if (statusFilter === "normal") return s.status === "normal";
       if (statusFilter === "warning") return s.status === "warning";
       if (statusFilter === "critical") return s.status === "critical";
+      if (statusFilter === "rate_of_rise") {
+        return Boolean(r.is_rate_of_rise || (r.rate_of_rise != null && r.rate_of_rise >= 0.30));
+      }
       if (statusFilter === "anomaly") {
         return Boolean(
           r.is_blind_zone ||
@@ -594,6 +609,7 @@ export default function DataHistoryPage() {
         normal: normalCount,
         warning: warningCount,
         critical: criticalCount,
+        rateOfRise: rateOfRiseCount,
         anomaly: anomalyCount,
       },
     };
@@ -654,7 +670,7 @@ export default function DataHistoryPage() {
   return (
     <div className="page-container" style={{ paddingBottom: 60 }}>
       {/* ── TOP MANAGEMENT BAR ── */}
-      <ManagementBackBar title="ประวัติข้อมูลโทรมาตร" />
+      <ManagementBackBar title="ประวัติข้อมูลโทรมาตร" showBackButton={false} />
 
       {/* ══ 1. CONNECTED TACTICAL CONTROL BAR (ZERO-GLOW & ZERO-COLON) ════════ */}
       <div className="history-toolbar-tactical">
@@ -1015,6 +1031,21 @@ export default function DataHistoryPage() {
             <button
               type="button"
               role="tab"
+              aria-selected={statusFilter === "rate_of_rise"}
+              className={`table-tab-item tab-rate-of-rise tactile-press ${statusFilter === "rate_of_rise" ? "active" : ""}`}
+              onClick={() => setStatusFilter("rate_of_rise")}
+              title="บันทึกที่ระดับน้ำเพิ่มขึ้นเร็วผิดปกติ (≥ 0.30 ม./ชม.)"
+            >
+              <TrendingUpIcon size={13} className="table-tab-icon" style={{ color: "#FB7185", flexShrink: 0 }} />
+              <span>น้ำขึ้นเร็ว</span>
+              <span className={`table-tab-badge ${statusCounts.rateOfRise === 0 ? "dimmed" : ""}`}>
+                {statusCounts.rateOfRise}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
               aria-selected={statusFilter === "anomaly"}
               className={`table-tab-item tab-anomaly tactile-press ${statusFilter === "anomaly" ? "active" : ""}`}
               onClick={() => setStatusFilter("anomaly")}
@@ -1089,10 +1120,14 @@ export default function DataHistoryPage() {
                   <InboxIcon size={36} style={{ color: "var(--text-muted)" }} />
                 </div>
                 <div className="empty-state-title" style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
-                  ไม่พบบันทึกข้อมูลตามเงื่อนไข
+                  {isStaff && stations.length === 0
+                    ? "คุณยังไม่มีสถานีตรวจวัดที่รับผิดชอบ"
+                    : "ไม่พบบันทึกข้อมูลตามเงื่อนไข"}
                 </div>
                 <div className="empty-state-desc" style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-                  ลองปรับเปลี่ยนสถานี ตัวกรองสถานะ หรือขยายช่วงเวลา
+                  {isStaff && stations.length === 0
+                    ? "กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อมอบหมายสถานี"
+                    : "ลองปรับเปลี่ยนสถานี ตัวกรองสถานะ หรือขยายช่วงเวลา"}
                 </div>
               </div>
             ) : (
@@ -1155,6 +1190,14 @@ export default function DataHistoryPage() {
                           const status = getReadingWaterStatus(r, st);
                           const isExpanded = expandedRowIds.has(r.reading_id);
                           const rowBg = i % 2 === 0 ? "transparent" : "rgba(255, 255, 255, 0.015)";
+
+                          const isRapidRise = Boolean(
+                            r.is_rate_of_rise || (r.rate_of_rise != null && r.rate_of_rise >= 0.30)
+                          );
+                          const rateVal = r.rate_of_rise != null ? Number(r.rate_of_rise) : null;
+                          const deltaWater = (r.water_level != null && r.prev_water_level != null)
+                            ? Number((r.water_level - r.prev_water_level).toFixed(3))
+                            : null;
 
                           const tX = r.tilt_x != null ? Number(r.tilt_x) : null;
                           const tY = r.tilt_y != null ? Number(r.tilt_y) : null;
@@ -1237,11 +1280,11 @@ export default function DataHistoryPage() {
                                 {/* Water Level */}
                                 <td>
                                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                                    <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                                       <span
                                         className="font-mono tabular-nums"
                                         style={{
-                                          fontSize: 14,
+                                          fontSize: 15,
                                           fontWeight: 700,
                                           color: r.water_level != null
                                             ? (status.status === "critical" ? "var(--color-critical, #EF4444)" : status.status === "warning" ? "var(--color-warning, #F59E0B)" : "var(--text-primary)")
@@ -1337,24 +1380,47 @@ export default function DataHistoryPage() {
                                   )}
                                 </td>
 
-                                {/* Status */}
+                                {/* Status & Rate of Rise Badge */}
                                 <td>
-                                  <span
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 5,
-                                      padding: "2px 8px",
-                                      borderRadius: 6,
-                                      background: status.bg,
-                                      color: status.color,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    <span style={{ width: 5, height: 5, borderRadius: "50%", background: status.dot }} />
-                                    {status.label}
-                                  </span>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 5,
+                                        padding: "2px 8px",
+                                        borderRadius: 6,
+                                        background: status.bg,
+                                        color: status.color,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                      }}
+                                    >
+                                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: status.dot }} />
+                                      {status.label}
+                                    </span>
+                                    {isRapidRise && (
+                                      <span
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          padding: "2px 7px",
+                                          borderRadius: 6,
+                                          background: "rgba(244, 63, 94, 0.15)",
+                                          border: "1px solid rgba(244, 63, 94, 0.35)",
+                                          color: "#FB7185",
+                                          fontSize: 10.5,
+                                          fontWeight: 700,
+                                          whiteSpace: "nowrap",
+                                        }}
+                                        title={`อัตราน้ำขึ้น ${rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)}` : ""} ม./ชม. (เกณฑ์เตือนภัย ≥ 0.30 ม./ชม.)`}
+                                      >
+                                        <TrendingUpIcon size={12} style={{ color: "#FB7185", flexShrink: 0 }} />
+                                        <span>น้ำขึ้นเร็ว {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)}` : ""}</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
 
                                 {/* Expand Chevron */}
@@ -1429,6 +1495,123 @@ export default function DataHistoryPage() {
                                             >
                                               {r.is_blind_zone ? "ระยะบอด (< 28 ซม.)" : "ระยะปกติ"}
                                             </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Rate of Rise Subhead & Telemetry */}
+                                        <div className="tactical-telemetry-subhead" style={{ marginTop: 12 }}>
+                                          <TrendingUpIcon size={12} style={{ color: isRapidRise ? "#FB7185" : "var(--accent-cyan, #38bdf8)" }} />
+                                          <span>วิเคราะห์อัตราการเปลี่ยนแปลงระดับน้ำ (Rate of Rise)</span>
+                                        </div>
+
+                                        <div className="tactical-metric-tiles cols-3">
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">อัตราความเร็วระดับน้ำ</span>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                                              <span
+                                                className="tactical-metric-tile-val font-mono tabular-nums"
+                                                style={{
+                                                  color: isRapidRise
+                                                    ? "var(--color-critical, #EF4444)"
+                                                    : rateVal != null && rateVal < 0
+                                                    ? "var(--accent-cyan, #38bdf8)"
+                                                    : "var(--color-normal, #10B981)",
+                                                  fontWeight: 700,
+                                                }}
+                                              >
+                                                {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)} ม./ชม.` : "—"}
+                                              </span>
+                                              {isRapidRise ? (
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 700,
+                                                    padding: "1px 6px",
+                                                    borderRadius: 4,
+                                                    background: "rgba(244, 63, 94, 0.2)",
+                                                    color: "#FB7185",
+                                                    border: "1px solid rgba(244, 63, 94, 0.4)",
+                                                  }}
+                                                >
+                                                  น้ำขึ้นเร็วฉับพลัน
+                                                </span>
+                                              ) : rateVal != null && rateVal < 0 ? (
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 600,
+                                                    padding: "1px 6px",
+                                                    borderRadius: 4,
+                                                    background: "rgba(56, 189, 248, 0.12)",
+                                                    color: "#38bdf8",
+                                                  }}
+                                                >
+                                                  น้ำกำลังลดลง
+                                                </span>
+                                              ) : rateVal != null && rateVal > 0 ? (
+                                                <span
+                                                  style={{
+                                                    fontSize: 10,
+                                                    fontWeight: 600,
+                                                    padding: "1px 6px",
+                                                    borderRadius: 4,
+                                                    background: "rgba(16, 185, 129, 0.12)",
+                                                    color: "#10b981",
+                                                  }}
+                                                >
+                                                  อัตราปกติ
+                                                </span>
+                                              ) : null}
+                                            </div>
+                                          </div>
+
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">การเปลี่ยนแปลงจากบันทึกก่อนหน้า</span>
+                                            <span className="tactical-metric-tile-val font-mono tabular-nums">
+                                              {deltaWater != null
+                                                ? `${deltaWater > 0 ? "+" : ""}${deltaWater.toFixed(2)} ม. (${r.time_diff_minutes != null ? `${r.time_diff_minutes} นาที` : "—"})`
+                                                : "ไม่มีข้อมูลก่อนหน้า"}
+                                            </span>
+                                          </div>
+
+                                          <div className="tactical-metric-tile">
+                                            <span className="tactical-metric-tile-label">เกณฑ์เตือนภัยน้ำขึ้นเร็ว</span>
+                                            <span className="tactical-metric-tile-val font-mono tabular-nums" style={{ color: "var(--text-muted)" }}>
+                                              ≥ +0.30 ม./ชม.
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Simple Calculation Formula Breakdown Box (Zero Colon, Pure SVG / Typography) */}
+                                        <div
+                                          style={{
+                                            marginTop: 8,
+                                            padding: "8px 12px",
+                                            background: "rgba(255, 255, 255, 0.02)",
+                                            border: "1px solid rgba(255, 255, 255, 0.06)",
+                                            borderRadius: 6,
+                                            fontSize: 11,
+                                            color: "var(--text-secondary, #94A3B8)",
+                                          }}
+                                        >
+                                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6, marginBottom: 4 }}>
+                                            <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                                              สูตรคำนวณอัตราน้ำขึ้นอย่างง่าย
+                                            </span>
+                                            <span style={{ color: "var(--text-muted)", fontSize: 10.5 }}>
+                                              คำนวณจากผลต่างระดับน้ำเทียบกับระยะเวลาที่ผ่านไป
+                                            </span>
+                                          </div>
+                                          <div className="font-mono tabular-nums" style={{ fontSize: 11, color: "var(--accent-cyan, #38bdf8)" }}>
+                                            {deltaWater != null && r.time_diff_minutes != null && r.time_diff_minutes > 0 ? (
+                                              <span>
+                                                อัตรา = ({deltaWater > 0 ? "+" : ""}{deltaWater.toFixed(2)} ม.) ÷ ({(r.time_diff_minutes / 60).toFixed(2)} ชม.) = {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)}` : "—"} ม./ชม.
+                                              </span>
+                                            ) : (
+                                              <span>
+                                                อัตรา = (ระดับน้ำปัจจุบัน - ระดับน้ำก่อนหน้า) ÷ ระยะเวลา (ชม.)
+                                              </span>
+                                            )}
                                           </div>
                                         </div>
 
@@ -1598,6 +1781,14 @@ export default function DataHistoryPage() {
                     const status = getReadingWaterStatus(r, st);
                     const isExpanded = expandedRowIds.has(r.reading_id);
 
+                    const isRapidRise = Boolean(
+                      r.is_rate_of_rise || (r.rate_of_rise != null && r.rate_of_rise >= 0.30)
+                    );
+                    const rateVal = r.rate_of_rise != null ? Number(r.rate_of_rise) : null;
+                    const deltaWater = (r.water_level != null && r.prev_water_level != null)
+                      ? Number((r.water_level - r.prev_water_level).toFixed(3))
+                      : null;
+
                     const tX = r.tilt_x != null ? Number(r.tilt_x) : null;
                     const tY = r.tilt_y != null ? Number(r.tilt_y) : null;
                     const relTotal = r.relative_total_tilt != null ? Number(r.relative_total_tilt) : null;
@@ -1642,26 +1833,47 @@ export default function DataHistoryPage() {
                         className={`tactical-mobile-card ${isExpanded ? "expanded" : ""}`}
                       >
                         {/* Card Header: Timestamp & Status */}
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
                           <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
                             {fmtTimestamp(r.timestamp)}
                           </span>
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
-                              padding: "2px 8px",
-                              borderRadius: 6,
-                              background: status.bg,
-                              color: status.color,
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: status.dot }} />
-                            {status.label}
-                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            {isRapidRise && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "2px 7px",
+                                  borderRadius: 6,
+                                  background: "rgba(244, 63, 94, 0.15)",
+                                  border: "1px solid rgba(244, 63, 94, 0.35)",
+                                  color: "#FB7185",
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <TrendingUpIcon size={12} style={{ color: "#FB7185", flexShrink: 0 }} />
+                                <span>น้ำขึ้นเร็ว {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)}` : ""}</span>
+                              </span>
+                            )}
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                                background: status.bg,
+                                color: status.color,
+                                fontSize: 11,
+                                fontWeight: 700,
+                              }}
+                            >
+                              <span style={{ width: 5, height: 5, borderRadius: "50%", background: status.dot }} />
+                              {status.label}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Station Name & ID (Zero Colon) */}
@@ -1791,6 +2003,81 @@ export default function DataHistoryPage() {
                                   <span className="tactical-metric-tile-val" style={{ color: r.is_blind_zone ? "var(--color-critical, #EF4444)" : "var(--color-normal, #10B981)" }}>
                                     {r.is_blind_zone ? "จุดบอด" : "ปกติ"}
                                   </span>
+                                </div>
+                              </div>
+
+                              {/* Mobile Rate of Rise Subhead & Telemetry */}
+                              <div className="tactical-telemetry-subhead" style={{ marginTop: 10 }}>
+                                <TrendingUpIcon size={12} style={{ color: isRapidRise ? "#FB7185" : "var(--accent-cyan, #38bdf8)" }} />
+                                <span>วิเคราะห์อัตราการเปลี่ยนแปลงระดับน้ำ</span>
+                              </div>
+
+                              <div className="tactical-metric-tiles cols-3">
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">ความเร็วระดับน้ำ</span>
+                                  <span
+                                    className="tactical-metric-tile-val font-mono tabular-nums"
+                                    style={{
+                                      color: isRapidRise
+                                        ? "var(--color-critical, #EF4444)"
+                                        : rateVal != null && rateVal < 0
+                                        ? "var(--accent-cyan, #38bdf8)"
+                                        : "var(--color-normal, #10B981)",
+                                      fontSize: 12.5,
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)} ม./ชม.` : "—"}
+                                  </span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">เทียบก่อนหน้า</span>
+                                  <span className="tactical-metric-tile-val font-mono tabular-nums" style={{ fontSize: 12.5 }}>
+                                    {deltaWater != null
+                                      ? `${deltaWater > 0 ? "+" : ""}${deltaWater.toFixed(2)} ม.`
+                                      : "—"}
+                                  </span>
+                                </div>
+                                <div className="tactical-metric-tile">
+                                  <span className="tactical-metric-tile-label">เกณฑ์เตือนภัย</span>
+                                  <span className="tactical-metric-tile-val font-mono tabular-nums" style={{ fontSize: 12.5, color: "var(--text-muted)" }}>
+                                    ≥ 0.30 ม./ชม.
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Mobile Simple Calculation Breakdown Box (Zero Colon, Pure SVG / Typography) */}
+                              <div
+                                style={{
+                                  marginTop: 6,
+                                  padding: "7px 10px",
+                                  background: "rgba(255, 255, 255, 0.02)",
+                                  border: "1px solid rgba(255, 255, 255, 0.06)",
+                                  borderRadius: 6,
+                                  fontSize: 10.5,
+                                  color: "var(--text-secondary, #94A3B8)",
+                                }}
+                              >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                                  <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
+                                    สูตรคำนวณอัตราน้ำขึ้นอย่างง่าย
+                                  </span>
+                                  {isRapidRise && (
+                                    <span style={{ color: "#FB7185", fontWeight: 700 }}>
+                                      น้ำขึ้นเร็ว
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-mono tabular-nums" style={{ color: "var(--accent-cyan, #38bdf8)" }}>
+                                  {deltaWater != null && r.time_diff_minutes != null && r.time_diff_minutes > 0 ? (
+                                    <span>
+                                      ({deltaWater > 0 ? "+" : ""}{deltaWater.toFixed(2)} ม.) ÷ ({(r.time_diff_minutes / 60).toFixed(2)} ชม.) = {rateVal != null ? `${rateVal > 0 ? "+" : ""}${rateVal.toFixed(2)}` : "—"} ม./ชม.
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      อัตรา = ผลต่างระดับน้ำ (ม.) ÷ เวลา (ชม.)
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 

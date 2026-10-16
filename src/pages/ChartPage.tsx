@@ -323,12 +323,12 @@ export default function ChartPage() {
           .filter((id: string) => id.length > 0 && id !== 'UNDEFINED' && id !== 'NULL');
         const hasUserStations = userStationIds.length > 0;
 
-        const filtered =
-          (isRegisteredCitizen || isStaff) && hasUserStations
-            ? mapped.filter((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()))
-            : mapped;
+        const finalStations = isStaff
+          ? mapped
+          : (isRegisteredCitizen && hasUserStations
+              ? mapped.filter((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()))
+              : mapped);
 
-        const finalStations = filtered.length > 0 ? filtered : mapped;
         setStations(finalStations);
 
         if (targetId && mapped.some((s) => s.id === targetId)) {
@@ -400,6 +400,7 @@ export default function ChartPage() {
       {/* ── TOP MANAGEMENT BAR ── */}
       <ManagementBackBar
         title="วิเคราะห์กราฟโทรมาตร"
+        showBackButton={false}
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {selectedStation && (
@@ -1430,8 +1431,12 @@ export default function ChartPage() {
           <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
             <WavesIcon size={48} style={{ color: 'var(--text-muted)' }} />
           </div>
-          <p className="empty-state-title" style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>ไม่มีสถานีที่ลงทะเบียน</p>
-          <p className="empty-state-desc" style={{ fontSize: 13, color: 'var(--text-muted)' }}>ติดต่อเจ้าหน้าที่เพื่อขอเพิ่มสถานีติดตาม</p>
+          <p className="empty-state-title" style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC' }}>
+            {user?.role === 'staff' ? 'คุณยังไม่มีสถานีตรวจวัดที่รับผิดชอบ' : 'ไม่มีสถานีที่ลงทะเบียน'}
+          </p>
+          <p className="empty-state-desc" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {user?.role === 'staff' ? 'กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อมอบหมายสถานี' : 'ติดต่อเจ้าหน้าที่เพื่อขอเพิ่มสถานีติดตาม'}
+          </p>
         </div>
       )}
 

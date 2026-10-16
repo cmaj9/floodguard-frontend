@@ -8,6 +8,7 @@ interface ManagementBackBarProps {
   badge?: string;
   badgeColor?: string;
   actions?: React.ReactNode;
+  showBackButton?: boolean;
 }
 
 export default function ManagementBackBar({
@@ -15,6 +16,7 @@ export default function ManagementBackBar({
   badge,
   badgeColor,
   actions,
+  showBackButton = true,
 }: ManagementBackBarProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -41,15 +43,17 @@ export default function ManagementBackBar({
           minWidth: 0,
         }}
       >
-        <button
-          type="button"
-          onClick={() => navigate('/management')}
-          className="management-back-btn"
-          title="กลับไปยังศูนย์จัดการ"
-        >
-          <ArrowLeftIcon size={14} />
-          <span>ศูนย์จัดการ</span>
-        </button>
+        {showBackButton && (
+          <button
+            type="button"
+            onClick={() => navigate(user?.role === 'citizen' ? '/dashboard' : '/management')}
+            className="management-back-btn"
+            title={user?.role === 'citizen' ? 'กลับไปยังแดชบอร์ด' : 'กลับไปยังศูนย์จัดการ'}
+          >
+            <ArrowLeftIcon size={14} />
+            <span>{user?.role === 'citizen' ? 'แดชบอร์ด' : 'ศูนย์จัดการ'}</span>
+          </button>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <h2 className="management-title-text" style={{ margin: 0 }}>

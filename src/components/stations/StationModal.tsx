@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from '../ui/Modal';
 import type { Station } from '../../types';
 import type { GatewayOption } from '../../services/apiService';
-import { fetchGateways, fetchNextStationId } from '../../services/apiService';
+import { fetchGateways, fetchNextStationId, checkChirpstackDevice } from '../../services/apiService';
 import {
   MapPinIcon,
   SlidersIcon,
@@ -10,6 +10,10 @@ import {
   RadioIcon,
   CompassIcon,
   CpuIcon,
+  CheckCircleIcon,
+  InfoIcon,
+  RefreshCwIcon,
+  ShieldCheckIcon,
 } from '../ui/Icons';
 
 interface StationModalProps {
@@ -54,10 +58,30 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
   const [gateways, setGateways] = useState<GatewayOption[]>([]);
   const [loadingGateways, setLoadingGateways] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [chirpstackStatus, setChirpstackStatus] = useState<{
+    loading: boolean;
+    checked: boolean;
+    found: boolean | null;
+    configured: boolean;
+    name?: string;
+    lastSeenAt?: string;
+    message?: string;
+  }>({
+    loading: false,
+    checked: false,
+    found: null,
+    configured: true,
+  });
 
   useEffect(() => {
     if (!isOpen) return;
     setActiveTab('general');
+    setChirpstackStatus({
+      loading: false,
+      checked: false,
+      found: null,
+      configured: true,
+    });
 
     if (station) {
       let suggestedPayloadId = station.payloadId || '';
@@ -136,6 +160,62 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
   const setField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleDevEuiChange = (val: string) => {
+    // Sanitize to lowercase hex, max 16 chars
+    const clean = val.toLowerCase().replace(/[^0-9a-f]/g, '').slice(0, 16);
+    setField('devEui', clean);
+    if (chirpstackStatus.checked) {
+      setChirpstackStatus({ loading: false, checked: false, found: null, configured: true });
+    }
+  };
+
+  const handleVerifyChirpstack = async () => {
+    const clean = form.devEui.trim();
+    if (!clean || clean.length !== 16) {
+      setErrors((prev) => ({ ...prev, devEui: 'กรุณากรอก DevEUI ให้ครบ 16 หลักฐาน 16 ก่อนตรวจสอบ' }));
+      return;
+    }
+    setErrors((prev) => ({ ...prev, devEui: '' }));
+    setChirpstackStatus({ loading: true, checked: false, found: null, configured: true });
+    try {
+      const res = await checkChirpstackDevice(clean);
+      setChirpstackStatus({
+        loading: false,
+        checked: true,
+        found: res.found,
+        configured: res.configured ?? true,
+        name: res.name,
+        lastSeenAt: res.lastSeenAt,
+        message: res.message,
+      });
+    } catch (err: any) {
+      setChirpstackStatus({
+        loading: false,
+        checked: true,
+        found: false,
+        configured: true,
+        message: err.message || 'ไม่สามารถติดต่อเซิร์ฟเวอร์เพื่อตรวจสอบได้',
+      });
+    }
+  };
+
+  const formatLastSeen = (isoString?: string) => {
+    if (!isoString) return 'ยังไม่เคยรับสัญญาณ';
+    try {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return 'ไม่ระบุเวลา';
+      return d.toLocaleString('th-TH', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return isoString;
+    }
   };
 
   const validate = () => {
@@ -504,20 +584,144 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
                     <span>LoRaWAN DevEUI (16 Hex)</span>
                     <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 400 }}>มาตรฐาน ChirpStack</span>
                   </label>
-                  <input
-                    className={`input ${errors.devEui ? 'input-error' : ''}`}
-                    value={form.devEui}
-                    onChange={(e) => setField('devEui', e.target.value.toLowerCase())}
-                    placeholder="เช่น 65bcbb52145372b1"
-                    maxLength={16}
-                    style={{
-                      fontSize: 13,
-                      padding: '8px 12px',
-                      fontFamily: 'monospace',
-                      letterSpacing: '0.05em',
-                    }}
-                  />
+
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+                    <input
+                      className={`input ${errors.devEui ? 'input-error' : ''}`}
+                      value={form.devEui}
+                      onChange={(e) => handleDevEuiChange(e.target.value)}
+                      placeholder="เช่น 65bcbb52145372b1"
+                      maxLength={16}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 13,
+                        padding: '8px 12px',
+                        fontFamily: 'monospace',
+                        letterSpacing: '0.05em',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyChirpstack}
+                      disabled={chirpstackStatus.loading || form.devEui.length !== 16}
+                      title="ตรวจสอบกับระบบ ChirpStack LNS"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 5,
+                        padding: '0 12px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        color: '#38BDF8',
+                        cursor: (chirpstackStatus.loading || form.devEui.length !== 16) ? 'not-allowed' : 'pointer',
+                        opacity: (chirpstackStatus.loading || form.devEui.length !== 16) ? 0.45 : 1,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {chirpstackStatus.loading ? (
+                        <>
+                          <RefreshCwIcon size={13} className="animate-spin" />
+                          <span>ตรวจ...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheckIcon size={13} />
+                          <span>ตรวจกับ LNS</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
                   {errors.devEui && <div className="error-msg" style={{ marginTop: 4 }}>{errors.devEui}</div>}
+
+                  {/* Verification Status Card (No emojis, no text overflow) */}
+                  {chirpstackStatus.checked && (
+                    <div style={{ marginTop: 6 }}>
+                      {chirpstackStatus.found === true && (
+                        <div
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.08)',
+                            border: '1px solid rgba(16, 185, 129, 0.25)',
+                            borderRadius: 8,
+                            padding: '8px 10px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}
+                        >
+                          <CheckCircleIcon size={15} style={{ color: '#10B981', flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#10B981', lineHeight: 1.3 }}>
+                              พบอุปกรณ์ในระบบ ChirpStack
+                            </div>
+                            <div style={{ fontSize: 11, color: '#E2E8F0', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              ชื่ออุปกรณ์: <span style={{ fontFamily: 'monospace', color: '#6EE7B7' }}>{chirpstackStatus.name || form.devEui}</span>
+                            </div>
+                            {chirpstackStatus.lastSeenAt && (
+                              <div style={{ fontSize: 10.5, color: '#94A3B8', marginTop: 1 }}>
+                                สัญญาณล่าสุด: {formatLastSeen(chirpstackStatus.lastSeenAt)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {chirpstackStatus.found === false && chirpstackStatus.configured && (
+                        <div
+                          style={{
+                            background: 'rgba(245, 158, 11, 0.08)',
+                            border: '1px solid rgba(245, 158, 11, 0.25)',
+                            borderRadius: 8,
+                            padding: '8px 10px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}
+                        >
+                          <AlertTriangleIcon size={15} style={{ color: '#F59E0B', flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#F59E0B', lineHeight: 1.3 }}>
+                              ไม่พบอุปกรณ์ใน ChirpStack
+                            </div>
+                            <div style={{ fontSize: 11, color: '#CBD5E1', marginTop: 2, wordBreak: 'break-word', lineHeight: 1.35 }}>
+                              กรุณาตรวจสอบว่าสร้างอุปกรณ์บน ChirpStack Web UI เรียบร้อยแล้ว
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {!chirpstackStatus.configured && (
+                        <div
+                          style={{
+                            background: 'rgba(148, 163, 184, 0.08)',
+                            border: '1px solid rgba(148, 163, 184, 0.2)',
+                            borderRadius: 8,
+                            padding: '8px 10px',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 8,
+                          }}
+                        >
+                          <InfoIcon size={15} style={{ color: '#94A3B8', flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: '#E2E8F0', lineHeight: 1.3 }}>
+                              เชื่อมต่อข้อมูลผ่าน Webhook
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2, wordBreak: 'break-word', lineHeight: 1.35 }}>
+                              บันทึก DevEUI นี้ได้ทันที ระบบจะรับและจัดเก็บข้อมูลเมื่อมีสัญญาณเข้าผ่าน Webhook
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
                     รหัสประจำตัวอุปกรณ์ 16 หลักจาก ChirpStack
                   </div>

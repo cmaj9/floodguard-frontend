@@ -326,6 +326,7 @@ export default function ProfilePage() {
     <div className="page-container" style={{ position: 'relative' }}>
       <ManagementBackBar
         title="โปรไฟล์และบัญชีผู้ใช้งาน"
+        showBackButton={false}
       />
 
       <div className="profile-layout-grid" style={{ marginTop: 18 }}>

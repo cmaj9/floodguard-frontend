@@ -320,6 +320,29 @@ export async function fetchNextStationId(): Promise<string> {
   return res.data.data.next_id;
 }
 
+/**
+ * GET /api/stations/chirpstack-check/:devEui
+ * Verify if DevEUI exists on ChirpStack and retrieve device metadata
+ */
+export interface ChirpstackCheckResult {
+  found: boolean | null;
+  configured: boolean;
+  name?: string;
+  description?: string;
+  lastSeenAt?: string;
+  message?: string;
+  error?: string;
+}
+
+export async function checkChirpstackDevice(devEui: string): Promise<ChirpstackCheckResult> {
+  const clean = devEui.trim().toLowerCase();
+  const res = await api.get<ApiResponse<ChirpstackCheckResult>>(`/api/stations/chirpstack-check/${clean}`);
+  if (!res.data.success) {
+    throw new Error(res.data.error ?? 'ไม่สามารถตรวจสอบอุปกรณ์กับ ChirpStack ได้');
+  }
+  return res.data.data;
+}
+
 // ── Auth & Users ──────────────────────────────────────────────────
 
 /**

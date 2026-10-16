@@ -104,7 +104,7 @@ export default function NotificationPanel({
         </div>
       </div>
 
-      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+      <div className="notif-body-scroll">
         {notifications.length === 0 ? (
           <div className="empty-state" style={{ padding: '40px 20px', textAlign: 'center' }}>
             <div className="empty-state-icon" style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>

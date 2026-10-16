@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import {
   Building2Icon,
   UsersIcon,
-  ClipboardListIcon,
   BellIcon,
   UserIcon,
   LogOutIcon,
@@ -15,13 +15,20 @@ import {
 
 export default function ManagementHubPage() {
   const { user, isGuest, logout } = useAuth();
+  const { notifications } = useNotifications();
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Citizens do not have access to administrative management tools; redirect directly to Notifications
+  if (user?.role === 'citizen') {
+    return <Navigate to="/notifications" replace />;
+  }
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const role = user?.role || 'citizen';
   const isAdmin = role === 'admin';
   const isStaff = role === 'staff';
-  const isCitizen = !isGuest && role === 'citizen';
 
   const roleLabel = isAdmin
     ? 'ผู้ดูแลระบบ (Admin)'
@@ -138,24 +145,6 @@ export default function ManagementHubPage() {
             />
             <span>ระบบพร้อมปฏิบัติการ</span>
           </div>
-
-          {/* Quick Back to Dashboard Button */}
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            className="btn btn-secondary btn-sm tactile-press"
-            style={{
-              fontSize: 12,
-              padding: '6px 14px',
-              borderRadius: 999,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <span>ดูแดชบอร์ดหลัก</span>
-            <ArrowRightIcon size={14} />
-          </button>
         </div>
       </div>
 
@@ -164,7 +153,7 @@ export default function ManagementHubPage() {
         className="management-tiles-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
           gap: '1rem',
           marginBottom: '2rem',
         }}
@@ -313,79 +302,107 @@ export default function ManagementHubPage() {
           </div>
         )}
 
-        {/* TILE 3: DATA HISTORY & CSV EXPORT (Staff & Admin per 3.3, 4.4) */}
-        {(isAdmin || isStaff) && (
-          <div
-            onClick={() => navigate('/history')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                navigate('/history');
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            className="management-tile tile-emerald tactile-press"
-            style={{
-              padding: '1.25rem',
-              background: 'var(--card-surface, #0C0E12)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              borderRadius: 16,
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: 140,
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    color: '#10B981',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <ClipboardListIcon size={20} />
-                </div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: 'rgba(16, 185, 129, 0.12)',
-                    color: '#34D399',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                  }}
-                >
-                  ส่งออก CSV ได้
-                </span>
+        {/* TILE: NOTIFICATIONS & EMERGENCY HUB (All roles) */}
+        <div
+          onClick={() => navigate('/notifications')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              navigate('/notifications');
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          className="management-tile tile-rose tactile-press"
+          style={{
+            padding: '1.25rem',
+            background: 'var(--card-surface, #0C0E12)',
+            border: '1px solid rgba(244, 63, 94, 0.25)',
+            borderRadius: 16,
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minHeight: 140,
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: 'rgba(244, 63, 94, 0.12)',
+                  color: '#F43F5E',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <BellIcon size={20} />
               </div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: '0 0 4px 0' }}>
-                ประวัติและส่งออกข้อมูล
-              </h2>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                บันทึกการวัดระดับน้ำย้อนหลัง, สถิติเซนเซอร์, ส่งออกไฟล์ CSV
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#34D399', fontSize: 13, fontWeight: 600 }}>
-              <span>ดูประวัติและดาวน์โหลด CSV</span>
-              <span className="tile-arrow" style={{ marginLeft: 6 }}>
-                <ArrowRightIcon size={14} />
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  background: unreadCount > 0 ? 'rgba(239, 68, 68, 0.18)' : 'rgba(244, 63, 94, 0.12)',
+                  color: unreadCount > 0 ? '#F87171' : '#FB7185',
+                  border: unreadCount > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(244, 63, 94, 0.25)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                }}
+              >
+                {unreadCount > 0 ? (
+                  <>
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: '#EF4444',
+                        boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
+                      }}
+                    />
+                    <span>{unreadCount > 99 ? '99+' : unreadCount} ใหม่</span>
+                  </>
+                ) : isAdmin ? (
+                  'เหตุฉุกเฉิน & บรอดแคสต์'
+                ) : isStaff ? (
+                  'เฝ้าระวังพื้นที่'
+                ) : (
+                  'เตือนภัยน้ำท่วม'
+                )}
               </span>
             </div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: '0 0 4px 0' }}>
+              {isAdmin
+                ? 'ศูนย์แจ้งเตือนและข้อความฉุกเฉิน'
+                : isStaff
+                ? 'ศูนย์แจ้งเตือนเหตุฉุกเฉิน'
+                : 'ศูนย์การแจ้งเตือนเหตุการณ์'}
+            </h2>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {isAdmin
+                ? 'ตรวจจับระดับน้ำวิกฤต, รับทราบเหตุเตือนภัย, และส่งกระจายข่าวฉุกเฉิน'
+                : isStaff
+                ? 'ติดตามการแจ้งเตือนระดับน้ำวิกฤตและรับทราบเหตุในสถานีที่รับผิดชอบ'
+                : 'ติดตามประกาศเตือนภัยน้ำท่วมและสถานการณ์ระดับน้ำล่าสุด'}
+            </div>
           </div>
-        )}
 
-        {/* TILE 4: LINE ALERTS SUBSCRIPTION (All users) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#FB7185', fontSize: 13, fontWeight: 600 }}>
+            <span>{isAdmin ? 'จัดการการแจ้งเตือน' : isStaff ? 'เข้าสู่ศูนย์แจ้งเตือน' : 'ดูการแจ้งเตือน'}</span>
+            <span className="tile-arrow" style={{ marginLeft: 6 }}>
+              <ArrowRightIcon size={14} />
+            </span>
+          </div>
+        </div>
+
+        {/* TILE 5: LINE ALERTS SUBSCRIPTION (All users) */}
         <div
           onClick={() => navigate('/subscribe')}
           onKeyDown={(e) => {
@@ -455,8 +472,8 @@ export default function ManagementHubPage() {
           </div>
         </div>
 
-        {/* TILE 5: CITIZEN REGISTRATION (Citizens / Guests & Admin) */}
-        {(isAdmin || isGuest || isCitizen) && (
+        {/* TILE 6: CITIZEN REGISTRATION (Guest Only - Do NOT show when logged in) */}
+        {isGuest && (
           <div
             onClick={() => navigate('/register')}
             onKeyDown={(e) => {
@@ -526,82 +543,10 @@ export default function ManagementHubPage() {
             </div>
           </div>
         )}
-
-        {/* TILE 6: PROFILE & ACCOUNT (All authenticated users per 2.4, 3.10, 4.6) */}
-        {!isGuest && (
-          <div
-            onClick={() => navigate('/profile')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                navigate('/profile');
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            className="management-tile tile-slate tactile-press"
-            style={{
-              padding: '1.25rem',
-              background: 'var(--card-surface, #0C0E12)',
-              border: '1px solid rgba(148, 163, 184, 0.25)',
-              borderRadius: 16,
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              minHeight: 140,
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 10,
-                    background: 'rgba(148, 163, 184, 0.12)',
-                    color: '#94A3B8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <UserIcon size={20} />
-                </div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 999,
-                    background: 'rgba(148, 163, 184, 0.12)',
-                    color: '#CBD5E1',
-                    border: '1px solid rgba(148, 163, 184, 0.25)',
-                  }}
-                >
-                  ข้อมูลส่วนตัว
-                </span>
-              </div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#FFFFFF', margin: '0 0 4px 0' }}>
-                แก้ไขข้อมูลบัญชีของตนเอง
-              </h2>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                อัปเดตเบอร์โทรศัพท์, อำเภอ/เขตที่อยู่, และเปลี่ยนรหัสผ่าน
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 12, color: '#CBD5E1', fontSize: 13, fontWeight: 600 }}>
-              <span>แก้ไขโปรไฟล์</span>
-              <span className="tile-arrow" style={{ marginLeft: 6 }}>
-                <ArrowRightIcon size={14} />
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── 3. CITIZEN DUAL-VIEW: GUEST LOGIN PROMPT ── */}
-      {(isGuest || isCitizen) && (
+      {isGuest && (
         <div
           style={{
             padding: '1.25rem 1.5rem',

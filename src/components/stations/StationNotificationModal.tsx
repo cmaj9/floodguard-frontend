@@ -157,7 +157,7 @@ function CockpitMetricColumn({
         </span>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
         <button
           type="button"
           onClick={handleDecrement}
@@ -165,17 +165,17 @@ function CockpitMetricColumn({
           className="tactile-press"
           aria-label={`ลดค่า ${ariaLabel}`}
           style={{
-            width: 32,
-            height: 28,
-            borderRadius: 6,
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            minWidth: 42,
+            height: 38,
+            borderRadius: 8,
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             color: value <= min ? 'var(--text-muted, #475569)' : 'var(--text-primary, #F8FAFC)',
             cursor: value <= min ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: 700,
             lineHeight: 1,
             padding: 0,
@@ -192,17 +192,17 @@ function CockpitMetricColumn({
           className="tactile-press"
           aria-label={`เพิ่มค่า ${ariaLabel}`}
           style={{
-            width: 32,
-            height: 28,
-            borderRadius: 6,
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            minWidth: 42,
+            height: 38,
+            borderRadius: 8,
+            background: 'rgba(255, 255, 255, 0.06)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
             color: value >= max ? 'var(--text-muted, #475569)' : 'var(--text-primary, #F8FAFC)',
             cursor: value >= max ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: 700,
             lineHeight: 1,
             padding: 0,

@@ -238,7 +238,7 @@ export default function DashboardPage() {
     queryKey: ['stations'],
     queryFn: async () => {
       const stationData = await fetchStations();
-      if (stationData && stationData.length > 0) {
+      if (Array.isArray(stationData)) {
         return stationData.map(mapStationWithReadingToStation);
       }
       return FALLBACK_STATIONS;
@@ -251,7 +251,7 @@ export default function DashboardPage() {
 
   // Defensive normalization in case any caller ever puts raw StationWithReading objects into cache
   const stations: Station[] = useMemo(() => {
-    if (!rawStationsData || rawStationsData.length === 0) return FALLBACK_STATIONS;
+    if (!rawStationsData) return FALLBACK_STATIONS;
     return rawStationsData.map((s: any) =>
       s && typeof s.lat !== 'number' && s.station_id ? mapStationWithReadingToStation(s) : s
     );
@@ -380,17 +380,21 @@ export default function DashboardPage() {
 
   // ── Displayed Stations (Strict Role-Based) ──
   // Admin & Guests: See all stations
-  // Citizen & Staff: See strictly only their registered / assigned stations
+  // Staff: See strictly assigned stations (freshly filtered by backend API in real time)
+  // Citizen: See registered stations
   const displayedStations = useMemo(() => {
     if (isAdmin || isGuest) {
       return stations;
     }
-    if (isRegisteredCitizen || isStaff) {
+    if (isStaff) {
+      return stations;
+    }
+    if (isRegisteredCitizen) {
       if (userStationIds.length > 0) {
         const filtered = stations.filter((s) => s?.id && userStationIds.includes(String(s.id).toUpperCase()));
         return filtered;
       }
-      return [];
+      return stations;
     }
     return stations;
   }, [stations, isAdmin, isGuest, isRegisteredCitizen, isStaff, userStationIds]);
@@ -757,19 +761,30 @@ export default function DashboardPage() {
         <div
           className="bento-card animate-fade-in"
           style={{
-            padding: '2.5rem 1.5rem',
+            padding: '3rem 1.5rem',
             textAlign: 'center',
-            marginBottom: '1rem',
+            marginBottom: '1.5rem',
             background: 'var(--card-surface)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '14px',
+            border: '1px solid rgba(234, 179, 8, 0.25)',
+            borderRadius: '16px',
+            maxWidth: 620,
+            margin: '20px auto',
           }}
         >
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            {isRegisteredCitizen
-              ? 'คุณยังไม่มีสถานีที่ลงทะเบียนติดตาม'
-              : 'ยังไม่มีสถานีที่ได้รับมอบหมาย'}
-          </div>
+          {isStaff ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontWeight: 700, color: '#F8FAFC', fontSize: '1.1rem' }}>
+                คุณยังไม่มีสถานีตรวจวัดที่รับผิดชอบ
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#94A3B8', maxWidth: 480, lineHeight: 1.6 }}>
+                บัญชีเจ้าหน้าที่ของคุณยังไม่ได้รับการมอบหมายสถานีใดๆ ในระบบ กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อมอบหมายสถานี
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              {isRegisteredCitizen ? 'คุณยังไม่มีสถานีที่ลงทะเบียนติดตาม' : 'ยังไม่มีข้อมูลสถานีในระบบ'}
+            </div>
+          )}
         </div>
       )}
 

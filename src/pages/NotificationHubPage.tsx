@@ -202,45 +202,24 @@ export default function NotificationHubPage() {
   };
 
   return (
-    <div className="page-container" style={{ padding: '24px 32px 48px', maxWidth: '1280px', margin: '0 auto' }}>
+    <div className="page-container notif-hub-container">
       {/* Screen Reader Live Region for Polling Status */}
       <div aria-live="polite" className="sr-only">
         {liveAnnouncement}
       </div>
 
       {/* ── 1. HEADER SECTION ── */}
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '16px',
-          marginBottom: '24px',
-        }}
-      >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'rgba(239, 68, 68, 0.12)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--color-critical, #EF4444)',
-              }}
-            >
+      <header className="notif-hub-header">
+        <div className="notif-hub-header-title-group">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="notif-hub-header-icon">
               <BellIcon size={20} />
             </div>
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary, #FFFFFF)', letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 className="notif-hub-header-title">
               ศูนย์แจ้งเตือนและสรุปเหตุการณ์
             </h1>
           </div>
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary, #94A3B8)', margin: 0 }}>
+          <p className="notif-hub-header-desc">
             บันทึกประวัติการเตือนภัย ระดับน้ำวิกฤต และความเคลื่อนไหวสถานการณ์น้ำแบบบูรณาการ
           </p>
         </div>
@@ -249,39 +228,19 @@ export default function NotificationHubPage() {
           <button
             type="button"
             onClick={markAllRead}
-            className="tactile-press"
+            className="notif-hub-mark-all-btn tactile-press"
             aria-label={`ทำเครื่องหมายว่าอ่านแล้วทั้งหมด ${unreadCount} รายการ`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '9px 18px',
-              minHeight: '40px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              color: 'var(--text-primary, #FFFFFF)',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
           >
-            <CheckIcon size={16} style={{ color: 'var(--accent-cyan, #38BDF8)' }} />
-            <span>ทำเครื่องหมายว่าอ่านแล้วทั้งหมด ({unreadCount})</span>
+            <CheckIcon size={15} style={{ color: 'var(--accent-cyan, #38BDF8)' }} />
+            <span>อ่านทั้งหมด ({unreadCount})</span>
           </button>
         )}
       </header>
 
-      {/* ── 2. EXECUTIVE 24H KPI SUMMARY CARDS (INTERACTIVE FILTERS) ── */}
+      {/* ── 2. EXECUTIVE 24H KPI SUMMARY CARDS (DESKTOP ONLY) ── */}
       <section
         aria-label="สรุปสถิติเหตุการณ์เตือนภัย"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '14px',
-          marginBottom: '24px',
-        }}
+        className="notif-hub-kpi-grid"
       >
         {/* Critical Filter Card */}
         <button
@@ -368,28 +327,19 @@ export default function NotificationHubPage() {
         </button>
       </section>
 
-      {/* ── 3. FILTER TABS & SEARCH BAR ── */}
+      {/* ── 3. FILTER TABS & SEARCH BAR (UNIFIED FILTER CHIPS) ── */}
       <nav
         aria-label="ตัวกรองและค้นหารายการแจ้งเตือน"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '18px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          paddingBottom: '14px',
-        }}
+        className="notif-hub-controls-bar"
       >
-        {/* Horizontal Scrollable Tabs */}
+        {/* Horizontal Scrollable Tabs with Severity Icons */}
         <div role="tablist" aria-label="หมวดหมู่การแจ้งเตือน" className="notif-hub-tabs-track">
           {[
-            { id: 'all', label: 'ทั้งหมด', count: notifications.length },
-            { id: 'unread', label: 'ยังไม่อ่าน', count: unreadCount },
-            { id: 'critical', label: 'วิกฤต', count: kpis.critical },
-            { id: 'warning', label: 'เฝ้าระวัง', count: kpis.warning },
-            { id: 'info', label: 'ระบบ', count: kpis.info },
+            { id: 'all', label: 'ทั้งหมด', count: notifications.length, icon: null },
+            { id: 'critical', label: 'วิกฤต', count: kpis.critical, icon: <XCircleIcon size={14} style={{ color: 'var(--color-critical, #EF4444)' }} /> },
+            { id: 'warning', label: 'เฝ้าระวัง', count: kpis.warning, icon: <AlertTriangleIcon size={14} style={{ color: 'var(--color-warning, #F59E0B)' }} /> },
+            { id: 'unread', label: 'ยังไม่อ่าน', count: unreadCount, icon: <CheckCircleIcon size={14} style={{ color: 'var(--color-normal, #10B981)' }} /> },
+            { id: 'info', label: 'ข้อมูลระบบ', count: kpis.info, icon: <DropletsIcon size={14} style={{ color: 'var(--accent-cyan, #38BDF8)' }} /> },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -399,6 +349,7 @@ export default function NotificationHubPage() {
               onClick={() => setFilterType(tab.id)}
               className={`notif-hub-tab-btn ${filterType === tab.id ? 'active' : ''}`}
             >
+              {tab.icon}
               <span>{tab.label}</span>
               <span
                 style={{
@@ -417,8 +368,8 @@ export default function NotificationHubPage() {
 
         {/* Station / Message Search Input */}
         <div className="notif-hub-search-wrap">
-          <div style={{ position: 'absolute', left: 10, pointerEvents: 'none', color: 'var(--text-muted, #8E9FB5)' }}>
-            <SearchIcon size={14} />
+          <div style={{ position: 'absolute', left: 12, pointerEvents: 'none', color: 'var(--text-muted, #8E9FB5)', display: 'flex', alignItems: 'center' }}>
+            <SearchIcon size={15} />
           </div>
           <input
             type="text"
@@ -539,7 +490,7 @@ export default function NotificationHubPage() {
                 style={{ animationDelay: `${Math.min(idx * 30, 150)}ms` }}
               >
                 {/* Left Content */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: '1 1 300px' }}>
+                <div className="notif-hub-card-left">
                   <div
                     style={{
                       width: '32px',
@@ -592,32 +543,36 @@ export default function NotificationHubPage() {
                       {n.message}
                     </p>
 
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #94A3B8)', marginTop: '2px' }}>
+                    <div className="notif-timestamp-desktop" style={{ fontSize: '0.6875rem', color: 'var(--text-muted, #94A3B8)', marginTop: '2px' }}>
                       บันทึกเมื่อ {getFormattedDateTime(n.timestamp)}
                     </div>
                   </div>
                 </div>
 
-                {/* Right Action: Contextual Alert Navigation without acknowledgement badge */}
+                {/* Right Action & Mobile Card Footer */}
                 {(() => {
                   const action = getContextualAction(n);
-                  if (!action) return null;
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(action.path);
-                        }}
-                        className="notif-action-btn tactile-press"
-                        style={action.style}
-                        aria-label={action.ariaLabel}
-                        title={action.label}
-                      >
-                        {action.icon}
-                        <span>{action.label}</span>
-                      </button>
+                    <div className="notif-hub-card-footer">
+                      <span className="notif-timestamp-mobile">
+                        บันทึกเมื่อ {getFormattedDateTime(n.timestamp)}
+                      </span>
+                      {action && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(action.path);
+                          }}
+                          className="notif-action-btn tactile-press"
+                          style={action.style}
+                          aria-label={action.ariaLabel}
+                          title={action.label}
+                        >
+                          {action.icon}
+                          <span>{action.label}</span>
+                        </button>
+                      )}
                     </div>
                   );
                 })()}

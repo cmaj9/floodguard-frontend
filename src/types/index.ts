@@ -17,6 +17,11 @@ export interface Reading {
   timestamp: string;
   raw_distance?: number | null;
   water_level: number | null;
+  prev_water_level?: number | null;
+  prev_timestamp?: string | null;
+  rate_of_rise?: number | null;
+  time_diff_minutes?: number | null;
+  is_rate_of_rise?: boolean;
   is_blind_zone?: boolean;
   temperature: number | null;
   humidity: number | null;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import {
   BarChart3Icon,
   LineChartIcon,
@@ -8,12 +9,17 @@ import {
   SlidersIcon,
   UserIcon,
   KeyIcon,
+  BellIcon,
 } from '../ui/Icons';
 
 export default function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isGuest } = useAuth();
+  const { notifications } = useNotifications();
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const isCitizen = !user || user.role === 'citizen';
 
   interface MobileNavItem {
     path: string;
@@ -23,7 +29,7 @@ export default function BottomNav() {
     onClick: () => void;
   }
 
-  // Canonical 5-Tab Navigation Order (Notification moved to TopBar, Profile far right, Management as Hub)
+  // Canonical 5-Tab Navigation Order (Citizens get Notifications directly; Staff/Admin get Management Hub)
   const navItems: MobileNavItem[] = [
     {
       path: '/dashboard',
@@ -46,13 +52,67 @@ export default function BottomNav() {
       isActive: location.pathname === '/history',
       onClick: () => navigate('/history'),
     },
-    {
-      path: '/management',
-      label: 'การจัดการ',
-      icon: <SlidersIcon size={20} />,
-      isActive: ['/management', '/stations', '/users', '/subscribe'].includes(location.pathname),
-      onClick: () => navigate('/management'),
-    },
+    isCitizen
+      ? {
+          path: '/notifications',
+          label: 'การแจ้งเตือน',
+          icon: (
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <BellIcon size={20} />
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -6,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 999,
+                    background: '#EF4444',
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 3px',
+                    border: '1.5px solid #0C0E12',
+                    lineHeight: 1,
+                  }}
+                >
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </div>
+          ),
+          isActive: ['/notifications', '/management/notifications'].includes(location.pathname),
+          onClick: () => navigate('/notifications'),
+        }
+      : {
+          path: '/management',
+          label: 'การจัดการ',
+          icon: (
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              <SlidersIcon size={20} />
+              {unreadCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -4,
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: '#EF4444',
+                    border: '1.5px solid #0C0E12',
+                  }}
+                />
+              )}
+            </div>
+          ),
+          isActive: ['/management', '/stations', '/users', '/subscribe', '/notifications'].includes(location.pathname),
+          onClick: () => navigate('/management'),
+        },
     {
       path: isGuest ? '/login' : '/profile',
       label: isGuest ? 'เข้าสู่ระบบ' : 'โปรไฟล์',

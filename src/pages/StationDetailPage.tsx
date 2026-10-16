@@ -345,7 +345,11 @@ export default function StationDetailPage() {
       const data = await fetchStations();
       const match = data.find((s) => s.station_id === stationId);
       if (!match) {
-        setError(`ไม่พบข้อมูลสถานีรหัส ${stationId}`);
+        if (user?.role === 'staff') {
+          setError(`คุณไม่มีสิทธิ์เข้าถึงหรือจัดการข้อมูลสถานีรหัส ${stationId} (อยู่นอกเหนือสถานีที่ได้รับมอบหมาย)`);
+        } else {
+          setError(`ไม่พบข้อมูลสถานีรหัส ${stationId}`);
+        }
         return;
       }
       setStation(mapStationWithReadingToStation(match));
@@ -354,7 +358,7 @@ export default function StationDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [stationId]);
+  }, [stationId, user]);
 
   // Load Readings in Timeframe
   const loadReadings = useCallback(async () => {

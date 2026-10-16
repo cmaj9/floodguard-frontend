@@ -37,6 +37,7 @@ import {
   SearchIcon,
   XIcon,
   WavesIcon,
+  ShieldIcon,
 } from '../components/ui/Icons';
 import ManagementBackBar from '../components/ui/ManagementBackBar';
 import { Button } from '../components/ui/Button';
@@ -494,10 +495,14 @@ export default function StationsPage() {
             className="heartbeat-dot"
           />
           <span style={{ fontSize: 13, color: 'var(--text-primary, #F8FAFC)', fontWeight: 600 }}>
-            {stats.critical > 0
+            {user?.role === 'staff' && stats.total === 0
+              ? 'คุณยังไม่มีสถานีตรวจวัดที่ได้รับมอบหมายในระบบ'
+              : stats.critical > 0
               ? `ตรวจพบ ${stats.critical} สถานีในเกณฑ์วิกฤต โปรดติดตามสถานการณ์อย่างใกล้ชิด`
               : stats.warning > 0
               ? `มี ${stats.warning} สถานีอยู่ในเกณฑ์เฝ้าระวัง อัตราการไหลของน้ำยังปกติ`
+              : user?.role === 'staff'
+              ? `สถานีที่รับผิดชอบ ${stats.total} สถานี พร้อมใช้งานและออนไลน์ ${stats.active} สถานี`
               : `สถานีตรวจวัดทั้งหมด ${stats.total} สถานี พร้อมใช้งานและออนไลน์ ${stats.active} สถานี`}
           </span>
         </div>
@@ -700,7 +705,59 @@ export default function StationsPage() {
       {/* ── 3. MAIN CONTENT (GRID VS MAP) ── */}
       {!loading && !error && (
         <>
-          {view === 'grid' ? (
+          {user?.role === 'staff' && stations.length === 0 ? (
+            /* Dedicated Empty State for Staff without assigned stations */
+            <div
+              style={{
+                padding: '64px 24px',
+                textAlign: 'center',
+                background: 'var(--card-surface, #0C0E12)',
+                border: '1px solid rgba(234, 179, 8, 0.25)',
+                borderRadius: 16,
+                maxWidth: 620,
+                margin: '36px auto',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.35)',
+              }}
+            >
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(234, 179, 8, 0.12)',
+                  color: '#F59E0B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                  border: '1px solid rgba(234, 179, 8, 0.25)',
+                }}
+              >
+                <ShieldIcon size={28} />
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#F8FAFC', marginBottom: 8 }}>
+                คุณยังไม่มีสถานีตรวจวัดที่รับผิดชอบ
+              </div>
+              <div style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6, marginBottom: 20 }}>
+                บัญชีเจ้าหน้าที่ของคุณยังไม่ได้รับการมอบหมายสถานีใดๆ ในระบบ กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อมอบหมายสถานีตรวจวัดที่ท่านต้องรับผิดชอบ
+              </div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  fontSize: 12,
+                  color: '#CBD5E1',
+                }}
+              >
+                <span>บทบาทในระบบ: เจ้าหน้าที่ส่วนท้องถิ่น (Staff)</span>
+              </div>
+            </div>
+          ) : view === 'grid' ? (
             filteredStations.length === 0 ? (
               /* Empty Search / Filter State */
               <div

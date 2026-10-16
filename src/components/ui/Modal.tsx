@@ -120,7 +120,7 @@ export function Modal({
         style={{
           width: '100%',
           maxWidth,
-          maxHeight: '90vh',
+          maxHeight: 'min(90vh, 90dvh)',
           background: 'var(--card-surface, #0C0E12)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
           borderRadius: '16px',

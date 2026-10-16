@@ -130,228 +130,510 @@ export default function UserTable({ users, onEdit, onDelete }: UserTableProps) {
       </div>
 
       {/* Table */}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ชื่อ-นามสกุล</th>
-              <th>อีเมล</th>
-              <th>เบอร์โทร</th>
-              <th>บทบาท</th>
-              <th>LINE ID</th>
-              <th>สถานีที่ดูแล</th>
-              <th>สถานะ</th>
-              <th>วันที่สมัคร</th>
-              <th style={{ textAlign: 'right' }}>จัดการ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      {/* Desktop Audit Table (> 768px) */}
+      <div className="user-desktop-table-container">
+        <div className="table-wrap">
+          <table>
+            <thead>
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <SearchIcon size={22} />
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>
-                      {search ? `ไม่พบบัญชีผู้ใช้ที่ตรงกับ "${search}"` : 'ไม่พบข้อมูลผู้ใช้ในระบบ'}
-                    </div>
-                    {search && (
-                      <button
-                        type="button"
-                        onClick={() => setSearch('')}
-                        className="btn btn-sm btn-secondary tactile-press"
-                        style={{ marginTop: 4 }}
-                      >
-                        ล้างคำค้นหา
-                      </button>
-                    )}
-                  </div>
-                </td>
+                <th>ชื่อ-นามสกุล</th>
+                <th>อีเมล</th>
+                <th>เบอร์โทร</th>
+                <th>บทบาท</th>
+                <th>LINE ID</th>
+                <th>สถานีที่ดูแล</th>
+                <th>สถานะ</th>
+                <th>วันที่สมัคร</th>
+                <th style={{ textAlign: 'right' }}>จัดการ</th>
               </tr>
-            ) : (
-              filtered.map((u) => {
-                const lineId = u.line_user_id || u.lineUserId;
-                const stations = u.station_ids || u.stationIds || [];
-                const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
-
-                return (
-                  <tr key={u.id} style={{ opacity: isActive ? 1 : 0.65 }}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div
-                          className="user-avatar"
-                          style={{
-                            width: 32,
-                            height: 32,
-                            fontSize: 12,
-                            flexShrink: 0,
-                            borderRadius: 8,
-                          }}
-                        >
-                          {u.name.slice(0, 1)}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 600, color: '#F8FAFC' }}>{u.name}</div>
-                          {u.district && (
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-                              <MapPinIcon size={11} />
-                              <span>{u.district}</span>
-                            </div>
-                          )}
-                        </div>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 12,
+                          backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        <SearchIcon size={22} />
                       </div>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td>
-                      {u.phone ? (
-                        <span className="font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                          {u.phone}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {search ? `ไม่พบบัญชีผู้ใช้ที่ตรงกับ "${search}"` : 'ไม่พบข้อมูลผู้ใช้ในระบบ'}
+                      </div>
+                      {search && (
+                        <button
+                          type="button"
+                          onClick={() => setSearch('')}
+                          className="btn btn-sm btn-secondary tactile-press"
+                          style={{ marginTop: 4 }}
+                        >
+                          ล้างคำค้นหา
+                        </button>
                       )}
-                    </td>
-                    <td>
-                      <span className={`badge ${roleClass[u.role]}`} style={{ fontWeight: 600 }}>
-                        {roleLabel[u.role]}
-                      </span>
-                    </td>
-                    <td>
-                      {lineId ? (
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((u) => {
+                  const lineId = u.line_user_id || u.lineUserId;
+                  const stations = u.station_ids || u.stationIds || [];
+                  const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
+
+                  return (
+                    <tr key={u.id} style={{ opacity: isActive ? 1 : 0.65 }}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div
+                            className="user-avatar"
+                            style={{
+                              width: 32,
+                              height: 32,
+                              fontSize: 12,
+                              flexShrink: 0,
+                              borderRadius: 8,
+                            }}
+                          >
+                            {u.name.slice(0, 1)}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: '#F8FAFC' }}>{u.name}</div>
+                            {u.district && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                                <MapPinIcon size={11} />
+                                <span>{u.district}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
+                      <td>
+                        {u.phone ? (
+                          <span className="font-mono tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                            {u.phone}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${roleClass[u.role]}`} style={{ fontWeight: 600 }}>
+                          {roleLabel[u.role]}
+                        </span>
+                      </td>
+                      <td>
+                        {lineId ? (
+                          <span
+                            className="font-mono"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '3px 8px',
+                              background: 'rgba(6, 199, 85, 0.12)',
+                              color: '#06C755',
+                              border: '1px solid rgba(6, 199, 85, 0.3)',
+                              borderRadius: 'var(--radius-full)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              maxWidth: 135,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                            title={`LINE User ID (${lineId})`}
+                          >
+                            <MessageSquareIcon size={12} />
+                            <span>{lineId.slice(0, 10)}...</span>
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        {stations.length > 0 ? (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {stations.map((st) => (
+                              <span
+                                key={st}
+                                className="font-mono"
+                                style={{
+                                  padding: '2px 7px',
+                                  background: 'rgba(56, 189, 248, 0.12)',
+                                  color: '#38BDF8',
+                                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                                  borderRadius: 4,
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {st}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ทั้งหมด/ไม่มี</span>
+                        )}
+                      </td>
+                      <td>
                         <span
-                          className="font-mono"
+                          aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: 5,
-                            padding: '3px 8px',
-                            background: 'rgba(6, 199, 85, 0.12)',
-                            color: '#06C755',
-                            border: '1px solid rgba(6, 199, 85, 0.3)',
+                            gap: 6,
+                            padding: '3px 9px',
                             borderRadius: 'var(--radius-full)',
                             fontSize: 11,
                             fontWeight: 600,
-                            maxWidth: 135,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            background: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            color: isActive ? '#10B981' : '#EF4444',
+                            border: `1px solid ${isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
                           }}
-                          title={`LINE User ID (${lineId})`}
                         >
-                          <MessageSquareIcon size={12} />
-                          <span>{lineId.slice(0, 10)}...</span>
+                          <span
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: '50%',
+                              backgroundColor: isActive ? '#10B981' : '#EF4444',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span>{isActive ? 'ปกติ' : 'ระงับ'}</span>
                         </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                      )}
-                    </td>
-                    <td>
-                      {stations.length > 0 ? (
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                          {stations.map((st) => (
-                            <span
-                              key={st}
-                              className="font-mono"
-                              style={{
-                                padding: '2px 7px',
-                                background: 'rgba(56, 189, 248, 0.12)',
-                                color: '#38BDF8',
-                                border: '1px solid rgba(56, 189, 248, 0.25)',
-                                borderRadius: 4,
-                                fontSize: 11,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {st}
-                            </span>
-                          ))}
+                      </td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: 12.5 }} className="font-mono tabular-nums">
+                        {u.createdAt || u.created_at
+                          ? format(new Date(u.createdAt || u.created_at!), 'dd MMM yyyy', { locale: th })
+                          : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary tactile-press"
+                            onClick={() => onEdit(u)}
+                            disabled={u.id === currentUser?.id}
+                            title="แก้ไขข้อมูลผู้ใช้"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          >
+                            <Edit3Icon size={13} />
+                            <span>แก้ไข</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary tactile-press"
+                            onClick={() => setUserToDelete(u)}
+                            disabled={u.id === currentUser?.id}
+                            title={u.id === currentUser?.id ? 'ไม่สามารถลบบัญชีของตนเองได้' : 'ลบผู้ใช้'}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              color: u.id === currentUser?.id ? 'var(--text-muted)' : '#EF4444',
+                            }}
+                          >
+                            <Trash2Icon size={13} />
+                          </button>
                         </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>ทั้งหมด/ไม่มี</span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile Responsive User Cards (<= 768px) */}
+      <div className="user-mobile-cards-container">
+        {filtered.length === 0 ? (
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '36px 16px',
+              background: 'var(--card-surface, #0C0E12)',
+              borderRadius: 14,
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <SearchIcon size={20} />
+              </div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-secondary)' }}>
+                {search ? `ไม่พบบัญชีผู้ใช้ที่ตรงกับ "${search}"` : 'ไม่พบข้อมูลผู้ใช้ในระบบ'}
+              </div>
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="btn btn-sm btn-secondary tactile-press"
+                  style={{ marginTop: 4 }}
+                >
+                  ล้างคำค้นหา
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          filtered.map((u) => {
+            const lineId = u.line_user_id || u.lineUserId;
+            const stations = u.station_ids || u.stationIds || [];
+            const isActive = u.is_active !== undefined ? u.is_active : (u.isActive !== false);
+
+            return (
+              <div
+                key={`mobile-${u.id}`}
+                className="user-mobile-card"
+                style={{
+                  background: 'var(--card-surface, #0C0E12)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 14,
+                  padding: 14,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  opacity: isActive ? 1 : 0.75,
+                }}
+              >
+                {/* Header: User Avatar, Name, District & Role, Status */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <div
+                      className="user-avatar"
+                      style={{
+                        width: 38,
+                        height: 38,
+                        fontSize: 14,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        borderRadius: 10,
+                      }}
+                    >
+                      {u.name.slice(0, 1)}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: '#F8FAFC',
+                          fontSize: 14,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {u.name}
+                      </div>
+                      {u.district && (
+                        <div
+                          style={{
+                            fontSize: 11.5,
+                            color: 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            marginTop: 2,
+                          }}
+                        >
+                          <MapPinIcon size={12} />
+                          <span>{u.district}</span>
+                        </div>
                       )}
-                    </td>
-                    <td>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <span className={`badge ${roleClass[u.role]}`} style={{ fontWeight: 600, fontSize: 11 }}>
+                      {roleLabel[u.role]}
+                    </span>
+                    <span
+                      aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '2px 7px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        background: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                        color: isActive ? '#10B981' : '#EF4444',
+                        border: `1px solid ${isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                      }}
+                    >
                       <span
-                        aria-label={isActive ? 'สถานะ ปกติ' : 'สถานะ ระงับ'}
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: '50%',
+                          backgroundColor: isActive ? '#10B981' : '#EF4444',
+                        }}
+                      />
+                      <span>{isActive ? 'ปกติ' : 'ระงับ'}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))',
+                    gap: 8,
+                    padding: '10px 12px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: 10,
+                    border: '1px solid rgba(255, 255, 255, 0.04)',
+                    fontSize: 12,
+                  }}
+                >
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginBottom: 2 }}>อีเมล</div>
+                    <div style={{ color: 'var(--text-secondary)', wordBreak: 'break-all' }}>{u.email}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginBottom: 2 }}>เบอร์โทร</div>
+                    {u.phone ? (
+                      <a
+                        href={`tel:${u.phone}`}
+                        className="font-mono tabular-nums"
+                        style={{ color: 'var(--accent-cyan, #38BDF8)', textDecoration: 'none' }}
+                      >
+                        {u.phone}
+                      </a>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
+                    )}
+                  </div>
+                  {lineId && (
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginBottom: 2 }}>LINE User ID</div>
+                      <span
+                        className="font-mono"
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: 6,
-                          padding: '3px 9px',
+                          gap: 5,
+                          padding: '3px 8px',
+                          background: 'rgba(6, 199, 85, 0.12)',
+                          color: '#06C755',
+                          border: '1px solid rgba(6, 199, 85, 0.3)',
                           borderRadius: 'var(--radius-full)',
                           fontSize: 11,
                           fontWeight: 600,
-                          background: isActive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                          color: isActive ? '#10B981' : '#EF4444',
-                          border: `1px solid ${isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
                         }}
                       >
-                        <span
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            backgroundColor: isActive ? '#10B981' : '#EF4444',
-                            flexShrink: 0,
-                          }}
-                        />
-                        <span>{isActive ? 'ปกติ' : 'ระงับ'}</span>
+                        <MessageSquareIcon size={12} />
+                        <span>{lineId}</span>
                       </span>
-                    </td>
-                    <td style={{ color: 'var(--text-muted)', fontSize: 12.5 }} className="font-mono tabular-nums">
+                    </div>
+                  )}
+                  {stations.length > 0 && (
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginBottom: 4 }}>
+                        สถานีที่ดูแล ({stations.length})
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {stations.map((st) => (
+                          <span
+                            key={st}
+                            className="font-mono"
+                            style={{
+                              padding: '2px 7px',
+                              background: 'rgba(56, 189, 248, 0.12)',
+                              color: '#38BDF8',
+                              border: '1px solid rgba(56, 189, 248, 0.25)',
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {st}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 10.5, marginBottom: 2 }}>วันที่สมัคร</div>
+                    <span style={{ color: 'var(--text-secondary)' }} className="font-mono tabular-nums">
                       {u.createdAt || u.created_at
                         ? format(new Date(u.createdAt || u.created_at!), 'dd MMM yyyy', { locale: th })
                         : '—'}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary tactile-press"
-                          onClick={() => onEdit(u)}
-                          disabled={u.id === currentUser?.id}
-                          title="แก้ไขข้อมูลผู้ใช้"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <Edit3Icon size={13} />
-                          <span>แก้ไข</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-secondary tactile-press"
-                          onClick={() => setUserToDelete(u)}
-                          disabled={u.id === currentUser?.id}
-                          title={u.id === currentUser?.id ? 'ไม่สามารถลบบัญชีของตนเองได้' : 'ลบผู้ใช้'}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            color: u.id === currentUser?.id ? 'var(--text-muted)' : '#EF4444',
-                          }}
-                        >
-                          <Trash2Icon size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer Action Buttons */}
+                <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary tactile-press"
+                    onClick={() => onEdit(u)}
+                    disabled={u.id === currentUser?.id}
+                    style={{
+                      flex: 1,
+                      minHeight: 42,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Edit3Icon size={14} />
+                    <span>แก้ไขข้อมูล</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary tactile-press"
+                    onClick={() => setUserToDelete(u)}
+                    disabled={u.id === currentUser?.id}
+                    title={u.id === currentUser?.id ? 'ไม่สามารถลบบัญชีของตนเองได้' : 'ลบผู้ใช้'}
+                    style={{
+                      minWidth: 46,
+                      minHeight: 42,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: u.id === currentUser?.id ? 'var(--text-muted)' : '#EF4444',
+                    }}
+                  >
+                    <Trash2Icon size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

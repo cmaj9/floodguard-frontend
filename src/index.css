@@ -158,14 +158,18 @@ body {
   max-width: 100%;
 }
 
-/* Prevent iOS Safari Auto-Zoom on form input focus (Requires >= 16px) */
-input,
-select,
-textarea {
-  font-size: 16px !important;
+/* Prevent iOS Safari Auto-Zoom on form input focus (Requires >= 16px on mobile) */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea,
+  .input,
+  .select {
+    font-size: 16px !important;
+  }
 }
 
-/* Remove 300ms mobile touch delay across all interactive elements */
+/* Remove 300ms mobile touch delay & tap highlight box across interactive elements */
 button,
 a,
 input,
@@ -174,6 +178,7 @@ textarea,
 [role="button"],
 [role="tab"] {
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Minimum 44x44px Accessible Tap Targets */
@@ -319,13 +324,21 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-weight: 600;
   line-height: 1.3;
+  overflow-wrap: break-word;
 }
 h1 { font-size: 28px; }
 h2 { font-size: 22px; }
 h3 { font-size: 18px; }
 h4 { font-size: 15px; }
-p { color: var(--text-secondary); line-height: 1.6; }
+p { color: var(--text-secondary); line-height: 1.6; overflow-wrap: break-word; }
 a { color: var(--color-primary); text-decoration: none; }
+
+@media (max-width: 640px) {
+  h1 { font-size: 22px; }
+  h2 { font-size: 19px; }
+  h3 { font-size: 16px; }
+  .page-title { font-size: 19px; }
+}
 
 /* ========== BUTTONS ========== */
 .btn {
@@ -835,6 +848,7 @@ input[type="number"]::-webkit-outer-spin-button {
 /* ========== TABLE ========== */
 .table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: var(--radius-md, 10px);
   border: 1px solid var(--border);
   background: transparent;
@@ -902,6 +916,25 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 16px 24px;
   border-top: 1px solid var(--border);
 }
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: max(10px, var(--safe-top)) max(10px, var(--safe-right)) max(14px, var(--safe-bottom)) max(10px, var(--safe-left)) !important;
+  }
+  .modal-content {
+    max-height: calc(92dvh - var(--safe-top)) !important;
+    border-radius: 14px !important;
+  }
+  .modal-header {
+    padding: 14px 16px !important;
+  }
+  .modal-body {
+    padding: 14px 16px !important;
+  }
+  .modal-footer {
+    padding: 12px 16px !important;
+    gap: 8px !important;
+  }
+}
 
 /* ========== NOTIFICATION ========== */
 .notif-panel {
@@ -909,13 +942,36 @@ tbody tr:last-child td { border-bottom: none; }
   top: calc(100% + 8px);
   right: 0;
   width: 360px;
+  max-width: calc(100vw - 24px);
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  z-index: 500;
+  z-index: 1050;
   animation: slideDown 0.2s ease;
   overflow: hidden;
+}
+@media (max-width: 640px) {
+  .notif-panel {
+    position: fixed;
+    top: calc(54px + var(--safe-top));
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(82dvh - var(--safe-top));
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85);
+  }
+}
+.notif-body-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 640px) {
+  .notif-body-scroll {
+    max-height: calc(82dvh - 60px - var(--safe-top));
+  }
 }
 .notif-header {
   display: flex;
@@ -1849,18 +1905,27 @@ tbody tr:last-child td { border-bottom: none; }
 .app-layout {
   display: flex;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 .main-content {
   flex: 1;
-  margin-left: var(--sidebar-width);
   min-height: 100vh;
   background: var(--bg-base);
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
 }
 
-body.sidebar-collapsed .main-content {
-  margin-left: var(--sidebar-collapsed-width, 76px) !important;
+@media (min-width: 1101px) {
+  .main-content {
+    margin-left: var(--sidebar-width);
+  }
+  body.sidebar-collapsed .main-content {
+    margin-left: var(--sidebar-collapsed-width, 76px) !important;
+  }
 }
 .main-content > main {
   flex: 1;
@@ -2036,12 +2101,17 @@ body.sidebar-collapsed .main-content {
 /* ========== LOGIN ========== */
 .login-bg {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-base);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: max(20px, var(--safe-top)) max(16px, var(--safe-left)) max(28px, var(--safe-bottom)) max(16px, var(--safe-right));
+  box-sizing: border-box;
 }
 .login-bg::before {
   content: '';
@@ -2635,6 +2705,12 @@ body.sidebar-collapsed .main-content {
 .management-tile.tile-slate:hover {
   border-color: rgba(203, 213, 225, 0.5);
 }
+.management-tile.tile-rose {
+  border: 1px solid rgba(244, 63, 94, 0.28);
+}
+.management-tile.tile-rose:hover {
+  border-color: rgba(251, 113, 133, 0.55);
+}
 
 /* ─────────────────────────────────────────────────────────────
    MANAGEMENT HEADER (FLAT DESKTOP / RESPONSIVE MOBILE)
@@ -2783,17 +2859,19 @@ body.sidebar-collapsed .main-content {
     display: none !important;
   }
 
-  .main-content {
+  .main-content,
+  body.sidebar-collapsed .main-content {
     margin-left: 0 !important;
     width: 100% !important;
     max-width: 100vw !important;
+    min-width: 0 !important;
     overflow-x: hidden;
     padding-top: 0 !important;
   }
 
   .floating-refresh-pod {
-    bottom: 76px !important;
-    right: 18px !important;
+    bottom: calc(72px + max(12px, var(--safe-bottom))) !important;
+    right: max(16px, var(--safe-right)) !important;
   }
 
   /* Safe Area Aware TopBar */
@@ -2801,7 +2879,7 @@ body.sidebar-collapsed .main-content {
     left: 0 !important;
     right: 0 !important;
     height: calc(52px + var(--safe-top)) !important;
-    padding: var(--safe-top) 16px 0 16px !important;
+    padding: var(--safe-top) max(16px, var(--safe-right)) 0 max(16px, var(--safe-left)) !important;
     z-index: 900;
   }
   .topbar-page-title {
@@ -2827,19 +2905,45 @@ body.sidebar-collapsed .main-content {
     text-overflow: ellipsis;
     max-width: 160px;
   }
+  .topbar-actions {
+    gap: 10px;
+  }
+  .topbar-action-btn,
+  .notif-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 8px !important;
+  }
+  .topbar-action-btn::after,
+  .notif-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
 
   /* Safe Area Aware Page Container */
   .page-container {
-    padding: calc(52px + var(--safe-top) + 16px) 12px calc(80px + var(--safe-bottom)) 12px !important;
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden;
-    box-sizing: border-box;
+    padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) calc(80px + var(--safe-bottom)) max(16px, var(--safe-left)) !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
   }
 
   /* Safe Area & Content clearance for BottomNav */
   .content-main-area {
-    padding-bottom: calc(76px + var(--safe-bottom));
+    padding-bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
   }
 
   /* Mobile Station Capsule Pill Strip (Replacing tall 180px cards on mobile) */
@@ -3279,7 +3383,7 @@ body.sidebar-collapsed .main-content {
 
   .management-back-bar-actions {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 6px !important;
   }
 
@@ -3551,8 +3655,10 @@ body.sidebar-collapsed .main-content {
     gap: 0.625rem !important;
   }
   .page-container {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
+    padding-top: max(12px, var(--safe-top)) !important;
+    padding-left: max(12px, var(--safe-left)) !important;
+    padding-right: max(12px, var(--safe-right)) !important;
+    padding-bottom: calc(80px + var(--safe-bottom)) !important;
   }
   .view-toggle-pill {
     font-size: 12px;
@@ -4077,6 +4183,32 @@ body.sidebar-collapsed .main-content {
 }
 .table-tab-item.tab-critical:hover:not(.active) {
   color: var(--color-critical, #EF4444);
+}
+
+/* ── 4.1 Tab Rate of Rise (Rose / Surge Alert) ── */
+.table-tab-item.tab-rate-of-rise.active {
+  color: #FB7185;
+}
+.table-tab-item.tab-rate-of-rise.active::after {
+  background: #F43F5E;
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.45);
+}
+.table-tab-item.tab-rate-of-rise:not(.active) .table-tab-badge:not(.dimmed) {
+  background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.3);
+  color: #FB7185;
+}
+.table-tab-item.tab-rate-of-rise.active .table-tab-badge {
+  background: rgba(244, 63, 94, 0.22);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #FB7185;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+}
+.table-tab-item.tab-rate-of-rise.active .table-tab-icon {
+  filter: drop-shadow(0 0 5px rgba(244, 63, 94, 0.6));
+}
+.table-tab-item.tab-rate-of-rise:hover:not(.active) {
+  color: #F43F5E;
 }
 
 /* ── 5. Tab Anomaly (Orange / Amber Warning) ── */
@@ -5457,9 +5589,114 @@ body.sidebar-collapsed .main-content {
   pointer-events: none;
 }
 
-/* ============================================================
-   TACTICAL NOTIFICATION HUB (COMMAND & DISPATCH SUITE)
-   ============================================================ */
+/* Container, Header & Layout */
+.notif-hub-container {
+  padding: 24px 32px 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.notif-hub-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.notif-hub-header-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-hub-header-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-critical, #EF4444);
+  flex-shrink: 0;
+}
+
+.notif-hub-header-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary, #FFFFFF);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.notif-hub-header-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #94A3B8);
+  margin: 6px 0 0 0;
+}
+
+.notif-hub-mark-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  min-height: 40px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-primary, #FFFFFF);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notif-hub-mark-all-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.notif-hub-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.notif-hub-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14px;
+}
+
+.notif-hub-card-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notif-hub-card-footer {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.notif-timestamp-desktop {
+  display: block;
+}
+
+.notif-timestamp-mobile {
+  display: none;
+}
 
 /* KPI Interactive Filter Cards */
 .notif-hub-kpi {
@@ -5831,4 +6068,165 @@ body.sidebar-collapsed .main-content {
     transform: none !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   TACTICAL NOTIFICATION HUB: MOBILE-ONLY RESPONSIVE RULES (<= 768px)
+   (Guaranteed 0 Impact on Desktop)
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .notif-hub-container {
+    padding: 14px 14px calc(76px + env(safe-area-inset-bottom, 16px)) 14px !important;
+  }
+
+  .notif-hub-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .notif-hub-header-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .notif-hub-header-title {
+    font-size: 1.125rem !important;
+  }
+
+  .notif-hub-header-desc {
+    display: none !important;
+  }
+
+  .notif-hub-mark-all-btn {
+    padding: 6px 12px !important;
+    min-height: 36px !important;
+    font-size: 0.75rem !important;
+    border-radius: 999px !important;
+    background: rgba(56, 189, 248, 0.1) !important;
+    border-color: rgba(56, 189, 248, 0.28) !important;
+    color: var(--accent-cyan, #38BDF8) !important;
+    white-space: nowrap !important;
+    flex-shrink: 0;
+  }
+
+  /* Completely hide 4 giant stacked KPI cards on mobile to prevent vertical screen hog */
+  .notif-hub-kpi-grid {
+    display: none !important;
+  }
+
+  /* Controls bar: column layout */
+  .notif-hub-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  /* Unified Filter Chips: Horizontal scrolling pills with icons and counts */
+  .notif-hub-tabs-track {
+    width: 100%;
+    padding: 4px;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    box-sizing: border-box;
+  }
+
+  .notif-hub-tab-btn {
+    min-height: 40px !important;
+    padding: 6px 12px !important;
+    font-size: 0.8125rem !important;
+    border-radius: 8px !important;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .notif-hub-search-wrap {
+    max-width: 100% !important;
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .notif-hub-search-input {
+    height: 40px !important;
+    font-size: 0.875rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Notification Feed Cards on Mobile */
+  .notif-hub-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    padding: 12px 14px !important;
+    gap: 8px !important;
+    min-height: unset !important;
+    height: auto !important;
+  }
+
+  .notif-hub-card-left {
+    display: flex !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+    flex: none !important;
+    gap: 10px !important;
+  }
+
+  .notif-timestamp-desktop {
+    display: none !important;
+  }
+
+  .notif-hub-card-footer {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    gap: 8px !important;
+    padding-top: 8px !important;
+    margin-top: 2px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .notif-timestamp-mobile {
+    display: inline-block !important;
+    font-size: 0.6875rem !important;
+    color: var(--text-muted, #94A3B8) !important;
+  }
+
+  .notif-hub-card-footer .notif-action-btn {
+    width: auto !important;
+    padding: 5px 12px !important;
+    min-height: 32px !important;
+    font-size: 0.75rem !important;
+    border-radius: 6px !important;
+    margin-left: auto !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   USER MANAGEMENT: DESKTOP TABLE & MOBILE CARDS
+   ───────────────────────────────────────────────────────────── */
+.user-desktop-table-container {
+  display: block;
+}
+.user-mobile-cards-container {
+  display: none;
+}
+@media (max-width: 768px) {
+  .user-desktop-table-container {
+    display: none !important;
+  }
+  .user-mobile-cards-container {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
 
