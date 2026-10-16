@@ -86,6 +86,9 @@ export interface StationWithReading {
   minutes_since_status_update?: number | null;
   model?: string;
   mcu_id?: string;
+  dev_eui?: string;
+  dev_euis?: string[];
+  payload_id?: string | number;
   firmware_version?: string;
   install_date?: string;
   ip_address?: string;
@@ -192,6 +195,8 @@ export interface Station {
   isPoleTilted?: boolean;
   gatewayName?: string;
   gatewayStatus?: string;
+  devEui?: string;
+  payloadId?: string;
   model?: string;
   firmwareVersion?: string;
   stationType?: string;

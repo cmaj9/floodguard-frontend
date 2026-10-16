@@ -26,6 +26,9 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
+    try {
+      sessionStorage.removeItem('fg_chunk_reload');
+    } catch {}
     this.setState({ hasError: false, error: null });
     window.location.reload();
   };

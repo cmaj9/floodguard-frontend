@@ -121,11 +121,14 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
   const { data: recentReadings = [] } = useQuery<Reading[]>({
     queryKey: ['station-readings', station.id],
     queryFn: async () => {
-      const data = await fetchReadingsByStation(station.id, 20).catch(() => []);
+      const data = await fetchReadingsByStation(station.id, 20);
       return data || [];
     },
+    enabled: Boolean(station?.id),
     staleTime: 15_000,
     refetchInterval: 30_000,
+    retry: 2,
+    retryDelay: 1500,
   });
 
   // Real-time audio synthesizer for tactile water resonance (uses shared singleton)
@@ -788,7 +791,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
             <span>·</span>
             <span className="tabular-nums font-mono telemetry-coords">
               <strong style={{ color: "var(--text-primary)" }}>
-                {station.lat.toFixed(4)}, {station.lng.toFixed(4)}
+                {Number(station.lat ?? (station as any).latitude ?? 0).toFixed(4)}, {Number(station.lng ?? (station as any).longitude ?? 0).toFixed(4)}
               </strong>
             </span>
             <span>·</span>
@@ -1525,7 +1528,7 @@ export const StationTelemetryHub = memo(function StationTelemetryHub({
                     <span>{station.stationType || "แม่น้ำ"}</span>
                   </div>
                   <div className="tabular-nums font-mono">
-                    <strong style={{ color: "var(--sonar-green, #10B981)" }}>{station.lat.toFixed(4)}, {station.lng.toFixed(4)}</strong>
+                    <strong style={{ color: "var(--sonar-green, #10B981)" }}>{Number(station.lat ?? (station as any).latitude ?? 0).toFixed(4)}, {Number(station.lng ?? (station as any).longitude ?? 0).toFixed(4)}</strong>
                   </div>
                 </div>
               </>

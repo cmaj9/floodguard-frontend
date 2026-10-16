@@ -138,6 +138,8 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     isPoleTilted: swr.is_pole_tilted,
     gatewayName: swr.gateway_name || 'Gateway_01',
     gatewayStatus: swr.gateway_status || 'online',
+    devEui: swr.dev_eui || '',
+    payloadId: swr.payload_id != null ? String(swr.payload_id) : '',
     model: swr.model || undefined,
   };
 };
@@ -803,6 +805,23 @@ export default function StationDetailPage() {
                   ? 'ออฟไลน์ (โหมดทดสอบ: ค่าสดเฉพาะเจ้าหน้าที่)'
                   : 'ออฟไลน์'}
               </span>
+
+              {!station.devEui && isStaff && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: '#F59E0B',
+                    fontWeight: 600,
+                  }}
+                  title="สถานีนี้ยังไม่ได้ผูกกับ LoRaWAN DevEUI ของ ChirpStack"
+                >
+                  ยังไม่ได้ผูก DevEUI
+                </span>
+              )}
             </div>
 
             {/* Staff Test Mode Info Banner */}
@@ -838,6 +857,22 @@ export default function StationDetailPage() {
               <span style={{ color: 'var(--text-muted, #8B9EB7)' }}>
                 เกตเวย์ {station.gatewayName || 'Gateway_01'}
               </span>
+              {station.devEui && (
+                <>
+                  <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+                  <span className="font-mono" style={{ color: 'var(--text-muted, #8B9EB7)' }} title="LoRaWAN DevEUI">
+                    DevEUI: {station.devEui}
+                  </span>
+                </>
+              )}
+              {station.payloadId && (
+                <>
+                  <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
+                  <span className="font-mono" style={{ color: 'var(--text-muted, #8B9EB7)' }} title="Payload ID (Byte 0)">
+                    ID: {station.payloadId}
+                  </span>
+                </>
+              )}
               <span style={{ color: 'var(--text-muted, #475569)' }}>·</span>
               <span style={{ color: 'var(--text-muted, #8B9EB7)' }}>
                 {formatRelativeTimeThai(station.lastUpdated, timeTick)}
@@ -1943,6 +1978,8 @@ export default function StationDetailPage() {
               longitude: data.lng,
               status: data.operatingStatus || (data.isActive ? 'active' : 'offline'),
               gateway_id: data.gateway_id,
+              dev_eui: data.dev_eui ?? data.devEui,
+              payload_id: data.payload_id ?? data.payloadId,
             });
             await loadStation();
             await loadReadings();

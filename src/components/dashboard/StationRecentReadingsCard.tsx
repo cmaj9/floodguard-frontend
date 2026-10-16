@@ -66,11 +66,14 @@ export default function StationRecentReadingsCard({
   const { data: readings = [], isLoading } = useQuery<Reading[]>({
     queryKey: ['station-readings', station.id],
     queryFn: async () => {
-      const data = await fetchReadingsByStation(station.id, 20).catch(() => []);
+      const data = await fetchReadingsByStation(station.id, 20);
       return data || [];
     },
+    enabled: Boolean(station?.id),
     staleTime: 15_000,
     refetchInterval: 30_000,
+    retry: 2,
+    retryDelay: 1500,
   });
 
   const hasWarn =
@@ -451,7 +454,7 @@ export default function StationRecentReadingsCard({
                 <tbody>
                   {latest5Readings.map((r, idx) => {
                     const rawDist = r.raw_distance !== null && r.raw_distance !== undefined ? Number(r.raw_distance) : null;
-                    const lvl = rawDist !== null ? Number((sensorToRef - rawDist).toFixed(3)) : r.water_level !== null ? Number(r.water_level) : null;
+                    const lvl = rawDist !== null ? Number((sensorToRef - rawDist).toFixed(3)) : r.water_level != null ? Number(r.water_level) : null;
 
                     const isCrit =
                       r.water_status === "critical" ||
@@ -580,7 +583,7 @@ export default function StationRecentReadingsCard({
                         >
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                             <ThermometerIcon size={14} style={{ color: "#F97316" }} />
-                            {r.temperature !== null ? `${Number(r.temperature).toFixed(1)}°C` : "-"}
+                            {r.temperature != null ? `${Number(r.temperature).toFixed(1)}°C` : "-"}
                           </span>
                         </td>
                       </tr>

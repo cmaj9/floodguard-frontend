@@ -9,12 +9,19 @@ import {
   AlertTriangleIcon,
   RadioIcon,
   CompassIcon,
+  CpuIcon,
 } from '../ui/Icons';
 
 interface StationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Partial<Station> & { gateway_id: string; tilt_offset_x?: number; tilt_offset_y?: number }) => void;
+  onSave: (data: Partial<Station> & {
+    gateway_id: string;
+    tilt_offset_x?: number;
+    tilt_offset_y?: number;
+    dev_eui?: string;
+    payload_id?: string;
+  }) => void;
   station?: Station | null;
 }
 
@@ -35,6 +42,8 @@ const defaultForm = {
   operatingStatus: 'active' as 'active' | 'offline',
   tiltOffsetX: '0.0',
   tiltOffsetY: '0.0',
+  devEui: '',
+  payloadId: '',
 };
 
 export default function StationModal({ isOpen, onClose, onSave, station }: StationModalProps) {
@@ -51,6 +60,13 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
     setActiveTab('general');
 
     if (station) {
+      let suggestedPayloadId = station.payloadId || '';
+      if (!suggestedPayloadId && (station.id || station.deviceId)) {
+        const targetId = station.deviceId || station.id || '';
+        const numMatch = targetId.match(/^ST-([0-9]+)$/i);
+        if (numMatch) suggestedPayloadId = String(parseInt(numMatch[1], 10));
+      }
+
       setForm({
         name: station.name,
         description: station.description || '',
@@ -78,6 +94,8 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
             : (station as any).tilt_offset_y != null
             ? String((station as any).tilt_offset_y)
             : '0.0',
+        devEui: station.devEui || '',
+        payloadId: suggestedPayloadId,
       });
       setErrors({});
       setSaving(false);
@@ -97,11 +115,16 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         .then(([gwRes, nextIdRes]) => {
           const gws = gwRes.status === 'fulfilled' ? gwRes.value : [];
           const nextId = nextIdRes.status === 'fulfilled' ? nextIdRes.value : 'ST-003';
+          let autoPayloadId = '';
+          const numMatch = nextId.match(/^ST-([0-9]+)$/i);
+          if (numMatch) autoPayloadId = String(parseInt(numMatch[1], 10));
+
           setGateways(gws);
           setForm((prev) => ({
             ...prev,
             gatewayId: prev.gatewayId || (gws.length > 0 ? gws[0].gateway_id : 'GW-001'),
             deviceId: prev.deviceId || nextId,
+            payloadId: prev.payloadId || autoPayloadId,
           }));
         })
         .finally(() => {
@@ -126,10 +149,22 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
     if (!isEdit && !form.gatewayId && gateways.length === 0) {
       e.gatewayId = 'กรุณาเลือก Gateway';
     }
+
+    const cleanDev = form.devEui.trim();
+    if (cleanDev) {
+      if (!/^[0-9a-fA-F]{16}$/.test(cleanDev)) {
+        e.devEui = 'DevEUI ต้องเป็นเลขฐาน 16 จำนวน 16 หลัก (เช่น 65bcbb52145372b1)';
+      }
+    }
+
+    if (!cleanDev && !form.payloadId.trim()) {
+      e.devEui = 'กรุณาระบุอย่างน้อย 1 อย่าง: LoRaWAN DevEUI หรือ Payload ID เพื่อผูกกับอุปกรณ์';
+    }
+
     setErrors(e);
 
     // If error belongs to a specific tab, switch tab automatically
-    if (e.name || e.lat || e.lng || e.gatewayId || e.deviceId) {
+    if (e.name || e.lat || e.lng || e.gatewayId || e.deviceId || e.devEui || e.payloadId) {
       setActiveTab('general');
     } else if (e.sensorToRefDistance) {
       setActiveTab('datum');
@@ -163,6 +198,10 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
         tilt_offset_y: form.tiltOffsetY.trim() !== '' && !isNaN(Number(form.tiltOffsetY)) ? Number(form.tiltOffsetY) : 0,
         deviceId: form.deviceId.trim(),
         gateway_id: effectiveGatewayId,
+        devEui: form.devEui.trim().toLowerCase(),
+        payloadId: form.payloadId.trim(),
+        dev_eui: form.devEui.trim().toLowerCase() || undefined,
+        payload_id: form.payloadId.trim() || undefined,
         isActive: form.operatingStatus === 'active',
         operatingStatus: form.operatingStatus,
         status: 'normal',
@@ -432,6 +471,80 @@ export default function StationModal({ isOpen, onClose, onSave, station }: Stati
                   />
                 </div>
               )}
+            </div>
+
+            {/* ── Hardware & ChirpStack Device Mapping Section ── */}
+            <div
+              style={{
+                background: 'rgba(56, 189, 248, 0.03)',
+                border: '1px solid rgba(56, 189, 248, 0.15)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CpuIcon size={15} style={{ color: '#38BDF8' }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#F1F5F9' }}>
+                    การเชื่อมต่ออุปกรณ์ฮาร์ดแวร์ (ChirpStack LoRaWAN)
+                  </span>
+                </div>
+                <span style={{ fontSize: 11, color: '#38BDF8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 8px', borderRadius: 999 }}>
+                  จับคู่สถานีอัตโนมัติ
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                {/* LoRaWAN DevEUI */}
+                <div>
+                  <label className="label" style={{ fontSize: 12.5, fontWeight: 600, color: '#F1F5F9', marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>LoRaWAN DevEUI (16 Hex)</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 400 }}>มาตรฐาน ChirpStack</span>
+                  </label>
+                  <input
+                    className={`input ${errors.devEui ? 'input-error' : ''}`}
+                    value={form.devEui}
+                    onChange={(e) => setField('devEui', e.target.value.toLowerCase())}
+                    placeholder="เช่น 65bcbb52145372b1"
+                    maxLength={16}
+                    style={{
+                      fontSize: 13,
+                      padding: '8px 12px',
+                      fontFamily: 'monospace',
+                      letterSpacing: '0.05em',
+                    }}
+                  />
+                  {errors.devEui && <div className="error-msg" style={{ marginTop: 4 }}>{errors.devEui}</div>}
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                    รหัสประจำตัวอุปกรณ์ 16 หลักจาก ChirpStack
+                  </div>
+                </div>
+
+                {/* Payload ID */}
+                <div>
+                  <label className="label" style={{ fontSize: 12.5, fontWeight: 600, color: '#F1F5F9', marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Payload ID (Byte 0)</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 400 }}>รหัสในเฟิร์มแวร์</span>
+                  </label>
+                  <input
+                    className="input"
+                    value={form.payloadId}
+                    onChange={(e) => setField('payloadId', e.target.value)}
+                    placeholder="เช่น 1, 2, 3"
+                    style={{
+                      fontSize: 13,
+                      padding: '8px 12px',
+                      fontFamily: 'monospace',
+                    }}
+                  />
+                  <div style={{ fontSize: 11, color: '#64748B', marginTop: 4 }}>
+                    รหัสสถานีที่ระบุในไบต์ที่ 0 ของข้อมูล LoRaWAN
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Coordinates: Latitude & Longitude */}

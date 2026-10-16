@@ -20,7 +20,7 @@ import {
 import { Button } from '../components/ui/Button';
 import { SkeletonCard, SkeletonMetric } from '../components/ui/Skeleton';
 import type { Station, StationWithReading } from '../types';
-import { fetchStations } from '../services/apiService';
+import { fetchStations, broadcastEmergencyAlerts } from '../services/apiService';
 
 // ── Data Mapping Helper ─────────────────────────────────────────────
 const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
@@ -229,7 +229,7 @@ export default function DashboardPage() {
 
   // ── TanStack Query: Auto-refreshes every 30s silently without skeleton flash ──
   const {
-    data: stations = FALLBACK_STATIONS,
+    data: rawStationsData,
     isLoading,
     isFetching,
     error: queryError,
@@ -237,7 +237,7 @@ export default function DashboardPage() {
   } = useQuery<Station[]>({
     queryKey: ['stations'],
     queryFn: async () => {
-      const stationData = await fetchStations().catch(() => []);
+      const stationData = await fetchStations();
       if (stationData && stationData.length > 0) {
         return stationData.map(mapStationWithReadingToStation);
       }
@@ -245,7 +245,17 @@ export default function DashboardPage() {
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
+    retry: 2,
+    retryDelay: 1500,
   });
+
+  // Defensive normalization in case any caller ever puts raw StationWithReading objects into cache
+  const stations: Station[] = useMemo(() => {
+    if (!rawStationsData || rawStationsData.length === 0) return FALLBACK_STATIONS;
+    return rawStationsData.map((s: any) =>
+      s && typeof s.lat !== 'number' && s.station_id ? mapStationWithReadingToStation(s) : s
+    );
+  }, [rawStationsData]);
 
   const loadError = queryError instanceof Error ? queryError.message : null;
 
@@ -665,14 +675,26 @@ export default function DashboardPage() {
                 className="btn btn-danger tactile-press"
                 style={{ minHeight: '44px', padding: '10px 18px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                 disabled={isBroadcasting}
-                onClick={() => {
+                onClick={async () => {
                   setIsBroadcasting(true);
-                  setTimeout(() => {
-                    setIsBroadcasting(false);
+                  try {
+                    const targetIds = criticalStations.map((s) => s.id);
+                    const res = await broadcastEmergencyAlerts(targetIds);
                     setShowBroadcastConfirm(false);
                     broadcastTriggerRef.current?.focus();
-                    showToast('ส่งสัญญาณแจ้งเตือนภัยฉุกเฉินระดับวิกฤตไปยัง LINE OA ของประชาชนเรียบร้อยแล้ว', 'line');
-                  }, 800);
+                    showToast(
+                      `ส่งสัญญาณแจ้งเตือนภัยฉุกเฉินระดับวิกฤตไปยัง LINE OA เรียบร้อยแล้ว (${res.totalRecipients} ผู้รับ)`,
+                      'line'
+                    );
+                  } catch (err: any) {
+                    const errMsg =
+                      err?.response?.data?.error ||
+                      err?.message ||
+                      'ไม่สามารถส่งสัญญาณแจ้งเตือนฉุกเฉินผ่าน LINE OA ได้';
+                    showToast(errMsg, 'info');
+                  } finally {
+                    setIsBroadcasting(false);
+                  }
                 }}
               >
                 {isBroadcasting ? (

@@ -127,6 +127,8 @@ const mapStationWithReadingToStation = (swr: StationWithReading): Station => {
     isPoleTilted: swr.is_pole_tilted,
     gatewayName: swr.gateway_name || 'Gateway_01',
     gatewayStatus: swr.gateway_status || 'online',
+    devEui: swr.dev_eui || '',
+    payloadId: swr.payload_id != null ? String(swr.payload_id) : '',
     model: swr.model || undefined,
     firmwareVersion: swr.firmware_version || undefined,
     stationType: swr.station_type || 'สถานีตรวจวัด',
@@ -333,8 +335,11 @@ export default function StationsPage() {
     await loadStations();
   };
 
-  const handleSave = async (data: Partial<Station> & { gateway_id?: string }) => {
+  const handleSave = async (data: Partial<Station> & { gateway_id?: string; dev_eui?: string; payload_id?: string }) => {
     const targetStatus = data.operatingStatus || (data.isActive ? 'active' : 'offline');
+    const cleanDevEui = data.dev_eui ?? data.devEui;
+    const cleanPayloadId = data.payload_id ?? data.payloadId;
+
     if (editStation) {
       await updateStation(editStation.id, {
         station_name: data.name,
@@ -348,6 +353,8 @@ export default function StationsPage() {
         max_level: data.maxLevel,
         tilt_offset_x: (data as any).tilt_offset_x ?? (data.tiltOffsetX != null ? Number(data.tiltOffsetX) : 0),
         tilt_offset_y: (data as any).tilt_offset_y ?? (data.tiltOffsetY != null ? Number(data.tiltOffsetY) : 0),
+        dev_eui: cleanDevEui,
+        payload_id: cleanPayloadId,
         status: targetStatus,
       });
       await updateStationStatus(editStation.id, targetStatus);
@@ -374,6 +381,8 @@ export default function StationsPage() {
         max_level: data.maxLevel || null,
         tilt_offset_x: (data as any).tilt_offset_x ?? (data.tiltOffsetX != null ? Number(data.tiltOffsetX) : 0),
         tilt_offset_y: (data as any).tilt_offset_y ?? (data.tiltOffsetY != null ? Number(data.tiltOffsetY) : 0),
+        dev_eui: cleanDevEui,
+        payload_id: cleanPayloadId,
         status: targetStatus,
       });
       window.dispatchEvent(new Event('app:refresh'));
@@ -838,6 +847,22 @@ export default function StationsPage() {
                               >
                                 {s.deviceId}
                               </span>
+                              {!s.devEui && (
+                                <span
+                                  style={{
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: 5,
+                                    background: 'rgba(245, 158, 11, 0.12)',
+                                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                                    color: '#F59E0B',
+                                  }}
+                                  title="ยังไม่ได้ผูกกับ LoRaWAN DevEUI"
+                                >
+                                  ยังไม่ผูก DevEUI
+                                </span>
+                              )}
                               <h2
                                 style={{
                                   fontSize: 16,

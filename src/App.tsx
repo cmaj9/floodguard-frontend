@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, type ComponentType } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -7,19 +7,60 @@ import { ToastProvider } from './context/ToastContext';
 import Layout from './components/layout/Layout';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const ChartPage = lazy(() => import('./pages/ChartPage'));
-const UsersPage = lazy(() => import('./pages/UsersPage'));
-const StationsPage = lazy(() => import('./pages/StationsPage'));
-const StationDetailPage = lazy(() => import('./pages/StationDetailPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const DataHistoryPage = lazy(() => import('./pages/DataHistoryPage'));
-const SubscribePage = lazy(() => import('./pages/SubscribePage'));
-const CitizenRegisterPage = lazy(() => import('./pages/CitizenRegisterPage'));
-const ManagementHubPage = lazy(() => import('./pages/ManagementHubPage'));
-const SetupCredentialsPage = lazy(() => import('./pages/SetupCredentialsPage'));
-const NotificationHubPage = lazy(() => import('./pages/NotificationHubPage'));
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    const hasReloaded = sessionStorage.getItem('fg_chunk_reload');
+    if (!hasReloaded) {
+      sessionStorage.setItem('fg_chunk_reload', '1');
+      window.location.reload();
+    }
+  });
+}
+
+function lazyWithRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    try {
+      const component = await factory();
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('fg_chunk_reload');
+      }
+      return component;
+    } catch (error: any) {
+      const msg = String(error?.message || error || '');
+      const isChunkError =
+        msg.includes('Failed to fetch dynamically imported module') ||
+        msg.includes('Importing a module script failed') ||
+        msg.includes('Unable to preload CSS') ||
+        msg.includes('error loading dynamically imported module');
+
+      if (isChunkError && typeof window !== 'undefined') {
+        const hasReloaded = sessionStorage.getItem('fg_chunk_reload');
+        if (!hasReloaded) {
+          sessionStorage.setItem('fg_chunk_reload', '1');
+          window.location.reload();
+          return new Promise<{ default: T }>(() => {});
+        }
+      }
+      throw error;
+    }
+  });
+}
+
+const LoginPage = lazyWithRetry(() => import('./pages/LoginPage'));
+const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'));
+const ChartPage = lazyWithRetry(() => import('./pages/ChartPage'));
+const UsersPage = lazyWithRetry(() => import('./pages/UsersPage'));
+const StationsPage = lazyWithRetry(() => import('./pages/StationsPage'));
+const StationDetailPage = lazyWithRetry(() => import('./pages/StationDetailPage'));
+const ProfilePage = lazyWithRetry(() => import('./pages/ProfilePage'));
+const DataHistoryPage = lazyWithRetry(() => import('./pages/DataHistoryPage'));
+const SubscribePage = lazyWithRetry(() => import('./pages/SubscribePage'));
+const CitizenRegisterPage = lazyWithRetry(() => import('./pages/CitizenRegisterPage'));
+const ManagementHubPage = lazyWithRetry(() => import('./pages/ManagementHubPage'));
+const SetupCredentialsPage = lazyWithRetry(() => import('./pages/SetupCredentialsPage'));
+const NotificationHubPage = lazyWithRetry(() => import('./pages/NotificationHubPage'));
 
 function PageFallback() {
   return (

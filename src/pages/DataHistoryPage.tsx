@@ -442,7 +442,7 @@ export default function DataHistoryPage() {
 
   // ── TanStack Query: Stations ──────────────────────────────────────────────
   const { data: stations = [], refetch: refetchStations } = useQuery<StationWithReading[]>({
-    queryKey: ['stations'],
+    queryKey: ['stations-raw'],
     queryFn: fetchStations,
     staleTime: 30_000,
   });

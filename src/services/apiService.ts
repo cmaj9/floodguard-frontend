@@ -15,7 +15,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || (isLocalhost ? 'http://localhos
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 8000,
+  timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -608,5 +608,30 @@ export async function linkLineApi(data: {
   return res.data.data;
 }
 
-export default api;
+/**
+ * POST /api/alerts/emergency-broadcast
+ * Trigger immediate critical LINE OA alerts for critical stations
+ */
+export async function broadcastEmergencyAlerts(
+  stationIds: string[] = []
+): Promise<{
+  success: boolean;
+  totalRecipients: number;
+  alertsCreated: any[];
+  lineError?: string | null;
+}> {
+  const res = await api.post<
+    ApiResponse<{
+      success: boolean;
+      totalRecipients: number;
+      alertsCreated: any[];
+      lineError?: string | null;
+    }>
+  >('/api/alerts/emergency-broadcast', { stationIds });
+  if (!res.data.success) {
+    throw new Error(res.data.error ?? 'ไม่สามารถส่งสัญญาณแจ้งเตือนภัยฉุกเฉินผ่าน LINE OA ได้');
+  }
+  return res.data.data;
+}
 
+export default api;
